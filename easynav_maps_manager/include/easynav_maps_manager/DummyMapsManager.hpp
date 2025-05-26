@@ -25,7 +25,6 @@
 
 #include <expected>
 
-#include "nav_msgs/msg/path.hpp"
 #include "easynav_core/MapsManagerBase.hpp"
 #include "easynav_common/types/MapTypeBase.hpp"
 
@@ -57,7 +56,7 @@ public:
    * @brief Return the current maps.
    * @return An empty map.
    */
-  std::map<std::string, std::shared_ptr<MapsTypeBase>> get_maps()
+  std::map<std::string, std::shared_ptr<MapsTypeBase>> get_maps() override
   {
     return std::map<std::string, std::shared_ptr<MapsTypeBase>>();
   }

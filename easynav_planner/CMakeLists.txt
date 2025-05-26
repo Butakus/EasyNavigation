@@ -15,43 +15,38 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(easynav_core REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(lifecycle_msgs REQUIRED)
 
-set(dependencies
+
+add_library(${PROJECT_NAME} SHARED
+  src/easynav_planner/PlannerNode.cpp
+)
+target_include_directories(${PROJECT_NAME} PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+)
+target_link_libraries(${PROJECT_NAME} PUBLIC
   rclcpp::rclcpp
   rclcpp_lifecycle::rclcpp_lifecycle
   easynav_common::easynav_common
   easynav_core::easynav_core
   pluginlib::pluginlib
   ${nav_msgs_TARGETS}
+  ${lifecycle_msgs_TARGETS}
 )
-
-set(package_dependencies
-  rclcpp
-  rclcpp_lifecycle
-  easynav_common
-  easynav_core
-  pluginlib
-)
-
-add_library(${PROJECT_NAME} SHARED
-  src/easynav_planner/PlannerNode.cpp
-)
-target_include_directories(${PROJECT_NAME} PUBLIC
-  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-  "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
-  "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>"
-)
-target_link_libraries(${PROJECT_NAME} PUBLIC ${dependencies})
 
 add_library(dummy_planner SHARED
   src/easynav_planner/DummyPlanner.cpp
 )
 target_include_directories(dummy_planner PUBLIC
-  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-  "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
-  "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>"
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
-target_link_libraries(dummy_planner PUBLIC ${dependencies})
+target_link_libraries(dummy_planner PUBLIC
+  easynav_core::easynav_core
+  pluginlib::pluginlib
+  ${nav_msgs_TARGETS}
+)
 
 install(
   DIRECTORY include/
@@ -61,7 +56,7 @@ install(
 install(TARGETS
 ${PROJECT_NAME}
   dummy_planner
-  EXPORT ${PROJECT_NAME}
+  EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
@@ -75,11 +70,22 @@ if(BUILD_TESTING)
 endif()
 
 ament_export_include_directories("include/${PROJECT_NAME}")
-ament_export_libraries(${PROJECT_NAME} dummy_planner)
-ament_export_targets(${PROJECT_NAME})
+ament_export_libraries(
+  ${PROJECT_NAME}
+  dummy_planner
+)
+ament_export_targets(export_${PROJECT_NAME})
 
 # Register the planning plugins
 pluginlib_export_plugin_description_file(easynav_core easynav_planner_plugins.xml)
 
-ament_export_dependencies(${package_dependencies})
+ament_export_dependencies(
+  rclcpp
+  rclcpp_lifecycle
+  easynav_common
+  easynav_core
+  pluginlib
+  nav_msgs
+  lifecycle_msgs
+)
 ament_package()

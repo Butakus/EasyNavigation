@@ -16,44 +16,38 @@ find_package(easynav_core REQUIRED)
 find_package(easynav_common REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(lifecycle_msgs REQUIRED)
 
-set(dependencies
-  rclcpp::rclcpp
-  rclcpp_lifecycle::rclcpp_lifecycle
-  pluginlib::pluginlib
-  easynav_common::easynav_common
-  easynav_core::easynav_core
-  ${geometry_msgs_TARGETS}
-)
-
-set(package_dependencies
-  rclcpp
-  rclcpp_lifecycle
-  easynav_core
-  easynav_common
-  pluginlib
-  geometry_msgs
-)
 
 add_library(${PROJECT_NAME} SHARED
   src/easynav_controller/ControllerNode.cpp
 )
 target_include_directories(${PROJECT_NAME} PUBLIC
-  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-  "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
-  "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>"
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
-target_link_libraries(${PROJECT_NAME} PUBLIC ${dependencies})
+target_link_libraries(${PROJECT_NAME} PUBLIC
+  rclcpp::rclcpp
+  rclcpp_lifecycle::rclcpp_lifecycle
+  pluginlib::pluginlib
+  easynav_common::easynav_common
+  easynav_core::easynav_core
+  ${lifecycle_msgs_TARGETS}
+  ${geometry_msgs_TARGETS}
+)
 
 add_library(dummy_controller SHARED
   src/easynav_controller/DummyController.cpp
 )
 target_include_directories(dummy_controller PUBLIC
-  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-  "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
-  "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>"
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
-target_link_libraries(dummy_controller PUBLIC ${dependencies})
+target_link_libraries(dummy_controller PUBLIC
+  easynav_core::easynav_core
+  pluginlib::pluginlib
+  ${geometry_msgs_TARGETS}
+)
 
 install(
   DIRECTORY include/
@@ -63,7 +57,7 @@ install(
 install(TARGETS
   ${PROJECT_NAME}
   dummy_controller
-  EXPORT ${PROJECT_NAME}
+  EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
@@ -77,11 +71,22 @@ if(BUILD_TESTING)
 endif()
 
 ament_export_include_directories("include/${PROJECT_NAME}")
-ament_export_libraries(${PROJECT_NAME} dummy_controller)
-ament_export_targets(${PROJECT_NAME})
+ament_export_libraries(
+  ${PROJECT_NAME}
+  dummy_controller
+)
+ament_export_targets(export_${PROJECT_NAME})
 
 # Register the control plugins
 pluginlib_export_plugin_description_file(easynav_core easynav_controller_plugins.xml)
 
-ament_export_dependencies(${package_dependencies})
+ament_export_dependencies(
+  rclcpp
+  rclcpp_lifecycle
+  easynav_core
+  easynav_common
+  pluginlib
+  geometry_msgs
+  lifecycle_msgs
+)
 ament_package()

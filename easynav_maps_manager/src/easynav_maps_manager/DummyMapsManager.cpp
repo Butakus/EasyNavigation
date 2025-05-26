@@ -41,12 +41,10 @@ std::expected<void, std::string> DummyMapsManager::on_initialize()
 }
 
 void
-DummyMapsManager::update(const NavState & nav_state)
+DummyMapsManager::update([[maybe_unused]] const NavState & nav_state)
 {
   auto start = get_node()->now();
   while ((get_node()->now() - start).seconds() < cycle_time_nort_) {}
-
-  (void)nav_state;
 }
 
 }  // namespace easynav

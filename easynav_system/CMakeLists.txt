@@ -50,6 +50,7 @@ set(package_dependencies
   easynav_sensors
   geometry_msgs
   tf2_geometry_msgs
+  lifecycle_msgs
   tf2
 )
 
@@ -61,13 +62,31 @@ add_library(${PROJECT_NAME} SHARED
   src/easynav_system/GoalManagerClient.cpp
 )
 target_include_directories(${PROJECT_NAME} PUBLIC
-  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-  "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
-  "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>")
-target_link_libraries(${PROJECT_NAME} PUBLIC ${dependencies})
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+)
+target_link_libraries(${PROJECT_NAME} PUBLIC
+  rclcpp::rclcpp
+  rclcpp_lifecycle::rclcpp_lifecycle
+  easynav_common::easynav_common
+  easynav_core::easynav_core
+  easynav_controller::easynav_controller
+  easynav_localizer::easynav_localizer
+  easynav_maps_manager::easynav_maps_manager
+  easynav_planner::easynav_planner
+  easynav_sensors::easynav_sensors
+  tf2_geometry_msgs::tf2_geometry_msgs
+  ${easynav_interfaces_TARGETS}
+  ${geometry_msgs_TARGETS}
+  ${sensor_msgs_TARGETS}
+  ${nav_msgs_TARGETS}
+  ${lifecycle_msgs_TARGETS}
+)
 
 add_executable(system_main src/system_main.cpp)
-target_link_libraries(system_main PUBLIC ${PROJECT_NAME} ${dependencies})
+target_link_libraries(system_main PUBLIC
+  ${PROJECT_NAME}
+)
 
 install(
   DIRECTORY include/
@@ -77,7 +96,7 @@ install(
 install(TARGETS
   ${PROJECT_NAME}
   system_main
-  EXPORT ${PROJECT_NAME}
+  EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
@@ -95,6 +114,21 @@ endif()
 
 ament_export_include_directories("include/${PROJECT_NAME}")
 ament_export_libraries(${PROJECT_NAME})
-ament_export_targets(${PROJECT_NAME})
-ament_export_dependencies(${package_dependencies})
+ament_export_targets(export_${PROJECT_NAME})
+ament_export_dependencies(
+  rclcpp
+  rclcpp_lifecycle
+  easynav_interfaces
+  easynav_common
+  easynav_controller
+  easynav_localizer
+  easynav_maps_manager
+  easynav_planner
+  easynav_sensors
+  geometry_msgs
+  sensor_msgs
+  nav_msgs
+  tf2_geometry_msgs
+  lifecycle_msgs
+)
 ament_package()

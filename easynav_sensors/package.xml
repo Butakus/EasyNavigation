@@ -11,9 +11,8 @@
 
   <depend>rclcpp</depend>
   <depend>rclcpp_lifecycle</depend>
-  <depend>pcl_ros</depend>
-  <depend>tf2</depend>
   <depend>tf2_ros</depend>
+  <depend>sensor_msgs</depend>
 
   <depend>easynav_common</depend>
 
