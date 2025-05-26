@@ -14,22 +14,17 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
-find_package(pcl_conversions REQUIRED)
-find_package(pcl_ros REQUIRED)
-find_package(tf2 REQUIRED)
-find_package(tf2_ros REQUIRED)
-find_package(tf2_eigen REQUIRED)
-
 find_package(easynav_common REQUIRED)
 
 set(dependencies
+  rclcpp::rclcpp
+  rclcpp_lifecycle::rclcpp_lifecycle
+  easynav_common::easynav_common
+)
+
+set(package_dependencies
   rclcpp
   rclcpp_lifecycle
-  pcl_conversions
-  pcl_ros
-  tf2
-  tf2_ros
-  tf2_eigen
   easynav_common
 )
 
@@ -38,17 +33,23 @@ include_directories(include)
 add_library(${PROJECT_NAME} SHARED
   src/easynav_sensors/SensorsNode.cpp
 )
-ament_target_dependencies(${PROJECT_NAME} ${dependencies})
+target_include_directories(${PROJECT_NAME} PUBLIC
+  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+  "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
+  "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>")
+target_link_libraries(${PROJECT_NAME} ${dependencies})
 
-install(DIRECTORY include/
-  DESTINATION include/
+install(
+  DIRECTORY include/
+  DESTINATION include/${PROJECT_NAME}
 )
 
 install(TARGETS
   ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
-  RUNTIME DESTINATION lib/${PROJECT_NAME}
+  RUNTIME DESTINATION bin
 )
 
 if(BUILD_TESTING)
@@ -58,10 +59,14 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 
   find_package(ament_cmake_gtest REQUIRED)
+  find_package(pcl_conversions REQUIRED)
+  find_package(PCL REQUIRED COMPONENTS common io)
+
   add_subdirectory(tests)
 endif()
 
-ament_export_include_directories(include)
+ament_export_include_directories("include/${PROJECT_NAME}")
 ament_export_libraries(${PROJECT_NAME})
-ament_export_dependencies(${dependencies})
+ament_export_targets(${PROJECT_NAME})
+ament_export_dependencies(${package_dependencies})
 ament_package()

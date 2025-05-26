@@ -30,6 +30,8 @@
 #include "pcl_conversions/pcl_conversions.h"
 #include "pcl/point_types_conversion.h"
 
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
+
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 
@@ -300,22 +302,26 @@ PerceptionsOpsView::fuse(
     const auto & p = perceptions_[i];
     if (!p || !p->valid || p->data.empty()) {continue;}
 
-    geometry_msgs::msg::TransformStamped tf;
+    geometry_msgs::msg::TransformStamped tf_msg;
     try {
-      tf = RTTFBuffer::getInstance()->lookupTransform(
+      tf_msg = RTTFBuffer::getInstance()->lookupTransform(
         target_frame, p->frame_id, tf2_ros::fromMsg(p->stamp), tf2::durationFromSec(0.0));
     } catch (const tf2::TransformException & ex) {
       RCLCPP_WARN(rclcpp::get_logger("PerceptionsOpsView"), "TF failed: %s", ex.what());
       continue;
     }
 
-    Eigen::Affine3d tf_eigen = tf2::transformToEigen(tf);
+    tf2::Transform tf;
+    tf2::fromMsg(tf_msg.transform, tf);
+
     pcl::PointCloud<pcl::PointXYZ> transformed;
     for (int idx : indices_[i].indices) {
-      transformed.push_back(p->data[idx]);
+      const auto & pt = p->data[idx];
+      tf2::Vector3 pt_tf(pt.x, pt.y, pt.z);
+      tf2::Vector3 pt_out = tf * pt_tf;
+      transformed.emplace_back(pt_out.x(), pt_out.y(), pt_out.z());
     }
 
-    pcl::transformPointCloud(transformed, transformed, tf_eigen);
     fused->data += transformed;
 
     if (!latest_stamp.has_value() || p->stamp > latest_stamp.value()) {

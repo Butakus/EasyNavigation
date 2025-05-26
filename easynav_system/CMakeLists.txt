@@ -24,6 +24,21 @@ find_package(tf2_geometry_msgs)
 find_package(tf2)
 
 set(dependencies
+  rclcpp::rclcpp
+  rclcpp_lifecycle::rclcpp_lifecycle
+  easynav_common::easynav_common
+  easynav_controller::easynav_controller
+  easynav_localizer::easynav_localizer
+  easynav_maps_manager::easynav_maps_manager
+  easynav_planner::easynav_planner
+  easynav_sensors::easynav_sensors
+  tf2::tf2
+  ${geometry_msgs_TARGETS}
+  ${easynav_interfaces_TARGETS}
+  ${tf2_geometry_msgs_TARGETS}
+)
+
+set(package_dependencies
   rclcpp
   rclcpp_lifecycle
   easynav_interfaces
@@ -45,22 +60,27 @@ add_library(${PROJECT_NAME} SHARED
   src/easynav_system/GoalManager.cpp
   src/easynav_system/GoalManagerClient.cpp
 )
-ament_target_dependencies(${PROJECT_NAME} ${dependencies})
+target_include_directories(${PROJECT_NAME} PUBLIC
+  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+  "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
+  "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>")
+target_link_libraries(${PROJECT_NAME} PUBLIC ${dependencies})
 
 add_executable(system_main src/system_main.cpp)
-ament_target_dependencies(system_main ${dependencies})
-target_link_libraries(system_main ${PROJECT_NAME})
+target_link_libraries(system_main PUBLIC ${PROJECT_NAME} ${dependencies})
 
-install(DIRECTORY include/
-  DESTINATION include/
+install(
+  DIRECTORY include/
+  DESTINATION include/${PROJECT_NAME}
 )
 
 install(TARGETS
   ${PROJECT_NAME}
   system_main
+  EXPORT ${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
-  RUNTIME DESTINATION lib/${PROJECT_NAME}
+  RUNTIME DESTINATION bin
 )
 
 if(BUILD_TESTING)
@@ -73,7 +93,8 @@ if(BUILD_TESTING)
   add_subdirectory(tests)
 endif()
 
-ament_export_include_directories(include)
+ament_export_include_directories("include/${PROJECT_NAME}")
 ament_export_libraries(${PROJECT_NAME})
-ament_export_dependencies(${dependencies})
+ament_export_targets(${PROJECT_NAME})
+ament_export_dependencies(${package_dependencies})
 ament_package()

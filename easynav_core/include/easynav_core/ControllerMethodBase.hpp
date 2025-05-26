@@ -66,15 +66,7 @@ public:
    * @param trigger Force execution regardless of timing.
    * @return True if update_rt() was called, false otherwise.
    */
-  bool internal_update_rt(const NavState & nav_state, bool trigger = false)
-  {
-    if (isTime2RunRT() || trigger) {
-      update_rt(nav_state);
-      return true;
-    } else {
-      return false;
-    }
-  }
+  bool internal_update_rt(const NavState & nav_state, bool trigger = false);
 
 protected:
   /**

@@ -61,12 +61,7 @@ public:
    *
    * @param nav_state The current state of the navigation system.
    */
-  void internal_update(const NavState & nav_state)
-  {
-    if (isTime2Run()) {
-      update(nav_state);
-    }
-  }
+  void internal_update(const NavState & nav_state);
 
 protected:
   /**

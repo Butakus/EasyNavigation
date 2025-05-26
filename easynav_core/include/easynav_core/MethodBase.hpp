@@ -59,24 +59,7 @@ public:
   virtual std::expected<void, std::string>
   initialize(
     const std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node,
-    const std::string plugin_name)
-  {
-    parent_node_ = parent_node;
-    plugin_name_ = plugin_name;
-
-    rt_frequency_ = 10.0;
-    frequency_ = 10.0;
-
-    parent_node_->declare_parameter(plugin_name + ".rt_freq", rt_frequency_);
-    parent_node_->declare_parameter(plugin_name + ".freq", frequency_);
-    parent_node_->get_parameter(plugin_name + ".rt_freq", rt_frequency_);
-    parent_node_->get_parameter(plugin_name + ".freq", frequency_);
-
-    last_ts_ = parent_node_->now();
-    rt_last_ts_ = parent_node_->now();
-
-    return on_initialize();
-  }
+    const std::string plugin_name);
 
   /**
    * @brief Hook for custom setup logic in derived classes.
@@ -93,10 +76,7 @@ public:
    * @return Shared pointer to the lifecycle node.
    */
   [[nodiscard]] std::shared_ptr<rclcpp_lifecycle::LifecycleNode>
-  get_node() const
-  {
-    return parent_node_;
-  }
+  get_node() const;
 
   /**
    * @brief Get the name assigned to the plugin.
@@ -104,10 +84,7 @@ public:
    * @return Plugin name as a constant reference.
    */
   [[nodiscard]] const std::string &
-  get_plugin_name() const
-  {
-    return plugin_name_;
-  }
+  get_plugin_name() const;
 
   /**
    * @brief Check whether it is time to run a real-time update.
@@ -116,15 +93,7 @@ public:
    *
    * @return True if update should run, false otherwise.
    */
-  bool isTime2RunRT()
-  {
-    if ((parent_node_->now() - rt_last_ts_).seconds() > (1.0 / rt_frequency_)) {
-      rt_last_ts_ = parent_node_->now();
-      return true;
-    } else {
-      return false;
-    }
-  }
+  bool isTime2RunRT();
 
   /**
    * @brief Check whether it is time to run a normal (non-RT) update.
@@ -133,15 +102,7 @@ public:
    *
    * @return True if update should run, false otherwise.
    */
-  bool isTime2Run()
-  {
-    if ((parent_node_->now() - last_ts_).seconds() > (1.0 / frequency_)) {
-      last_ts_ = parent_node_->now();
-      return true;
-    } else {
-      return false;
-    }
-  }
+  bool isTime2Run();
 
 private:
   /// @brief Shared pointer to the parent lifecycle node.

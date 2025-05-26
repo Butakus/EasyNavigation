@@ -30,9 +30,8 @@
 #include "pcl_conversions/pcl_conversions.h"
 #include "pcl/point_types_conversion.h"
 #include "pcl/common/transforms.h"
-#include "tf2_eigen/tf2_eigen.hpp"
 #include "tf2_ros/transform_broadcaster.h"
-#include "tf2/transform_datatypes.h"
+#include "tf2/transform_datatypes.hpp"
 
 #include "gtest/gtest.h"
 
