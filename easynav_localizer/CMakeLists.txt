@@ -13,43 +13,49 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(easynav_core REQUIRED)
+find_package(easynav_common REQUIRED)
 find_package(pluginlib REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(lifecycle_msgs REQUIRED)
 
 
-set(dependencies
-  rclcpp
-  rclcpp_lifecycle
-  easynav_core
-  pluginlib
-)
-
-add_library(localizer_node SHARED
+add_library(${PROJECT_NAME} SHARED
   src/easynav_localizer/LocalizerNode.cpp
 )
-target_include_directories(localizer_node PUBLIC
+target_include_directories(${PROJECT_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
+  $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
-ament_target_dependencies(localizer_node ${dependencies})
+target_link_libraries(${PROJECT_NAME} PUBLIC
+  rclcpp::rclcpp
+  rclcpp_lifecycle::rclcpp_lifecycle
+  easynav_common::easynav_common
+  easynav_core::easynav_core
+  pluginlib::pluginlib
+  ${nav_msgs_TARGETS}
+  ${lifecycle_msgs_TARGETS}
+)
 
 add_library(dummy_localizer SHARED
   src/easynav_localizer/DummyLocalizer.cpp
 )
 target_include_directories(dummy_localizer PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
+  $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
-ament_target_dependencies(dummy_localizer
-  easynav_core
-  pluginlib
+target_link_libraries(dummy_localizer PUBLIC
+  easynav_core::easynav_core
+  pluginlib::pluginlib
+  ${nav_msgs_TARGETS}
 )
 
-install(DIRECTORY include/
-  DESTINATION include/
+install(
+  DIRECTORY include/
+  DESTINATION include/${PROJECT_NAME}
 )
 
 install(TARGETS
-  localizer_node
+  ${PROJECT_NAME}
   dummy_localizer
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
@@ -64,15 +70,23 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-ament_export_include_directories(include)
+ament_export_include_directories("include/${PROJECT_NAME}")
 ament_export_libraries(
-  localizer_node
+  ${PROJECT_NAME}
   dummy_localizer
 )
-ament_export_targets(
-  export_${PROJECT_NAME}
-)
+ament_export_targets(export_${PROJECT_NAME})
+
 # Register the localization plugins
 pluginlib_export_plugin_description_file(easynav_core easynav_localizer_plugins.xml)
-ament_export_dependencies(${dependencies})
+
+ament_export_dependencies(
+  rclcpp
+  rclcpp_lifecycle
+  easynav_core
+  easynav_common
+  pluginlib
+  nav_msgs
+  lifecycle_msgs
+)
 ament_package()

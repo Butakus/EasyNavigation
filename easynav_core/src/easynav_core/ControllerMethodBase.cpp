@@ -18,36 +18,27 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 /// \file
-/// \brief Implementation of the DummyMapsManager class.
+/// \brief Implementation of the abstract base class ControllerMethodBase.
 
-#include <expected>
+#include "geometry_msgs/msg/twist_stamped.hpp"
 
-#include "easynav_maps_manager/DummyMapsManager.hpp"
+#include "easynav_common/types/NavState.hpp"
+#include "easynav_core/MethodBase.hpp"
+
+#include "easynav_core/ControllerMethodBase.hpp"
 
 namespace easynav
 {
 
-std::expected<void, std::string> DummyMapsManager::on_initialize()
+bool
+ControllerMethodBase::internal_update_rt(const NavState & nav_state, bool trigger)
 {
-  auto node = get_node();
-  const auto & plugin_name = get_plugin_name();
-
-  node->declare_parameter<double>(plugin_name + ".cycle_time_rt", 0.01);
-  node->declare_parameter<double>(plugin_name + ".cycle_time_nort", 0.01);
-  node->get_parameter<double>(plugin_name + ".cycle_time_rt", cycle_time_rt_);
-  node->get_parameter<double>(plugin_name + ".cycle_time_nort", cycle_time_nort_);
-
-  return {};
-}
-
-void
-DummyMapsManager::update([[maybe_unused]] const NavState & nav_state)
-{
-  auto start = get_node()->now();
-  while ((get_node()->now() - start).seconds() < cycle_time_nort_) {}
+  if (isTime2RunRT() || trigger) {
+    update_rt(nav_state);
+    return true;
+  } else {
+    return false;
+  }
 }
 
 }  // namespace easynav
-
-#include <pluginlib/class_list_macros.hpp>
-PLUGINLIB_EXPORT_CLASS(easynav::DummyMapsManager, easynav::MapsManagerBase)

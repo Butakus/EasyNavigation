@@ -48,7 +48,7 @@ nav_msgs::msg::Odometry DummyLocalizer::get_odom()
   return odom_;
 }
 
-void DummyLocalizer::update_rt(const NavState & nav_state)
+void DummyLocalizer::update_rt([[maybe_unused]] const NavState & nav_state)
 {
   auto start = get_node()->now();
   while ((get_node()->now() - start).seconds() < cycle_time_rt_) {}
@@ -62,7 +62,7 @@ void DummyLocalizer::update_rt(const NavState & nav_state)
   tf_broadcaster_->sendTransform(tf_msg);
 }
 
-void DummyLocalizer::update(const NavState & nav_state)
+void DummyLocalizer::update([[maybe_unused]] const NavState & nav_state)
 {
   auto start = get_node()->now();
   while ((get_node()->now() - start).seconds() < cycle_time_nort_) {}

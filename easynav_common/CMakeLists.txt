@@ -9,39 +9,41 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-
-# build with "colcon build --cmake-clean-cache ..." to propagate the value
 option(EASYNAV_TRACING "Enable Yaets tracing with TRACE_EVENT" ON)
 
 find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
-find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
-find_package(pcl_conversions REQUIRED)
-find_package(pcl_ros REQUIRED)
-find_package(tf2 REQUIRED)
-find_package(tf2_ros REQUIRED)
-find_package(tf2_eigen REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(yaets REQUIRED)
+find_package(pcl_ros REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
-set(dependencies
-  rclcpp_lifecycle
-  geometry_msgs
-  nav_msgs
-  pcl_ros
-  yaets
-)
-
-include_directories(include)
 
 add_library(${PROJECT_NAME} SHARED
   src/easynav_common/types/Perceptions.cpp
 )
 target_include_directories(${PROJECT_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
+  $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+  ${pcl_conversions_INCLUDE_DIRS}  # pcl_conversions does not have proper targets yet
 )
-ament_target_dependencies(${PROJECT_NAME} ${dependencies})
+target_link_libraries(${PROJECT_NAME} PUBLIC
+  rclcpp::rclcpp
+  rclcpp_lifecycle::rclcpp_lifecycle
+  ${pcl_ros_TARGETS}
+  tf2_ros::tf2_ros
+  tf2_geometry_msgs::tf2_geometry_msgs
+  ${geometry_msgs_TARGETS}
+  ${sensor_msgs_TARGETS}
+  ${nav_msgs_TARGETS}
+  yaets::yaets
+)
+
 if(EASYNAV_TRACING)
   message(STATUS "Yaets tracing is ENABLED")
   target_compile_definitions(easynav_common PUBLIC EASYNAV_DEBUG_WITH_YAETS)
@@ -49,8 +51,9 @@ else()
   message(STATUS "Yaets tracing is DISABLED")
 endif()
 
-install(DIRECTORY include/
-  DESTINATION include/
+install(
+  DIRECTORY include/
+  DESTINATION include/${PROJECT_NAME}
 )
 
 install(TARGETS
@@ -71,9 +74,19 @@ if(BUILD_TESTING)
   add_subdirectory(tests)
 endif()
 
-ament_export_include_directories(include)
-ament_export_targets(
-  export_${PROJECT_NAME} HAS_LIBRARY_TARGET
+ament_export_include_directories("include/${PROJECT_NAME}")
+ament_export_libraries(${PROJECT_NAME})
+ament_export_targets(export_${PROJECT_NAME})
+ament_export_dependencies(
+  rclcpp
+  rclcpp_lifecycle
+  pcl_ros
+  pcl_conversions
+  tf2_ros
+  geometry_msgs
+  sensor_msgs
+  nav_msgs
+  tf2_geometry_msgs
+  yaets
 )
-ament_export_dependencies(${dependencies})
 ament_package()

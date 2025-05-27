@@ -13,28 +13,30 @@ find_package(ament_cmake REQUIRED)
 find_package(easynav_common REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 
-set(dependencies
-  easynav_common
-  rclcpp_lifecycle
+add_library(${PROJECT_NAME} SHARED
+  src/easynav_core/ControllerMethodBase.cpp
+  src/easynav_core/LocalizerMethodBase.cpp
+  src/easynav_core/MapsManagerBase.cpp
+  src/easynav_core/MethodBase.cpp
+  src/easynav_core/PlannerMethodBase.cpp
 )
-
-add_library(easynav_core_methods INTERFACE)
-target_include_directories(easynav_core_methods INTERFACE
+target_include_directories(${PROJECT_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>
+  $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
-ament_target_dependencies(easynav_core_methods INTERFACE
-  ${dependencies}
+target_link_libraries(${PROJECT_NAME} PUBLIC
+  easynav_common::easynav_common
+  rclcpp_lifecycle::rclcpp_lifecycle
 )
 
-# Install header files
-install(DIRECTORY include/
-  DESTINATION include/
+install(
+  DIRECTORY include/
+  DESTINATION include/${PROJECT_NAME}
 )
 
 install(TARGETS
-  easynav_core_methods
-  EXPORT easynav_core_methods
+  ${PROJECT_NAME}
+  EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
@@ -50,7 +52,13 @@ if(BUILD_TESTING)
   add_subdirectory(test)
 endif()
 
-ament_export_include_directories(include)
-ament_export_targets(easynav_core_methods)
-ament_export_dependencies(${dependencies})
+ament_export_include_directories("include/${PROJECT_NAME}")
+ament_export_dependencies(${package_dependencies})
+ament_export_libraries(${PROJECT_NAME})
+ament_export_targets(export_${PROJECT_NAME})
+
+ament_export_dependencies(
+  easynav_common
+  rclcpp_lifecycle
+)
 ament_package()
