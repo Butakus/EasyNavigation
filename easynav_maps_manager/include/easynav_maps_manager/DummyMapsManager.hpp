@@ -68,8 +68,8 @@ public:
   virtual void update(const NavState & nav_state) override;
 
 private:
-  double cycle_time_rt_;
-  double cycle_time_nort_;
+  double cycle_time_rt_ {0.0};
+  double cycle_time_nort_ {0.0};
 };
 
 }  // namespace easynav

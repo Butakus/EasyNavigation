@@ -80,10 +80,10 @@ private:
   /**
    * @brief Current robot velocity command.
    */
-  geometry_msgs::msg::TwistStamped cmd_vel_ {};
+  geometry_msgs::msg::TwistStamped cmd_vel_;
 
-  double cycle_time_rt_;
-  double cycle_time_nort_;
+  double cycle_time_rt_ {0.0};
+  double cycle_time_nort_ {0.0};
 };
 
 }  // namespace easynav

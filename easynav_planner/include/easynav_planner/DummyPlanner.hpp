@@ -66,10 +66,10 @@ public:
 
 private:
   /// @brief Stored path message (unused in dummy).
-  nav_msgs::msg::Path path_ {};
+  nav_msgs::msg::Path path_;
 
-  double cycle_time_rt_;
-  double cycle_time_nort_;
+  double cycle_time_rt_ {0.0};
+  double cycle_time_nort_ {0.0};
 };
 
 }  // namespace easynav
