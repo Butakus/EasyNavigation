@@ -195,7 +195,7 @@ SensorsNode::cycle()
     auto fused = PerceptionsOpsView(perceptions_)
       .fuse(perception_default_frame_);
 
-    auto fused_points = fused->as_points(0);
+    auto fused_points = fused->as_points();
 
     auto msg = points_to_rosmsg(fused_points);
     msg.header.frame_id = perception_default_frame_;

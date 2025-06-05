@@ -23,6 +23,8 @@
 #include "nav_msgs/msg/path.hpp"
 
 #include "easynav_common/types/NavState.hpp"
+#include "easynav_common/YTSession.hpp"
+
 #include "easynav_core/MethodBase.hpp"
 
 #include "easynav_core/PlannerMethodBase.hpp"
@@ -34,7 +36,9 @@ void
 PlannerMethodBase::internal_update(const NavState & nav_state)
 {
   if (isTime2Run()) {
-    update(nav_state);
+   EASYNAV_TRACE_EVENT;
+
+  update(nav_state);
   }
 }
 
