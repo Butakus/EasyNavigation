@@ -48,6 +48,22 @@ SystemNode::SystemNode(const rclcpp::NodeOptions & options)
   realtime_cbg_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
 
   nav_state_ = std::make_shared<NavState>();
+  nav_state_->set("odom", nav_msgs::msg::Odometry());
+  nav_state_->set("perceptions", Perceptions());
+  nav_state_->set("maps", std::map<std::string, std::shared_ptr<MapsTypeBase>>());
+  nav_state_->set("path", nav_msgs::msg::Path());
+  nav_state_->set("goals", nav_msgs::msg::Goals());
+  nav_state_->set("cmd_vel", geometry_msgs::msg::TwistStamped());
+
+   NavState::register_printer<Perceptions>(
+    [](const Perceptions & perceptions) { 
+      std::string ret = "Perception " + std::to_string(perceptions.size()) + " with :\n";
+      for (const auto & perception : perceptions) {
+        std::string p_str = "\t--> " + std::to_string(perception->data.size()) + " points [" + 
+          perception->frame_id + "]\n";
+        ret = ret + p_str;
+      }
+      return ret; });
 
   controller_node_ = ControllerNode::make_shared(nav_state_);
   localizer_node_ = LocalizerNode::make_shared(nav_state_);
@@ -182,30 +198,33 @@ SystemNode::system_cycle_rt()
   EASYNAV_TRACE_EVENT;
 
   bool trigger_perceptions = sensors_node_->cycle_rt();
-  nav_state_->perceptions = sensors_node_->get_perceptions();
+
+  const auto perceptions = sensors_node_->get_perceptions();
+  nav_state_->set("perceptions", perceptions);
 
   bool trigger_localization = localizer_node_->cycle_rt(trigger_perceptions);
-  nav_state_->odom = localizer_node_->get_odom();
+  nav_state_->set("odom", localizer_node_->get_odom());
 
   bool trigger_controller = false;
   bool robot_idle_stop = true;
 
   if (goal_manager_->get_state() == GoalManager::State::IDLE) {
-    robot_idle_stop = nav_state_->cmd_vel.twist == geometry_msgs::msg::Twist();
-    nav_state_->cmd_vel.header.stamp = now();
-    nav_state_->cmd_vel.twist = geometry_msgs::msg::Twist();
+    geometry_msgs::msg::TwistStamped cmd_vel;
+    cmd_vel.header.stamp = now();
+
+    nav_state_->set("cmd_vel", cmd_vel);
   } else {
     trigger_controller = controller_node_->cycle_rt(
       trigger_perceptions || trigger_localization);
-    nav_state_->cmd_vel = controller_node_->get_cmd_vel();
+    nav_state_->set("cmd_vel", controller_node_->get_cmd_vel());
   }
 
   if (trigger_controller || !robot_idle_stop) {
     if (vel_pub_stamped_->get_subscription_count()) {
-      vel_pub_stamped_->publish(nav_state_->cmd_vel);
+      vel_pub_stamped_->publish(nav_state_->get_ref<geometry_msgs::msg::TwistStamped>("cmd_vel"));
     }
     if (vel_pub_->get_subscription_count()) {
-      vel_pub_->publish(nav_state_->cmd_vel.twist);
+      vel_pub_->publish(nav_state_->get_ref<geometry_msgs::msg::TwistStamped>("cmd_vel").twist);
     }
   }
 }
@@ -217,31 +236,35 @@ SystemNode::system_cycle()
 
   sensors_node_->cycle();
 
-  nav_state_->perceptions = sensors_node_->get_perceptions();
+  nav_state_->set("perceptions", sensors_node_->get_perceptions());
 
   localizer_node_->cycle();
 
-  nav_state_->odom = localizer_node_->get_odom();
+  nav_state_->set("odom", localizer_node_->get_odom());
 
   maps_manager_node_->cycle();
-  nav_state_->maps = maps_manager_node_->get_maps();
+
+  for (const auto & map : maps_manager_node_->get_maps()) {
+    nav_state_->set(map.first, map.second);
+  }
 
   if (goal_manager_->get_state() == GoalManager::State::IDLE) {return;}
 
   goal_manager_->update();
-  goal_manager_->check_goals(nav_state_->odom.pose.pose,
+  goal_manager_->check_goals(
+    nav_state_->get_ref<nav_msgs::msg::Odometry>("odom").pose.pose,
     position_tolerance_, angle_tolerance_);
 
-  nav_state_->goals = goal_manager_->get_goals();
+  nav_state_->set("goals", goal_manager_->get_goals());
 
-  if (nav_state_->goals.goals.empty()) {
+  if (goal_manager_->get_goals().goals.empty()) {
     goal_manager_->set_finished();
     return;
   }
 
   planner_node_->cycle();
 
-  nav_state_->path = planner_node_->get_path();
+  nav_state_->set("path", planner_node_->get_path());
 }
 
 std::map<std::string, SystemNodeInfo>

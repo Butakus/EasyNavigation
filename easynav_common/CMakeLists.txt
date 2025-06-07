@@ -18,7 +18,6 @@ find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(yaets REQUIRED)
-find_package(pcl_ros REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
@@ -30,14 +29,13 @@ add_library(${PROJECT_NAME} SHARED
 target_include_directories(${PROJECT_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
-  ${pcl_conversions_INCLUDE_DIRS}  # pcl_conversions does not have proper targets yet
 )
 target_link_libraries(${PROJECT_NAME} PUBLIC
   rclcpp::rclcpp
   rclcpp_lifecycle::rclcpp_lifecycle
-  ${pcl_ros_TARGETS}
   tf2_ros::tf2_ros
   tf2_geometry_msgs::tf2_geometry_msgs
+  pcl_conversions::pcl_conversions
   ${geometry_msgs_TARGETS}
   ${sensor_msgs_TARGETS}
   ${nav_msgs_TARGETS}
@@ -80,7 +78,6 @@ ament_export_targets(export_${PROJECT_NAME})
 ament_export_dependencies(
   rclcpp
   rclcpp_lifecycle
-  pcl_ros
   pcl_conversions
   tf2_ros
   geometry_msgs

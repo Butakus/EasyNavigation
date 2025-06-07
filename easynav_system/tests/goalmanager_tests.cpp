@@ -58,6 +58,8 @@ using namespace std::chrono_literals;
 TEST_F(GoalManagerTestCase, initpose_topic)
 {
   auto nav_state = std::make_shared<easynav::NavState>();
+  nav_state->set("odom", nav_msgs::msg::Odometry());
+
   auto client_node = rclcpp::Node::make_shared("client_node");
   auto system_node = rclcpp_lifecycle::LifecycleNode::make_shared("system_node");
 
@@ -97,7 +99,7 @@ TEST_F(GoalManagerTestCase, initpose_topic)
   auto start = client_node->now();
   while (client_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -118,7 +120,7 @@ TEST_F(GoalManagerTestCase, initpose_topic)
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
   }
 
@@ -127,7 +129,7 @@ TEST_F(GoalManagerTestCase, initpose_topic)
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -146,6 +148,7 @@ TEST_F(GoalManagerTestCase, initpose_topic)
 TEST_F(GoalManagerTestCase, initpose_topic_with_preempt)
 {
   auto nav_state = std::make_shared<easynav::NavState>();
+  nav_state->set("odom", nav_msgs::msg::Odometry());
   auto client_node = rclcpp::Node::make_shared("client_node");
   auto system_node = rclcpp_lifecycle::LifecycleNode::make_shared("system_node");
 
@@ -186,7 +189,7 @@ TEST_F(GoalManagerTestCase, initpose_topic_with_preempt)
   auto start = client_node->now();
   while (client_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -211,7 +214,7 @@ TEST_F(GoalManagerTestCase, initpose_topic_with_preempt)
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
   }
 
@@ -225,7 +228,7 @@ TEST_F(GoalManagerTestCase, initpose_topic_with_preempt)
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -246,7 +249,7 @@ TEST_F(GoalManagerTestCase, initpose_topic_with_preempt)
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
   }
 
@@ -255,7 +258,7 @@ TEST_F(GoalManagerTestCase, initpose_topic_with_preempt)
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -277,6 +280,7 @@ TEST_F(GoalManagerTestCase, initpose_topic_with_preempt)
 TEST_F(GoalManagerTestCase, simple_nav_node)
 {
   auto nav_state = std::make_shared<easynav::NavState>();
+  nav_state->set("odom", nav_msgs::msg::Odometry());
   auto client_node = rclcpp::Node::make_shared("client_node");
   auto system_node = rclcpp_lifecycle::LifecycleNode::make_shared("system_node");
 
@@ -308,7 +312,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   auto start = client_node->now();
   while (client_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -334,7 +338,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
   }
 
@@ -343,7 +347,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -378,7 +382,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -405,7 +409,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -440,7 +444,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -467,7 +471,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -477,7 +481,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   start = client_node->now();
   while (client_node->now() - start < 800ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -504,7 +508,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -542,7 +546,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -569,7 +573,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -607,7 +611,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -634,7 +638,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -673,7 +677,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -700,7 +704,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -740,7 +744,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -767,7 +771,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -806,7 +810,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -833,7 +837,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -874,7 +878,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -901,7 +905,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -932,6 +936,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 TEST_F(GoalManagerTestCase, two_clients)
 {
   auto nav_state = std::make_shared<easynav::NavState>();
+  nav_state->set("odom", nav_msgs::msg::Odometry());
   auto client_node1 = rclcpp::Node::make_shared("client_node1");
   auto client_node2 = rclcpp::Node::make_shared("client_node2");
   auto system_node = rclcpp_lifecycle::LifecycleNode::make_shared("system_node");
@@ -968,7 +973,7 @@ TEST_F(GoalManagerTestCase, two_clients)
   auto start = system_node->now();
   while (system_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -995,7 +1000,7 @@ TEST_F(GoalManagerTestCase, two_clients)
   start = system_node->now();
   while (system_node->now() - start < 200ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
   }
 
@@ -1004,7 +1009,7 @@ TEST_F(GoalManagerTestCase, two_clients)
   start = system_node->now();
   while (system_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -1041,7 +1046,7 @@ TEST_F(GoalManagerTestCase, two_clients)
   start = system_node->now();
   while (system_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -1068,7 +1073,7 @@ TEST_F(GoalManagerTestCase, two_clients)
   start = system_node->now();
   while (system_node->now() - start < 200ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
   }
 
@@ -1077,7 +1082,7 @@ TEST_F(GoalManagerTestCase, two_clients)
   start = system_node->now();
   while (system_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -1114,7 +1119,7 @@ TEST_F(GoalManagerTestCase, two_clients)
   start = system_node->now();
   while (system_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -1141,7 +1146,7 @@ TEST_F(GoalManagerTestCase, two_clients)
   start = system_node->now();
   while (system_node->now() - start < 200ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
   }
 
@@ -1150,7 +1155,7 @@ TEST_F(GoalManagerTestCase, two_clients)
   start = system_node->now();
   while (system_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
   }
 
@@ -1163,7 +1168,7 @@ TEST_F(GoalManagerTestCase, two_clients)
   start = system_node->now();
   while (system_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -1201,7 +1206,7 @@ TEST_F(GoalManagerTestCase, two_clients)
   start = system_node->now();
   while (system_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }
@@ -1228,7 +1233,7 @@ TEST_F(GoalManagerTestCase, two_clients)
   start = system_node->now();
   while (system_node->now() - start < 200ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
   }
 
@@ -1237,7 +1242,7 @@ TEST_F(GoalManagerTestCase, two_clients)
   start = system_node->now();
   while (system_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
   }
 
@@ -1250,7 +1255,7 @@ TEST_F(GoalManagerTestCase, two_clients)
   start = system_node->now();
   while (system_node->now() - start < 400ms) {
     gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    nav_state->set("goals", gm_server->get_goals());
     exe.spin_some();
     rate.sleep();
   }

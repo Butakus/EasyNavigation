@@ -11,7 +11,6 @@
 
   <depend>rclcpp</depend>
   <depend>rclcpp_lifecycle</depend>
-  <depend>pcl_ros</depend>
   <depend>pcl_conversions</depend>
   <depend>tf2_ros</depend>
   <depend>geometry_msgs</depend>

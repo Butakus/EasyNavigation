@@ -250,9 +250,11 @@ GoalManager::update()
   feedback.user_id = id_;
   feedback.nav_current_user_id = current_client_id_;
 
-  feedback.goals = nav_state_->goals;
-  feedback.current_pose.header = nav_state_->odom.header;
-  feedback.current_pose.pose = nav_state_->odom.pose.pose;
+  const auto & odom = nav_state_->get_ref<nav_msgs::msg::Odometry>("odom");
+
+  feedback.goals = nav_state_->get_ref<nav_msgs::msg::Goals>("goals");
+  feedback.current_pose.header = odom.header;
+  feedback.current_pose.pose = odom.pose.pose;
   feedback.navigation_time = parent_node_->now() - nav_start_time_;
 
   // ToDo[@fmrico]: Complete feedback info
