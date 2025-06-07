@@ -70,7 +70,6 @@ SensorsNode::~SensorsNode()
 
 
 using CallbackReturnT = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
-
 CallbackReturnT
 SensorsNode::on_configure(const rclcpp_lifecycle::State & state)
 {
@@ -94,29 +93,29 @@ SensorsNode::on_configure(const rclcpp_lifecycle::State & state)
     get_parameter(sensor + ".topic", topic);
     get_parameter(sensor + ".type", msg_type);
 
-    auto perception_entry = std::make_shared<Perception>();
-    perception_entry->data.points.clear();
-    perception_entry->data.clear();
-    perception_entry->frame_id = "";
-    perception_entry->stamp = now();
-    perception_entry->valid = false;
+    auto atomic_perception = std::make_shared<std::atomic<std::shared_ptr<Perception>>>(
+      std::make_shared<Perception>());
 
-    perceptions_.push_back(perception_entry);
+    PerceptionPtr perception_entry;
+    perception_entry.perception = atomic_perception;
 
     if (msg_type == "LaserScan") {
-      perception_entry->subscription = create_typed_subscription<sensor_msgs::msg::LaserScan>(
-        *this, topic, perception_entry, realtime_cbg_);
+      perception_entry.subscription = create_typed_subscription<sensor_msgs::msg::LaserScan>(
+        *this, topic, atomic_perception, realtime_cbg_);
     } else if (msg_type == "PointCloud") {
-      perception_entry->subscription = create_typed_subscription<sensor_msgs::msg::PointCloud2>(
-        *this, topic, perception_entry, realtime_cbg_);
+      perception_entry.subscription = create_typed_subscription<sensor_msgs::msg::PointCloud2>(
+        *this, topic, atomic_perception, realtime_cbg_);
     } else {
       RCLCPP_ERROR(get_logger(), "Sensor type [%s] not supported", msg_type.c_str());
       return CallbackReturnT::FAILURE;
     }
+
+    perceptions_.push_back(perception_entry);
   }
 
   return CallbackReturnT::SUCCESS;
 }
+
 
 CallbackReturnT
 SensorsNode::on_activate(const rclcpp_lifecycle::State & state)
@@ -173,7 +172,8 @@ SensorsNode::cycle_rt(bool trigger)
   (void)trigger;
 
   bool trigger_perceptions = false;
-  for (const auto & perception : perceptions_) {
+  for (const auto & p : perceptions_) {
+    auto perception = p.perception->load();
     trigger_perceptions = trigger_perceptions || perception->new_data;
     perception->new_data = false;
   }
@@ -185,7 +185,8 @@ SensorsNode::cycle()
 {
   EASYNAV_TRACE_EVENT;
 
-  for (auto & perception : perceptions_) {
+  for (auto & p : perceptions_) {
+    auto perception = p.perception->load();
     if (perception->valid && (now() - perception->stamp).seconds() > forget_time_) {
       perception->valid = false;
     }
@@ -195,11 +196,11 @@ SensorsNode::cycle()
     auto fused = PerceptionsOpsView(perceptions_)
       .fuse(perception_default_frame_);
 
-    auto fused_points = fused->as_points(0);
+    auto fused_points = fused->as_points();
 
     auto msg = points_to_rosmsg(fused_points);
     msg.header.frame_id = perception_default_frame_;
-    msg.header.stamp = fused->get_perceptions()[0]->stamp;
+    msg.header.stamp = fused->get_perceptions()[0].perception->load()->stamp;
 
     percept_pub_->publish(msg);
   }

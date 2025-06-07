@@ -51,7 +51,6 @@ public:
    * @param options Node options.
    */
   explicit MapsManagerNode(
-    const std::shared_ptr<const NavState> & nav_state,
     const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
   /// @brief Destructor.
@@ -101,8 +100,9 @@ public:
 
   /**
    * @brief Execute one update cycle (non real-time).
+   * @param nav_state Shared pointer to the navigation state structure.
    */
-  void cycle();
+  void cycle(std::shared_ptr<const NavState> nav_state);
 
   /**
    * @brief Get the currently available maps.
@@ -120,8 +120,6 @@ private:
   /// @brief Active map manager plugins.
   std::vector<std::shared_ptr<MapsManagerBase>> maps_managers_;
 
-  /// @brief Shared navigation state reference.
-  const std::shared_ptr<const NavState> nav_state_;
 };
 
 }  // namespace easynav

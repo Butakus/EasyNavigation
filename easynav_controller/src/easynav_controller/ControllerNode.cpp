@@ -35,10 +35,8 @@ namespace easynav
 using namespace std::chrono_literals;
 
 ControllerNode::ControllerNode(
-  const std::shared_ptr<const NavState> & nav_state,
   const rclcpp::NodeOptions & options)
-: LifecycleNode("controller_node", options),
-  nav_state_(nav_state)
+: LifecycleNode("controller_node", options)
 {
   realtime_cbg_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
 
@@ -170,13 +168,13 @@ ControllerNode::get_cmd_vel() const
 }
 
 bool
-ControllerNode::cycle_rt(bool trigger)
+ControllerNode::cycle_rt(std::shared_ptr<const NavState> nav_state, bool trigger)
 {
   EASYNAV_TRACE_EVENT;
 
   if (controller_method_ == nullptr) {return false;}
 
-  return controller_method_->internal_update_rt(*nav_state_, trigger);
+  return controller_method_->internal_update_rt(*nav_state, trigger);
 }
 
 }  // namespace easynav

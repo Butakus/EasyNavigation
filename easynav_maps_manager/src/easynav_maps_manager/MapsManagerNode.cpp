@@ -37,10 +37,8 @@ namespace easynav
 using namespace std::chrono_literals;
 
 MapsManagerNode::MapsManagerNode(
-  const std::shared_ptr<const NavState> & nav_state,
   const rclcpp::NodeOptions & options)
-: LifecycleNode("maps_manager_node", options),
-  nav_state_(nav_state)
+: LifecycleNode("maps_manager_node", options)
 {
   maps_manager_loader_ = std::make_unique<pluginlib::ClassLoader<MapsManagerBase>>(
     "easynav_core", "easynav::MapsManagerBase");
@@ -151,12 +149,12 @@ MapsManagerNode::on_error(const rclcpp_lifecycle::State & state)
 }
 
 void
-MapsManagerNode::cycle()
+MapsManagerNode::cycle(std::shared_ptr<const NavState> nav_state)
 {
   EASYNAV_TRACE_EVENT;
 
   for (auto & map_manager : maps_managers_) {
-    map_manager->internal_update(*nav_state_);
+    map_manager->internal_update(*nav_state);
 
     auto maps = map_manager->get_maps();
     for (auto map : maps) {

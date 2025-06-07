@@ -53,7 +53,6 @@ public:
    * @param options Node options to configure the ControllerNode node.
    */
   explicit ControllerNode(
-    const std::shared_ptr<const NavState> & nav_state,
     const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
   /**
@@ -137,8 +136,10 @@ public:
    *
    * This method is invoked periodically by a high-priority timer and is expected
    * to compute control commands based on the current navigation state and input data.
+   * @param nav_state Shared pointer to the navigation state structure.
+   * @return Bool value to indicate if trigger subsequent processes
    */
-  bool cycle_rt(bool trigger = false);
+  bool cycle_rt(std::shared_ptr<const NavState> nav_state, bool trigger = false);
 
 private:
   /**

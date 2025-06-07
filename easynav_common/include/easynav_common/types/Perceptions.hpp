@@ -76,15 +76,20 @@ struct Perception
   rclcpp::Time stamp;                       ///< Timestamp of the perception.
   std::string frame_id;                     ///< Frame ID associated with the data.
   bool valid = false;                       ///< Whether the perception is valid or usable.
-  rclcpp::SubscriptionBase::SharedPtr subscription; ///< ROS 2 subscription linked to the data source.
   bool new_data = false;                    ///< Whether new data has been received.
+};
+
+struct PerceptionPtr
+{
+  std::shared_ptr<std::atomic<std::shared_ptr<Perception>>> perception;
+  rclcpp::SubscriptionBase::SharedPtr subscription;
 };
 
 /**
  * @typedef Perceptions
  * @brief Alias for a vector of shared pointers to Perception objects.
  */
-using Perceptions = std::vector<std::shared_ptr<Perception>>;
+using Perceptions = std::vector<PerceptionPtr>;
 
 /**
  * @brief Converts a LaserScan message into a PCL point cloud.
@@ -124,7 +129,7 @@ template<typename MsgT>
 rclcpp::SubscriptionBase::SharedPtr create_typed_subscription(
   rclcpp_lifecycle::LifecycleNode & node,
   const std::string & topic,
-  std::shared_ptr<Perception> perception,
+  std::shared_ptr<std::atomic<std::shared_ptr<Perception>>> perception,
   rclcpp::CallbackGroup::SharedPtr cbg);
 
 /**
@@ -141,7 +146,7 @@ rclcpp::SubscriptionBase::SharedPtr
 create_typed_subscription<sensor_msgs::msg::LaserScan>(
   rclcpp_lifecycle::LifecycleNode & node,
   const std::string & topic,
-  std::shared_ptr<Perception> perception,
+  std::shared_ptr<std::atomic<std::shared_ptr<Perception>>> perception,
   rclcpp::CallbackGroup::SharedPtr cbg);
 
 /**
@@ -158,7 +163,7 @@ rclcpp::SubscriptionBase::SharedPtr
 create_typed_subscription<sensor_msgs::msg::PointCloud2>(
   rclcpp_lifecycle::LifecycleNode & node,
   const std::string & topic,
-  std::shared_ptr<Perception> perception,
+  std::shared_ptr<std::atomic<std::shared_ptr<Perception>>> perception,
   rclcpp::CallbackGroup::SharedPtr cbg);
 
 /**
@@ -204,6 +209,11 @@ public:
    * @param perceptions A rvalue reference to a vector of shared pointers to Perception instances.
    */
   explicit PerceptionsOpsView(Perceptions && perceptions);
+
+  inline std::shared_ptr<Perception> load_perception(const PerceptionPtr & p)
+  {
+    return p.perception ? p.perception->load() : nullptr;
+  }
 
   /**
    * @brief Filters all point clouds according to given bounds (x, y, z).

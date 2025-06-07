@@ -48,11 +48,9 @@ public:
 
   /**
    * @brief Constructor.
-   * @param nav_state Shared pointer to the navigation state structure.
    * @param options Optional node configuration.
    */
   explicit LocalizerNode(
-    const std::shared_ptr<const NavState> & nav_state,
     const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
   /// @brief Destructor.
@@ -114,15 +112,17 @@ public:
 
   /**
    * @brief Run a real-time localization cycle.
+   * @param nav_state Shared pointer to the navigation state structure.
    * @param trigger Optional override to force execution.
    * @return True if plugin update was executed.
    */
-  bool cycle_rt(bool trigger = false);
+  bool cycle_rt(std::shared_ptr<const NavState> nav_state, bool trigger = false);
 
   /**
    * @brief Run a non-real-time localization cycle.
+   * @param nav_state Shared pointer to the navigation state structure.
    */
-  void cycle();
+  void cycle(std::shared_ptr<const NavState> nav_state);
 
 private:
   /// @brief Callback group reserved for real-time operations.
@@ -130,9 +130,6 @@ private:
 
   /// @brief Instance of the loaded localization plugin.
   std::shared_ptr<LocalizerMethodBase> localizer_method_ {nullptr};
-
-  /// @brief Reference to the shared navigation state.
-  const std::shared_ptr<const NavState> nav_state_;
 
   /// @brief Plugin loader for LocalizerMethodBase implementations.
   std::unique_ptr<pluginlib::ClassLoader<easynav::LocalizerMethodBase>> localizer_loader_;

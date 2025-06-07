@@ -47,11 +47,9 @@ public:
 
   /**
    * @brief Constructor.
-   * @param nav_state Shared pointer to the navigation state.
    * @param options Optional node configuration.
    */
   explicit PlannerNode(
-    const std::shared_ptr<const NavState> & nav_state,
     const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
   /// @brief Destructor.
@@ -107,13 +105,11 @@ public:
 
   /**
    * @brief Execute a non-real-time cycle.
+   * @param nav_state Shared pointer to the navigation state structure.
    */
-  void cycle();
+  void cycle(std::shared_ptr<const NavState> nav_state);
 
 private:
-  /// @brief Shared navigation state.
-  const std::shared_ptr<const NavState> nav_state_;
-
   /// @brief Plugin loader for planner methods.
   std::unique_ptr<pluginlib::ClassLoader<PlannerMethodBase>> planner_loader_;
 

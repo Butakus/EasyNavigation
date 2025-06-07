@@ -111,7 +111,7 @@ public:
    * @brief Get the current set of perceptions.
    * @return Copy of the internal Perceptions container.
    */
-  const Perceptions get_perceptions() const {return perceptions_;}
+  const Perceptions & get_perceptions() const {return perceptions_;}
 
   /**
    * @brief Run one real-time sensor processing cycle.
