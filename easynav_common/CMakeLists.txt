@@ -37,7 +37,6 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   ${pcl_ros_TARGETS}
   tf2_ros::tf2_ros
   tf2_geometry_msgs::tf2_geometry_msgs
-  pcl_conversions::pcl_conversions
   ${geometry_msgs_TARGETS}
   ${sensor_msgs_TARGETS}
   ${nav_msgs_TARGETS}
