@@ -61,8 +61,6 @@ void DummyController::update_rt(const NavState & nav_state)
   auto start = get_node()->now();
   while ((get_node()->now() - start).seconds() < cycle_time_rt_) {}
 
-  cmd_vel_.header.stamp = nav_state.timestamp;
-  cmd_vel_.header.frame_id = "base_link";
   // Compute the current command...
   // cmd_vel_.angular.z = 1.0;
 }

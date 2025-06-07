@@ -55,8 +55,6 @@ void DummyPlanner::update(const NavState & nav_state)
   auto start = get_node()->now();
   while ((get_node()->now() - start).seconds() < cycle_time_nort_) {}
 
-  path_.header.stamp = nav_state.timestamp;
-  path_.header.frame_id = "map";
   // Compute the current path...
 }
 
