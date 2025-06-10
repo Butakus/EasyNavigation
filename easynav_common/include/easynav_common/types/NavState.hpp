@@ -105,7 +105,7 @@ public:
     auto & any_ref = get_raw_mutable(key);
     T * ptr = std::any_cast<T>(&any_ref);
     if (!ptr) {
-      std::cerr << "[NavState] std::bad_cast in get_mutable<" << typeid(T).name() << ">(\"" << 
+      std::cerr << "[NavState] std::bad_cast in get_mutable<" << typeid(T).name() << ">(\"" <<
         key << "\")\n";
       print_stacktrace();
       throw std::bad_cast();
@@ -159,8 +159,8 @@ public:
   static void register_printer(std::function<std::string(const T &)> printer)
   {
     auto wrapper = [printer](const std::any & val) -> std::string {
-      return printer(std::any_cast<const T &>(val));
-    };
+        return printer(std::any_cast<const T &>(val));
+      };
     printers_[std::type_index(typeid(T))] = wrapper;
   }
 
@@ -186,6 +186,7 @@ public:
     }
     return out.str();
   }
+
 private:
   /**
    * @brief Internal access to the std::any associated with a key.

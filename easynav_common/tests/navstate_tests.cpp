@@ -104,11 +104,11 @@ TEST_F(NavStateTest, DebugStringWorks)
   state.set("b", std::string("abc"));
 
   easynav::NavState::register_printer<int>([](const int & val) {
-    return std::to_string(val);
+      return std::to_string(val);
   });
 
   easynav::NavState::register_printer<std::string>([](const std::string & val) {
-    return "\"" + val + "\"";
+      return "\"" + val + "\"";
   });
 
   std::string debug = state.debug_string();

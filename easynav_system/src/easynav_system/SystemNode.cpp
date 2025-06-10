@@ -56,15 +56,16 @@ SystemNode::SystemNode(const rclcpp::NodeOptions & options)
   nav_state->set("cmd_vel", geometry_msgs::msg::TwistStamped());
   nav_state_.store(nav_state);
 
-   NavState::register_printer<Perceptions>(
-    [](const Perceptions & perceptions) { 
+  NavState::register_printer<Perceptions>(
+    [](const Perceptions & perceptions) {
       std::string ret = "Perception " + std::to_string(perceptions.size()) + " with :\n";
       for (const auto & perception : perceptions) {
-        std::string p_str = "\t--> " + std::to_string(perception.perception->load()->data.size())
-         + " points [" + perception.perception->load()->frame_id + "]\n";
+        std::string p_str = "\t--> " + std::to_string(perception.perception->load()->data.size()) +
+        " points [" + perception.perception->load()->frame_id + "]\n";
         ret = ret + p_str;
       }
-      return ret; });
+      return ret;
+    });
 
   controller_node_ = ControllerNode::make_shared();
   localizer_node_ = LocalizerNode::make_shared();
@@ -202,7 +203,7 @@ SystemNode::system_cycle_rt()
   auto new_state = std::make_shared<NavState>(*old_state);
 
   bool trigger_perceptions = sensors_node_->cycle_rt();
-  
+
   new_state->set("perceptions", sensors_node_->get_perceptions());
 
   bool trigger_localization = localizer_node_->cycle_rt(
