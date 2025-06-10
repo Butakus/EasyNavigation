@@ -23,6 +23,8 @@
 #include "geometry_msgs/msg/twist_stamped.hpp"
 
 #include "easynav_common/types/NavState.hpp"
+#include "easynav_common/YTSession.hpp"
+
 #include "easynav_core/MethodBase.hpp"
 
 #include "easynav_core/ControllerMethodBase.hpp"
@@ -34,6 +36,8 @@ bool
 ControllerMethodBase::internal_update_rt(const NavState & nav_state, bool trigger)
 {
   if (isTime2RunRT() || trigger) {
+    EASYNAV_TRACE_EVENT;
+
     update_rt(nav_state);
     return true;
   } else {
