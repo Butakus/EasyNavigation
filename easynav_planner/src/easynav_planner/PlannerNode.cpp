@@ -36,10 +36,8 @@ namespace easynav
 using namespace std::chrono_literals;
 
 PlannerNode::PlannerNode(
-  const std::shared_ptr<const NavState> & nav_state,
   const rclcpp::NodeOptions & options)
-: LifecycleNode("planner_node", options),
-  nav_state_(nav_state)
+: LifecycleNode("planner_node", options)
 {
   planner_loader_ = std::make_unique<pluginlib::ClassLoader<PlannerMethodBase>>(
     "easynav_core", "easynav::PlannerMethodBase");
@@ -162,11 +160,11 @@ PlannerNode::get_path() const
 }
 
 void
-PlannerNode::cycle()
+PlannerNode::cycle(std::shared_ptr<const NavState> nav_state)
 {
   if (planner_method_ == nullptr) {return;}
 
-  planner_method_->internal_update(*nav_state_);
+  planner_method_->internal_update(*nav_state);
 }
 
 }  // namespace easynav

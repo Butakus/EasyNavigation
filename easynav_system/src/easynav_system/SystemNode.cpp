@@ -47,12 +47,12 @@ SystemNode::SystemNode(const rclcpp::NodeOptions & options)
 {
   realtime_cbg_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
 
-  nav_state_ = std::make_shared<NavState>();
+  nav_state_.store(std::make_shared<NavState>());
 
-  controller_node_ = ControllerNode::make_shared(nav_state_);
-  localizer_node_ = LocalizerNode::make_shared(nav_state_);
-  maps_manager_node_ = MapsManagerNode::make_shared(nav_state_);
-  planner_node_ = PlannerNode::make_shared(nav_state_);
+  controller_node_ = ControllerNode::make_shared();
+  localizer_node_ = LocalizerNode::make_shared();
+  maps_manager_node_ = MapsManagerNode::make_shared();
+  planner_node_ = PlannerNode::make_shared();
   sensors_node_ = SensorsNode::make_shared();
 
   vel_pub_stamped_ = create_publisher<geometry_msgs::msg::TwistStamped>("cmd_vel_stamped", 100);
@@ -181,33 +181,40 @@ SystemNode::system_cycle_rt()
 {
   EASYNAV_TRACE_EVENT;
 
-  bool trigger_perceptions = sensors_node_->cycle_rt();
-  nav_state_->perceptions = sensors_node_->get_perceptions();
+  auto old_state = nav_state_.load();
+  auto new_state = std::make_shared<NavState>(*old_state);
 
-  bool trigger_localization = localizer_node_->cycle_rt(trigger_perceptions);
-  nav_state_->odom = localizer_node_->get_odom();
+  bool trigger_perceptions = sensors_node_->cycle_rt();
+  new_state->perceptions = sensors_node_->get_perceptions();
+
+  bool trigger_localization = localizer_node_->cycle_rt(
+    new_state, trigger_perceptions);
+  new_state->odom = localizer_node_->get_odom();
 
   bool trigger_controller = false;
   bool robot_idle_stop = true;
 
   if (goal_manager_->get_state() == GoalManager::State::IDLE) {
-    robot_idle_stop = nav_state_->cmd_vel.twist == geometry_msgs::msg::Twist();
-    nav_state_->cmd_vel.header.stamp = now();
-    nav_state_->cmd_vel.twist = geometry_msgs::msg::Twist();
+    robot_idle_stop = new_state->cmd_vel.twist == geometry_msgs::msg::Twist();
+    new_state->cmd_vel.header.stamp = now();
+    new_state->cmd_vel.twist = geometry_msgs::msg::Twist();
   } else {
     trigger_controller = controller_node_->cycle_rt(
+      new_state,
       trigger_perceptions || trigger_localization);
-    nav_state_->cmd_vel = controller_node_->get_cmd_vel();
+    new_state->cmd_vel = controller_node_->get_cmd_vel();
   }
 
   if (trigger_controller || !robot_idle_stop) {
     if (vel_pub_stamped_->get_subscription_count()) {
-      vel_pub_stamped_->publish(nav_state_->cmd_vel);
+      vel_pub_stamped_->publish(new_state->cmd_vel);
     }
     if (vel_pub_->get_subscription_count()) {
-      vel_pub_->publish(nav_state_->cmd_vel.twist);
+      vel_pub_->publish(new_state->cmd_vel.twist);
     }
   }
+
+  nav_state_.store(new_state);
 }
 
 void
@@ -215,33 +222,38 @@ SystemNode::system_cycle()
 {
   EASYNAV_TRACE_EVENT;
 
+  auto old_state = nav_state_.load();
+  auto new_state = std::make_shared<NavState>(*old_state);
+
   sensors_node_->cycle();
 
-  nav_state_->perceptions = sensors_node_->get_perceptions();
+  new_state->perceptions = sensors_node_->get_perceptions();
 
-  localizer_node_->cycle();
+  localizer_node_->cycle(new_state);
 
-  nav_state_->odom = localizer_node_->get_odom();
+  new_state->odom = localizer_node_->get_odom();
 
-  maps_manager_node_->cycle();
-  nav_state_->maps = maps_manager_node_->get_maps();
+  maps_manager_node_->cycle(new_state);
+  new_state->maps = maps_manager_node_->get_maps();
 
   if (goal_manager_->get_state() == GoalManager::State::IDLE) {return;}
 
   goal_manager_->update();
-  goal_manager_->check_goals(nav_state_->odom.pose.pose,
+  goal_manager_->check_goals(new_state->odom.pose.pose,
     position_tolerance_, angle_tolerance_);
 
-  nav_state_->goals = goal_manager_->get_goals();
+  new_state->goals = goal_manager_->get_goals();
 
-  if (nav_state_->goals.goals.empty()) {
+  if (new_state->goals.goals.empty()) {
     goal_manager_->set_finished();
     return;
   }
 
-  planner_node_->cycle();
+  planner_node_->cycle(new_state);
 
-  nav_state_->path = planner_node_->get_path();
+  new_state->path = planner_node_->get_path();
+
+  nav_state_.store(new_state);
 }
 
 std::map<std::string, SystemNodeInfo>
