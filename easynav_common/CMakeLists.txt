@@ -18,10 +18,10 @@ find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(yaets REQUIRED)
+find_package(PCL REQUIRED COMPONENTS common io)
 find_package(pcl_conversions REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
-
 
 add_library(${PROJECT_NAME} SHARED
   src/easynav_common/types/Perceptions.cpp
@@ -29,10 +29,12 @@ add_library(${PROJECT_NAME} SHARED
 target_include_directories(${PROJECT_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+  ${PCL_INCLUDE_DIRS}
 )
 target_link_libraries(${PROJECT_NAME} PUBLIC
   rclcpp::rclcpp
   rclcpp_lifecycle::rclcpp_lifecycle
+  pcl_conversions::pcl_conversions
   tf2_ros::tf2_ros
   tf2_geometry_msgs::tf2_geometry_msgs
   pcl_conversions::pcl_conversions
@@ -40,6 +42,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   ${sensor_msgs_TARGETS}
   ${nav_msgs_TARGETS}
   yaets::yaets
+  ${PCL_LIBRARIES}
 )
 
 if(EASYNAV_TRACING)
@@ -85,5 +88,6 @@ ament_export_dependencies(
   nav_msgs
   tf2_geometry_msgs
   yaets
+  PCL
 )
 ament_package()
