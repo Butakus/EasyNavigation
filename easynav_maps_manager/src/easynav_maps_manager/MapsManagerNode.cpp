@@ -153,8 +153,6 @@ MapsManagerNode::on_error(const rclcpp_lifecycle::State & state)
 void
 MapsManagerNode::cycle()
 {
-  EASYNAV_TRACE_EVENT;
-
   for (auto & map_manager : maps_managers_) {
     map_manager->internal_update(*nav_state_);
 

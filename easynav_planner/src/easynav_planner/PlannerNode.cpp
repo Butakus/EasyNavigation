@@ -164,8 +164,6 @@ PlannerNode::get_path() const
 void
 PlannerNode::cycle()
 {
-  EASYNAV_TRACE_EVENT;
-
   if (planner_method_ == nullptr) {return;}
 
   planner_method_->internal_update(*nav_state_);

@@ -171,8 +171,6 @@ LocalizerNode::get_odom() const
 bool
 LocalizerNode::cycle_rt(bool trigger)
 {
-  EASYNAV_TRACE_EVENT;
-
   if (localizer_method_ == nullptr) {return false;}
 
   return localizer_method_->internal_update_rt(*nav_state_, trigger);
@@ -181,8 +179,6 @@ LocalizerNode::cycle_rt(bool trigger)
 void
 LocalizerNode::cycle()
 {
-  EASYNAV_TRACE_EVENT;
-
   if (localizer_method_ == nullptr) {return;}
 
   localizer_method_->internal_update(*nav_state_);
