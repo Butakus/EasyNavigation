@@ -36,9 +36,8 @@ void
 PlannerMethodBase::internal_update(const NavState & nav_state)
 {
   if (isTime2Run()) {
-   EASYNAV_TRACE_EVENT;
-
-  update(nav_state);
+    EASYNAV_TRACE_EVENT;
+    update(nav_state);
   }
 }
 
