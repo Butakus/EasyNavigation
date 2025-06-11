@@ -157,18 +157,8 @@ ControllerNode::get_real_time_cbg()
   return realtime_cbg_;
 }
 
-geometry_msgs::msg::TwistStamped
-ControllerNode::get_cmd_vel() const
-{
-  if (controller_method_ == nullptr) {
-    return geometry_msgs::msg::TwistStamped();
-  }
-
-  return controller_method_->get_cmd_vel();
-}
-
 bool
-ControllerNode::cycle_rt(std::shared_ptr<const NavState> nav_state, bool trigger)
+ControllerNode::cycle_rt(std::shared_ptr<NavState> nav_state, bool trigger)
 {
   EASYNAV_TRACE_EVENT;
 

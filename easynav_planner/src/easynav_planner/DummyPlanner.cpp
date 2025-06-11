@@ -45,12 +45,7 @@ std::expected<void, std::string> DummyPlanner::on_initialize()
   return {};
 }
 
-nav_msgs::msg::Path DummyPlanner::get_path()
-{
-  return path_;
-}
-
-void DummyPlanner::update(const NavState & nav_state)
+void DummyPlanner::update(NavState & nav_state)
 {
   auto start = get_node()->now();
   while ((get_node()->now() - start).seconds() < cycle_time_nort_) {}

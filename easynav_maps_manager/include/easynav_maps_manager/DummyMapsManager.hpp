@@ -26,7 +26,6 @@
 #include <expected>
 
 #include "easynav_core/MapsManagerBase.hpp"
-#include "easynav_common/types/MapTypeBase.hpp"
 
 namespace easynav
 {
@@ -53,19 +52,10 @@ public:
   virtual std::expected<void, std::string> on_initialize() override;
 
   /**
-   * @brief Return the current maps.
-   * @return An empty map.
-   */
-  std::map<std::string, std::shared_ptr<MapsTypeBase>> get_maps() override
-  {
-    return std::map<std::string, std::shared_ptr<MapsTypeBase>>();
-  }
-
-  /**
    * @brief Dummy update method.
    * @param nav_state The current navigation state.
    */
-  virtual void update(const NavState & nav_state) override;
+  virtual void update(NavState & nav_state) override;
 
 private:
   double cycle_time_rt_ {0.0};

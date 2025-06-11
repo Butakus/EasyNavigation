@@ -74,18 +74,13 @@ public:
     return {};
   }
 
-  [[nodiscard]] virtual nav_msgs::msg::Odometry get_odom() override
-  {
-    return odom_;
-  }
-
-  virtual void update_rt(const easynav::NavState & nav_state) override
+  virtual void update_rt(easynav::NavState & nav_state) override
   {
     (void) nav_state;
     odom_.pose.pose.position.x = 10;
   }
 
-  virtual void update(const easynav::NavState & nav_state) override
+  virtual void update(easynav::NavState & nav_state) override
   {
     (void) nav_state;
     odom_.pose.pose.position.x = 10;
@@ -126,29 +121,6 @@ TEST_F(CoreMethodTestCase, OnInitializeCalled)
     "on_initialize() should be called during initialization.";
 }
 
-TEST_F(CoreMethodTestCase, TestDerivedLocalizer)
-{
-  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("test_node");
-  TestLocalizer localizer;
-
-  const auto odom_pre = localizer.get_odom();
-  EXPECT_EQ(odom_pre.header.frame_id, "") <<
-    "Default cosntructor should not initialize odom state";
-
-  localizer.initialize(node, "test");
-
-  const auto odom_init = localizer.get_odom();
-  EXPECT_EQ(odom_init.header.frame_id, "base_link") <<
-    "initialize should set odom frame_id";
-  EXPECT_EQ(odom_init.pose.pose.position.x, 5.0) <<
-    "initialize should set odom x position";
-
-  easynav::NavState state;
-  localizer.update_rt(state);
-  const auto odom_update = localizer.get_odom();
-  EXPECT_EQ(odom_update.pose.pose.position.x, 10.0) <<
-    "initialize should set odom x position";
-}
 
 int main(int argc, char ** argv)
 {

@@ -48,9 +48,7 @@ SystemNode::SystemNode(const rclcpp::NodeOptions & options)
   realtime_cbg_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
 
   auto nav_state = std::make_shared<NavState>();
-  nav_state->set("odom", nav_msgs::msg::Odometry());
   nav_state->set("perceptions", Perceptions());
-  nav_state->set("maps", std::map<std::string, std::shared_ptr<MapsTypeBase>>());
   nav_state->set("path", nav_msgs::msg::Path());
   nav_state->set("goals", nav_msgs::msg::Goals());
   nav_state->set("cmd_vel", geometry_msgs::msg::TwistStamped());
@@ -75,9 +73,6 @@ SystemNode::SystemNode(const rclcpp::NodeOptions & options)
 
   vel_pub_stamped_ = create_publisher<geometry_msgs::msg::TwistStamped>("cmd_vel_stamped", 100);
   vel_pub_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 100);
-
-  declare_parameter("position_tolerance", position_tolerance_);
-  declare_parameter("angle_tolerance", angle_tolerance_);
 }
 
 SystemNode::~SystemNode()
@@ -113,10 +108,7 @@ SystemNode::on_configure(const rclcpp_lifecycle::State & state)
     }
   }
 
-  get_parameter("position_tolerance", position_tolerance_);
-  get_parameter("angle_tolerance", angle_tolerance_);
-
-  goal_manager_ = GoalManager::make_shared(nav_state_, shared_from_this());
+  goal_manager_ = GoalManager::make_shared(shared_from_this());
 
   return CallbackReturnT::SUCCESS;
 }
@@ -202,27 +194,22 @@ SystemNode::system_cycle_rt()
   auto old_state = nav_state_.load();
   auto new_state = std::make_shared<NavState>(*old_state);
 
-  bool trigger_perceptions = sensors_node_->cycle_rt();
-
-  new_state->set("perceptions", sensors_node_->get_perceptions());
-
-  bool trigger_localization = localizer_node_->cycle_rt(
-    new_state, trigger_perceptions);
-  new_state->set("odom", localizer_node_->get_odom());
+  bool trigger_perceptions = sensors_node_->cycle_rt(new_state);
+  bool trigger_localization = localizer_node_->cycle_rt(new_state, trigger_perceptions);
 
   bool trigger_controller = false;
   bool robot_idle_stop = true;
 
-  if (goal_manager_->get_state() == GoalManager::State::IDLE) {
+  const auto & navigation_state = new_state->get_ref<GoalManager::State>("navigation_state");
+
+  if (navigation_state == GoalManager::State::IDLE) {
     geometry_msgs::msg::TwistStamped cmd_vel;
     cmd_vel.header.stamp = now();
 
     new_state->set("cmd_vel", cmd_vel);
   } else {
-    trigger_controller = controller_node_->cycle_rt(
-      new_state,
-      trigger_perceptions || trigger_localization);
-    new_state->set("cmd_vel", controller_node_->get_cmd_vel());
+    bool trigger = trigger_perceptions || trigger_localization;
+    trigger_controller = controller_node_->cycle_rt(new_state, trigger);
   }
 
   if (trigger_controller || !robot_idle_stop) {
@@ -245,37 +232,15 @@ SystemNode::system_cycle()
   auto old_state = nav_state_.load();
   auto new_state = std::make_shared<NavState>(*old_state);
 
-  sensors_node_->cycle();
-
-  new_state->set("perceptions", sensors_node_->get_perceptions());
-
+  sensors_node_->cycle(new_state);
   localizer_node_->cycle(new_state);
-
-  new_state->set("odom", localizer_node_->get_odom());
-
   maps_manager_node_->cycle(new_state);
 
-  for (const auto & map : maps_manager_node_->get_maps()) {
-    new_state->set(map.first, map.second);
-  }
+  const auto & navigation_state = new_state->get_ref<GoalManager::State>("navigation_state");
+  if (navigation_state == GoalManager::State::IDLE) {return;}
 
-  if (goal_manager_->get_state() == GoalManager::State::IDLE) {return;}
-
-  goal_manager_->update();
-  goal_manager_->check_goals(
-    new_state->get_ref<nav_msgs::msg::Odometry>("odom").pose.pose,
-    position_tolerance_, angle_tolerance_);
-
-  new_state->set("goals", goal_manager_->get_goals());
-
-  if (goal_manager_->get_goals().goals.empty()) {
-    goal_manager_->set_finished();
-    return;
-  }
-
+  goal_manager_->update(*new_state);
   planner_node_->cycle(new_state);
-
-  new_state->set("path", planner_node_->get_path());
 
   nav_state_.store(new_state);
 }

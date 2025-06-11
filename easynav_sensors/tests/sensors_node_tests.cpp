@@ -22,6 +22,7 @@
 #include "easynav_common/types/Perceptions.hpp"
 #include "easynav_sensors/SensorsNode.hpp"
 #include "easynav_common/RTTFBuffer.hpp"
+#include "easynav_common/types/NavState.hpp"
 
 #include "lifecycle_msgs/msg/transition.hpp"
 #include "lifecycle_msgs/msg/state.hpp"
@@ -316,6 +317,8 @@ TEST_F(SensorsNodeTestCase, percept_laserscan)
   auto laser_pub = test_node->create_publisher<sensor_msgs::msg::LaserScan>(
     "/scan1", rclcpp::SensorDataQoS().reliable());
 
+  auto nav_state = std::make_shared<easynav::NavState>();
+
   rclcpp::executors::SingleThreadedExecutor exe;
   exe.add_node(sensors_node->get_node_base_interface());
   exe.add_callback_group(sensors_node->get_real_time_cbg(),
@@ -353,14 +356,14 @@ TEST_F(SensorsNodeTestCase, percept_laserscan)
   {
     auto start = test_node->now();
     while (test_node->now() - start < 1s) {
-      sensors_node->cycle();
+      sensors_node->cycle(nav_state);
       ts = test_node->now();
       laser_pub->publish(get_scan_test_1(ts));
       exe.spin_some();
     }
   }
 
-  const auto & perceptions = sensors_node->get_perceptions();
+  auto perceptions = nav_state->get<easynav::Perceptions>("perceptions");
 
   ASSERT_EQ(perceptions.size(), 1u);
   ASSERT_EQ(perceptions[0].perception->load()->data.size(), 16u);
@@ -372,10 +375,12 @@ TEST_F(SensorsNodeTestCase, percept_laserscan)
   {
     auto start = test_node->now();
     while (test_node->now() - start < 1s) {
-      sensors_node->cycle();
+      sensors_node->cycle(nav_state);
       exe.spin_some();
     }
   }
+
+  perceptions = nav_state->get<easynav::Perceptions>("perceptions");
 
   ASSERT_EQ(perceptions.size(), 1u);
   ASSERT_EQ(perceptions[0].perception->load()->data.size(), 16u);
@@ -392,6 +397,8 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
     "/scan1", rclcpp::SensorDataQoS().reliable());
   auto laser2_pub = test_node->create_publisher<sensor_msgs::msg::LaserScan>(
     "/scan2", rclcpp::SensorDataQoS().reliable());
+
+  auto nav_state = std::make_shared<easynav::NavState>();
 
   sensor_msgs::msg::PointCloud2::SharedPtr fused_perception;
   auto fused_percept_sub = test_node->create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -483,11 +490,11 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
       laser1_pub->publish(get_scan_test_3(time1));
       laser2_pub->publish(get_scan_test_4(time2));
 
-      sensors_node->cycle();
+      sensors_node->cycle(nav_state);
       exe.spin_some();
     }
 
-    const auto & perceptions = sensors_node->get_perceptions();
+    auto perceptions = nav_state->get<easynav::Perceptions>("perceptions");
 
     ASSERT_EQ(perceptions.size(), 2u);
     ASSERT_EQ(perceptions[0].perception->load()->data.size(), 16u);
@@ -532,11 +539,11 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
       auto time2 = time1 - 10ms;
 
       laser1_pub->publish(get_scan_test_3(time1));
-      sensors_node->cycle();
+      sensors_node->cycle(nav_state);
       exe.spin_some();
     }
 
-    const auto & perceptions = sensors_node->get_perceptions();
+    auto perceptions = nav_state->get<easynav::Perceptions>("perceptions");
 
     ASSERT_EQ(perceptions.size(), 2u);
     ASSERT_EQ(perceptions[0].perception->load()->data.size(), 16u);
@@ -568,6 +575,8 @@ TEST_F(SensorsNodeTestCase, percept_pc2)
   auto laser3d_pub = test_node->create_publisher<sensor_msgs::msg::PointCloud2>(
     "/pc1", rclcpp::SensorDataQoS().reliable());
 
+  auto nav_state = std::make_shared<easynav::NavState>();
+
   rclcpp::executors::SingleThreadedExecutor exe;
   exe.add_node(sensors_node->get_node_base_interface());
   exe.add_callback_group(sensors_node->get_real_time_cbg(),
@@ -588,7 +597,7 @@ TEST_F(SensorsNodeTestCase, percept_pc2)
     auto start = test_node->now();
     while (test_node->now() - start < 100ms) {
       exe.spin_some();
-      sensors_node->cycle();
+      sensors_node->cycle(nav_state);
     }
   }
 
@@ -608,12 +617,12 @@ TEST_F(SensorsNodeTestCase, percept_pc2)
     while (test_node->now() - start < 1s) {
       ts = test_node->now();
       laser3d_pub->publish(get_pc2_test_0(ts));
-      sensors_node->cycle();
+      sensors_node->cycle(nav_state);
       exe.spin_some();
     }
   }
 
-  const auto & perceptions = sensors_node->get_perceptions();
+  auto perceptions = nav_state->get<easynav::Perceptions>("perceptions");
 
   ASSERT_EQ(perceptions.size(), 1u);
   ASSERT_EQ(perceptions[0].perception->load()->data.size(), 16u);
@@ -626,10 +635,12 @@ TEST_F(SensorsNodeTestCase, percept_pc2)
   {
     auto start = test_node->now();
     while (test_node->now() - start < 1s) {
-      sensors_node->cycle();
+      sensors_node->cycle(nav_state);
       exe.spin_some();
     }
   }
+
+  perceptions = nav_state->get<easynav::Perceptions>("perceptions");
 
   ASSERT_EQ(perceptions.size(), 1u);
   ASSERT_EQ(perceptions[0].perception->load()->data.size(), 16u);
@@ -744,7 +755,7 @@ TEST_F(SensorsNodeTestCase, percept_fuse_all)
       exe.spin_some();
     }
 
-    const auto & perceptions = sensors_node->get_perceptions();
+   auto perceptions = nav_state->get<easynav::Perceptions>("perceptions");
 
     ASSERT_EQ(perceptions.size(), 3u);
     ASSERT_EQ(perceptions[0]->data.size(), 16u);
@@ -791,7 +802,7 @@ TEST_F(SensorsNodeTestCase, percept_fuse_all)
       exe.spin_some();
     }
 
-    const auto & perceptions = sensors_node->get_perceptions();
+   auto perceptions = nav_state->get<easynav::Perceptions>("perceptions");
 
     ASSERT_EQ(perceptions.size(), 3u);
     ASSERT_EQ(perceptions[0]->data.size(), 16u);

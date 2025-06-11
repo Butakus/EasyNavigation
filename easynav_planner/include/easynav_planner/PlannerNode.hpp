@@ -107,7 +107,7 @@ public:
    * @brief Execute a non-real-time cycle.
    * @param nav_state Shared pointer to the navigation state structure.
    */
-  void cycle(std::shared_ptr<const NavState> nav_state);
+  void cycle(std::shared_ptr<NavState> nav_state);
 
 private:
   /// @brief Plugin loader for planner methods.

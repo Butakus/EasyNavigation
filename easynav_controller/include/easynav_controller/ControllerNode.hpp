@@ -125,13 +125,6 @@ public:
   rclcpp::CallbackGroup::SharedPtr get_real_time_cbg();
 
   /**
-   * @brief Get the current control command.
-   *
-   * @return An Odometry message representing the current control command.
-   */
-  [[nodiscard]] geometry_msgs::msg::TwistStamped get_cmd_vel() const;
-
-  /**
    * @brief Executes one cycle of real-time controller logic.
    *
    * This method is invoked periodically by a high-priority timer and is expected
@@ -139,7 +132,7 @@ public:
    * @param nav_state Shared pointer to the navigation state structure.
    * @return Bool value to indicate if trigger subsequent processes
    */
-  bool cycle_rt(std::shared_ptr<const NavState> nav_state, bool trigger = false);
+  bool cycle_rt(std::shared_ptr<NavState> nav_state, bool trigger = false);
 
 private:
   /**

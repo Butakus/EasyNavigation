@@ -149,18 +149,8 @@ PlannerNode::on_error(const rclcpp_lifecycle::State & state)
   return CallbackReturnT::SUCCESS;
 }
 
-nav_msgs::msg::Path
-PlannerNode::get_path() const
-{
-  if (planner_method_ == nullptr) {
-    return nav_msgs::msg::Path();
-  }
-
-  return planner_method_->get_path();
-}
-
 void
-PlannerNode::cycle(std::shared_ptr<const NavState> nav_state)
+PlannerNode::cycle(std::shared_ptr<NavState> nav_state)
 {
   if (planner_method_ == nullptr) {return;}
 

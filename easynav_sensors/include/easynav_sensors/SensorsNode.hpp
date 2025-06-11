@@ -108,22 +108,16 @@ public:
   rclcpp::CallbackGroup::SharedPtr get_real_time_cbg();
 
   /**
-   * @brief Get the current set of perceptions.
-   * @return Copy of the internal Perceptions container.
-   */
-  const Perceptions & get_perceptions() const {return perceptions_;}
-
-  /**
    * @brief Run one real-time sensor processing cycle.
    * @param trigger Force execution regardless of frequency.
    * @return True if cycle executed.
    */
-  bool cycle_rt(bool trigger = false);
+  bool cycle_rt(std::shared_ptr<NavState> nav_state, bool trigger = false);
 
   /**
    * @brief Run one non-real-time processing cycle.
    */
-  void cycle();
+  void cycle(std::shared_ptr<NavState> nav_state);
 
 private:
   /// @brief Callback group for real-time operations.

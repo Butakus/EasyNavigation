@@ -165,7 +165,7 @@ SensorsNode::get_real_time_cbg()
 }
 
 bool
-SensorsNode::cycle_rt(bool trigger)
+SensorsNode::cycle_rt(std::shared_ptr<NavState> nav_state, bool trigger)
 {
   EASYNAV_TRACE_EVENT;
 
@@ -177,11 +177,14 @@ SensorsNode::cycle_rt(bool trigger)
     trigger_perceptions = trigger_perceptions || perception->new_data;
     perception->new_data = false;
   }
+
+  nav_state->set("perceptions", perceptions_);
+
   return trigger_perceptions;
 }
 
 void
-SensorsNode::cycle()
+SensorsNode::cycle(std::shared_ptr<NavState> nav_state)
 {
   EASYNAV_TRACE_EVENT;
 
@@ -191,6 +194,8 @@ SensorsNode::cycle()
       perception->valid = false;
     }
   }
+
+  nav_state->set("perceptions", perceptions_);
 
   if (percept_pub_->get_subscription_count() > 0) {
     auto fused = PerceptionsOpsView(perceptions_)

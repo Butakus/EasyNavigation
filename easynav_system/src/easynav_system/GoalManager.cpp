@@ -27,15 +27,17 @@ namespace easynav
 {
 
 GoalManager::GoalManager(
-  const std::shared_ptr<const NavState> & nav_state,
   rclcpp_lifecycle::LifecycleNode::SharedPtr parent_node)
-: parent_node_(parent_node),
-  nav_state_(nav_state)
+: parent_node_(parent_node)
 {
   state_ = State::IDLE;
 
   parent_node_->declare_parameter("allow_preempt_goal", allow_preempt_goal_);
+  parent_node_->declare_parameter("position_tolerance", position_tolerance_);
+  parent_node_->declare_parameter("angle_tolerance", angle_tolerance_);
   parent_node_->get_parameter("allow_preempt_goal", allow_preempt_goal_);
+  parent_node_->get_parameter("position_tolerance", position_tolerance_);
+  parent_node_->get_parameter("angle_tolerance", angle_tolerance_);
 
   control_sub_ = parent_node_->create_subscription<easynav_interfaces::msg::NavigationControl>(
     "easynav_control", 100,
@@ -239,9 +241,12 @@ GoalManager::comanded_pose_callback(geometry_msgs::msg::PoseStamped::UniquePtr m
 }
 
 void
-GoalManager::update()
+GoalManager::update(NavState & nav_state)
 {
-  if (state_ == State::IDLE) {return;}
+  if (state_ == State::IDLE) {
+    nav_state.set("navigation_state", state_);
+    return;
+  }
 
   easynav_interfaces::msg::NavigationControl feedback;
   feedback.type = easynav_interfaces::msg::NavigationControl::FEEDBACK;
@@ -250,9 +255,9 @@ GoalManager::update()
   feedback.user_id = id_;
   feedback.nav_current_user_id = current_client_id_;
 
-  const auto & odom = nav_state_->get_ref<nav_msgs::msg::Odometry>("odom");
+  const auto & odom = nav_state.get_ref<nav_msgs::msg::Odometry>("odom");
 
-  feedback.goals = nav_state_->get_ref<nav_msgs::msg::Goals>("goals");
+  feedback.goals = nav_state.get_ref<nav_msgs::msg::Goals>("goals");
   feedback.current_pose.header = odom.header;
   feedback.current_pose.pose = odom.pose.pose;
   feedback.navigation_time = parent_node_->now() - nav_start_time_;
@@ -262,6 +267,20 @@ GoalManager::update()
   RCLCPP_DEBUG(parent_node_->get_logger(), "Sending navigation feedback");
   control_pub_->publish(feedback);
   *last_control_ = feedback;
+
+  if (nav_state.has("robot_pose")) {
+    check_goals(
+      nav_state.get_ref<nav_msgs::msg::Odometry>("robot_pose").pose.pose,
+      position_tolerance_, angle_tolerance_);
+
+    nav_state.set("goals", goals_);
+
+    if (goals_.goals.empty()) {
+      set_finished();
+    }
+  }
+
+  nav_state.set("navigation_state", state_);
 }
 
 void

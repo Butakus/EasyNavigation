@@ -41,7 +41,6 @@
 #include "geometry_msgs/msg/twist_stamped.hpp"
 
 #include "easynav_common/types/Perceptions.hpp"
-#include "easynav_common/types/MapTypeBase.hpp"
 
 namespace easynav
 {

@@ -149,15 +149,10 @@ MapsManagerNode::on_error(const rclcpp_lifecycle::State & state)
 }
 
 void
-MapsManagerNode::cycle(std::shared_ptr<const NavState> nav_state)
+MapsManagerNode::cycle(std::shared_ptr<NavState> nav_state)
 {
   for (auto & map_manager : maps_managers_) {
     map_manager->internal_update(*nav_state);
-
-    auto maps = map_manager->get_maps();
-    for (auto map : maps) {
-      maps_[map.first] = map.second;
-    }
   }
 }
 

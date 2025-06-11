@@ -33,7 +33,7 @@ namespace easynav
 {
 
 void
-PlannerMethodBase::internal_update(const NavState & nav_state)
+PlannerMethodBase::internal_update(NavState & nav_state)
 {
   if (isTime2Run()) {
     EASYNAV_TRACE_EVENT;

@@ -33,7 +33,7 @@ namespace easynav
 {
 
 bool
-ControllerMethodBase::internal_update_rt(const NavState & nav_state, bool trigger)
+ControllerMethodBase::internal_update_rt(NavState & nav_state, bool trigger)
 {
   if (isTime2RunRT() || trigger) {
     EASYNAV_TRACE_EVENT;

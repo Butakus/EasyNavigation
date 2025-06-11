@@ -58,23 +58,13 @@ public:
   virtual std::expected<void, std::string> on_initialize() override;
 
   /**
-   * @brief Get the current control command.
-   *
-   * This method should return the last control command computed.
-   * It should not run the control algorithm (see update method).
-   *
-   * @return A TwistStamped message with the current control command.
-   */
-  [[nodiscard]] virtual geometry_msgs::msg::TwistStamped get_cmd_vel() override;
-
-  /**
    * @brief Run the control method and update the control command.
    *
    * This method will be called by the system's ControllerNode to run the control algorithm.
    *
    * @param nav_state The current state of the navigation system.
    */
-  virtual void update_rt(const NavState & nav_state) override;
+  virtual void update_rt(NavState & nav_state) override;
 
 private:
   /**

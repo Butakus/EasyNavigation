@@ -48,16 +48,6 @@ public:
   virtual ~ControllerMethodBase() = default;
 
   /**
-   * @brief Get the current control command.
-   *
-   * Should return the last control command previously computed by the controller.
-   * This function must not invoke the control algorithm itself.
-   *
-   * @return A TwistStamped message containing the control command.
-   */
-  [[nodiscard]] virtual geometry_msgs::msg::TwistStamped get_cmd_vel() = 0;
-
-  /**
    * @brief Helper to run the real-time control method if appropriate.
    *
    * Invokes update_rt() only if the method is due or forced by trigger.
@@ -66,7 +56,7 @@ public:
    * @param trigger Force execution regardless of timing.
    * @return True if update_rt() was called, false otherwise.
    */
-  bool internal_update_rt(const NavState & nav_state, bool trigger = false);
+  bool internal_update_rt(NavState & nav_state, bool trigger = false);
 
 protected:
   /**
@@ -76,7 +66,7 @@ protected:
    *
    * @param nav_state The current state of the navigation system.
    */
-  virtual void update_rt([[maybe_unused]] const NavState & nav_state) {}
+  virtual void update_rt([[maybe_unused]] NavState & nav_state) {}
 };
 
 }  // namespace easynav

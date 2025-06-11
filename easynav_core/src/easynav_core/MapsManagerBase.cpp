@@ -33,7 +33,7 @@ namespace easynav
 {
 
 void
-MapsManagerBase::internal_update(const NavState & nav_state)
+MapsManagerBase::internal_update(NavState & nav_state)
 {
   if (isTime2Run()) {
     EASYNAV_TRACE_EVENT;

@@ -154,20 +154,9 @@ LocalizerNode::get_real_time_cbg()
   return realtime_cbg_;
 }
 
-// ToDo[@fmrico]: Change these methods to std::expect<nav_msgs::msg::Odometry>
-
-nav_msgs::msg::Odometry
-LocalizerNode::get_odom() const
-{
-  if (localizer_method_ == nullptr) {
-    return nav_msgs::msg::Odometry();
-  }
-
-  return localizer_method_->get_odom();
-}
 
 bool
-LocalizerNode::cycle_rt(std::shared_ptr<const NavState> nav_state, bool trigger)
+LocalizerNode::cycle_rt(std::shared_ptr<NavState> nav_state, bool trigger)
 {
   if (localizer_method_ == nullptr) {return false;}
 
@@ -175,7 +164,7 @@ LocalizerNode::cycle_rt(std::shared_ptr<const NavState> nav_state, bool trigger)
 }
 
 void
-LocalizerNode::cycle(std::shared_ptr<const NavState> nav_state)
+LocalizerNode::cycle(std::shared_ptr<NavState> nav_state)
 {
   if (localizer_method_ == nullptr) {return;}
 
