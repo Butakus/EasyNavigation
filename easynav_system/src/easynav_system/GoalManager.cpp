@@ -23,14 +23,18 @@
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "easynav_system/GoalManager.hpp"
 
+#include "nav_msgs/msg/odometry.hpp"
+
 namespace easynav
 {
 
 GoalManager::GoalManager(
+  NavState & nav_state,
   rclcpp_lifecycle::LifecycleNode::SharedPtr parent_node)
 : parent_node_(parent_node)
 {
   state_ = State::IDLE;
+  nav_state.set("navigation_state", state_);
 
   parent_node_->declare_parameter("allow_preempt_goal", allow_preempt_goal_);
   parent_node_->declare_parameter("position_tolerance", position_tolerance_);
@@ -54,6 +58,8 @@ GoalManager::GoalManager(
 
   id_ = "easynav_system";
   last_control_ = std::make_unique<easynav_interfaces::msg::NavigationControl>();
+
+  // parent_node_->get_logger().set_level(rclcpp::Logger::Level::Debug);
 }
 
 void
@@ -243,9 +249,33 @@ GoalManager::comanded_pose_callback(geometry_msgs::msg::PoseStamped::UniquePtr m
 void
 GoalManager::update(NavState & nav_state)
 {
-  if (state_ == State::IDLE) {
+  if (nav_state.get<State>("navigation_state") != state_) {
     nav_state.set("navigation_state", state_);
+  }
+
+  if (state_ == State::IDLE) {
     return;
+  }
+
+  if (!nav_state.has("robot_pose")) {
+    RCLCPP_WARN(parent_node_->get_logger(), "No robot pose at GoalManager::Update");
+    return;
+  }
+
+  check_goals(
+    nav_state.get_ref<nav_msgs::msg::Odometry>("robot_pose").pose.pose,
+    position_tolerance_, angle_tolerance_);
+
+  if (!nav_state.has("goals") || nav_state.get<nav_msgs::msg::Goals>("goals") != goals_) {
+    nav_state.set("goals", goals_);
+  }
+
+  if (goals_.goals.empty()) {
+    set_finished();
+  }
+
+  if (nav_state.get<State>("navigation_state") != state_) {
+    nav_state.set("navigation_state", state_);
   }
 
   easynav_interfaces::msg::NavigationControl feedback;
@@ -255,7 +285,7 @@ GoalManager::update(NavState & nav_state)
   feedback.user_id = id_;
   feedback.nav_current_user_id = current_client_id_;
 
-  const auto & odom = nav_state.get_ref<nav_msgs::msg::Odometry>("odom");
+  const auto & odom = nav_state.get_ref<nav_msgs::msg::Odometry>("robot_pose");
 
   feedback.goals = nav_state.get_ref<nav_msgs::msg::Goals>("goals");
   feedback.current_pose.header = odom.header;
@@ -267,20 +297,6 @@ GoalManager::update(NavState & nav_state)
   RCLCPP_DEBUG(parent_node_->get_logger(), "Sending navigation feedback");
   control_pub_->publish(feedback);
   *last_control_ = feedback;
-
-  if (nav_state.has("robot_pose")) {
-    check_goals(
-      nav_state.get_ref<nav_msgs::msg::Odometry>("robot_pose").pose.pose,
-      position_tolerance_, angle_tolerance_);
-
-    nav_state.set("goals", goals_);
-
-    if (goals_.goals.empty()) {
-      set_finished();
-    }
-  }
-
-  nav_state.set("navigation_state", state_);
 }
 
 void

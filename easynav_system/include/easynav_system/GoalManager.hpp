@@ -66,6 +66,7 @@ public:
    * @param parent_node Lifecycle node for parameter and interface management.
    */
   GoalManager(
+    NavState & nav_state,
     rclcpp_lifecycle::LifecycleNode::SharedPtr parent_node);
 
   /**

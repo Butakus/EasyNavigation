@@ -130,7 +130,7 @@ private:
   sensor_msgs::msg::PointCloud2 perecption_msg_;
 
   /// @brief Current set of active perceptions.
-  Perceptions perceptions_;
+  std::shared_ptr<Perceptions> perceptions_;
 
   /// @brief Maximum time (seconds) a perception remains valid.
   double forget_time_;

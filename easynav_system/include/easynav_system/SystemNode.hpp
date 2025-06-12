@@ -160,7 +160,7 @@ private:
   SensorsNode::SharedPtr sensors_node_;
 
   /// @brief Shared navigation state.
-  std::atomic<std::shared_ptr<const NavState>> nav_state_;
+  std::shared_ptr<NavState> nav_state_;
 
   /// @brief Goal manager.
   GoalManager::SharedPtr goal_manager_;

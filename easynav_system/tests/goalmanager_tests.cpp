@@ -22,6 +22,7 @@
 #include "easynav_system/GoalManagerClient.hpp"
 #include "easynav_common/types/NavState.hpp"
 
+#include "nav_msgs/msg/odometry.hpp"
 
 #include "rclcpp/node.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
@@ -58,7 +59,7 @@ using namespace std::chrono_literals;
 TEST_F(GoalManagerTestCase, initpose_topic)
 {
   auto nav_state = std::make_shared<easynav::NavState>();
-  nav_state->set("odom", nav_msgs::msg::Odometry());
+  nav_state->set("robot_pose", nav_msgs::msg::Odometry());
 
   auto client_node = rclcpp::Node::make_shared("client_node");
   auto system_node = rclcpp_lifecycle::LifecycleNode::make_shared("system_node");
@@ -80,8 +81,7 @@ TEST_F(GoalManagerTestCase, initpose_topic)
       last_control = *msg;
     });
 
-  auto gm_server = easynav::GoalManager::make_shared(system_node);
-  gm_server->update(*nav_state);
+  auto gm_server = easynav::GoalManager::make_shared(*nav_state, system_node);
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
   ASSERT_TRUE(nav_state->has("navigation_state"));
@@ -157,7 +157,7 @@ TEST_F(GoalManagerTestCase, initpose_topic)
 TEST_F(GoalManagerTestCase, initpose_topic_with_preempt)
 {
   auto nav_state = std::make_shared<easynav::NavState>();
-  nav_state->set("odom", nav_msgs::msg::Odometry());
+  nav_state->set("robot_pose", nav_msgs::msg::Odometry());
   auto client_node = rclcpp::Node::make_shared("client_node");
   auto system_node = rclcpp_lifecycle::LifecycleNode::make_shared("system_node");
 
@@ -178,10 +178,8 @@ TEST_F(GoalManagerTestCase, initpose_topic_with_preempt)
       last_control = *msg;
     });
 
-  auto gm_server = easynav::GoalManager::make_shared(system_node);
+  auto gm_server = easynav::GoalManager::make_shared(*nav_state, system_node);
   auto gm_client = easynav::GoalManagerClient::make_shared(client_node);
-
-  gm_server->update(*nav_state);
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
   ASSERT_TRUE(nav_state->has("navigation_state"));
@@ -305,7 +303,7 @@ TEST_F(GoalManagerTestCase, initpose_topic_with_preempt)
 TEST_F(GoalManagerTestCase, simple_nav_node)
 {
   auto nav_state = std::make_shared<easynav::NavState>();
-  nav_state->set("odom", nav_msgs::msg::Odometry());
+  nav_state->set("robot_pose", nav_msgs::msg::Odometry());
   auto client_node = rclcpp::Node::make_shared("client_node");
   auto system_node = rclcpp_lifecycle::LifecycleNode::make_shared("system_node");
 
@@ -317,9 +315,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   exe.add_node(system_node->get_node_base_interface());
 
   auto gm_client = easynav::GoalManagerClient::make_shared(client_node);
-  auto gm_server = easynav::GoalManager::make_shared(system_node);
-
-  gm_server->update(*nav_state);
+  auto gm_server = easynav::GoalManager::make_shared(*nav_state, system_node);
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
   ASSERT_TRUE(nav_state->has("navigation_state"));
@@ -1022,7 +1018,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 TEST_F(GoalManagerTestCase, two_clients)
 {
   auto nav_state = std::make_shared<easynav::NavState>();
-  nav_state->set("odom", nav_msgs::msg::Odometry());
+  nav_state->set("robot_pose", nav_msgs::msg::Odometry());
   auto client_node1 = rclcpp::Node::make_shared("client_node1");
   auto client_node2 = rclcpp::Node::make_shared("client_node2");
   auto system_node = rclcpp_lifecycle::LifecycleNode::make_shared("system_node");
@@ -1038,9 +1034,7 @@ TEST_F(GoalManagerTestCase, two_clients)
 
   auto gm_client1 = easynav::GoalManagerClient::make_shared(client_node1);
   auto gm_client2 = easynav::GoalManagerClient::make_shared(client_node2);
-  auto gm_server = easynav::GoalManager::make_shared(system_node);
-
-  gm_server->update(*nav_state);
+  auto gm_server = easynav::GoalManager::make_shared(*nav_state, system_node);
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
   ASSERT_TRUE(nav_state->has("navigation_state"));

@@ -47,23 +47,31 @@ SystemNode::SystemNode(const rclcpp::NodeOptions & options)
 {
   realtime_cbg_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
 
-  auto nav_state = std::make_shared<NavState>();
-  nav_state->set("perceptions", Perceptions());
-  nav_state->set("path", nav_msgs::msg::Path());
-  nav_state->set("goals", nav_msgs::msg::Goals());
-  nav_state->set("cmd_vel", geometry_msgs::msg::TwistStamped());
-  nav_state_.store(nav_state);
+  nav_state_ = std::make_shared<NavState>();
 
   NavState::register_printer<Perceptions>(
     [](const Perceptions & perceptions) {
       std::string ret = "Perception " + std::to_string(perceptions.size()) + " with :\n";
       for (const auto & perception : perceptions) {
         std::string p_str = "\t--> " + std::to_string(perception.perception->load()->data.size()) +
-        " points [" + perception.perception->load()->frame_id + "]\n";
+        " points [" + perception.perception->load()->frame_id + "] " +
+        std::to_string(perception.perception->load()->stamp.seconds()) + "\n";
         ret = ret + p_str;
       }
       return ret;
     });
+
+  NavState::register_printer<nav_msgs::msg::Goals>(
+    [](const nav_msgs::msg::Goals & goals) {
+      std::string ret = "Goals " + std::to_string(goals.goals.size()) + " with :\n";
+      for (const auto & goal : goals.goals) {
+        std::string p_str = "\t--> (" + std::to_string(goal.pose.position.x) + ", " +
+        std::to_string(goal.pose.position.y) + ")\n";
+        ret = ret + p_str;
+      }
+      return ret;
+    });
+
 
   controller_node_ = ControllerNode::make_shared();
   localizer_node_ = LocalizerNode::make_shared();
@@ -108,7 +116,7 @@ SystemNode::on_configure(const rclcpp_lifecycle::State & state)
     }
   }
 
-  goal_manager_ = GoalManager::make_shared(shared_from_this());
+  goal_manager_ = GoalManager::make_shared(*nav_state_, shared_from_this());
 
   return CallbackReturnT::SUCCESS;
 }
@@ -191,37 +199,33 @@ SystemNode::system_cycle_rt()
 {
   EASYNAV_TRACE_EVENT;
 
-  auto old_state = nav_state_.load();
-  auto new_state = std::make_shared<NavState>(*old_state);
-
-  bool trigger_perceptions = sensors_node_->cycle_rt(new_state);
-  bool trigger_localization = localizer_node_->cycle_rt(new_state, trigger_perceptions);
+  bool trigger_perceptions = sensors_node_->cycle_rt(nav_state_);
+  bool trigger_localization = localizer_node_->cycle_rt(nav_state_, trigger_perceptions);
 
   bool trigger_controller = false;
   bool robot_idle_stop = true;
 
-  const auto & navigation_state = new_state->get_ref<GoalManager::State>("navigation_state");
+  const auto & navigation_state = nav_state_->get<GoalManager::State>("navigation_state");
 
+  // Hay que quitar esto
   if (navigation_state == GoalManager::State::IDLE) {
     geometry_msgs::msg::TwistStamped cmd_vel;
     cmd_vel.header.stamp = now();
 
-    new_state->set("cmd_vel", cmd_vel);
+    nav_state_->set("cmd_vel", cmd_vel);
   } else {
     bool trigger = trigger_perceptions || trigger_localization;
-    trigger_controller = controller_node_->cycle_rt(new_state, trigger);
+    trigger_controller = controller_node_->cycle_rt(nav_state_, trigger);
   }
 
   if (trigger_controller || !robot_idle_stop) {
     if (vel_pub_stamped_->get_subscription_count()) {
-      vel_pub_stamped_->publish(new_state->get_ref<geometry_msgs::msg::TwistStamped>("cmd_vel"));
+      vel_pub_stamped_->publish(nav_state_->get_ref<geometry_msgs::msg::TwistStamped>("cmd_vel"));
     }
     if (vel_pub_->get_subscription_count()) {
-      vel_pub_->publish(new_state->get_ref<geometry_msgs::msg::TwistStamped>("cmd_vel").twist);
+      vel_pub_->publish(nav_state_->get_ref<geometry_msgs::msg::TwistStamped>("cmd_vel").twist);
     }
   }
-
-  nav_state_.store(new_state);
 }
 
 void
@@ -229,20 +233,14 @@ SystemNode::system_cycle()
 {
   EASYNAV_TRACE_EVENT;
 
-  auto old_state = nav_state_.load();
-  auto new_state = std::make_shared<NavState>(*old_state);
+  sensors_node_->cycle(nav_state_);
+  localizer_node_->cycle(nav_state_);
+  maps_manager_node_->cycle(nav_state_);
 
-  sensors_node_->cycle(new_state);
-  localizer_node_->cycle(new_state);
-  maps_manager_node_->cycle(new_state);
+  const auto & navigation_state = nav_state_->get_ref<GoalManager::State>("navigation_state");
 
-  const auto & navigation_state = new_state->get_ref<GoalManager::State>("navigation_state");
-  if (navigation_state == GoalManager::State::IDLE) {return;}
-
-  goal_manager_->update(*new_state);
-  planner_node_->cycle(new_state);
-
-  nav_state_.store(new_state);
+  goal_manager_->update(*nav_state_);
+  planner_node_->cycle(nav_state_);
 }
 
 std::map<std::string, SystemNodeInfo>

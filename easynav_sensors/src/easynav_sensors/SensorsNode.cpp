@@ -59,6 +59,7 @@ SensorsNode::SensorsNode(const rclcpp::NodeOptions & options)
     declare_parameter("perception_default_frame", perception_default_frame_);
   }
 
+  perceptions_ = std::make_shared<Perceptions>();
 }
 
 SensorsNode::~SensorsNode()
@@ -110,7 +111,7 @@ SensorsNode::on_configure(const rclcpp_lifecycle::State & state)
       return CallbackReturnT::FAILURE;
     }
 
-    perceptions_.push_back(perception_entry);
+    perceptions_->push_back(perception_entry);
   }
 
   return CallbackReturnT::SUCCESS;
@@ -172,13 +173,13 @@ SensorsNode::cycle_rt(std::shared_ptr<NavState> nav_state, bool trigger)
   (void)trigger;
 
   bool trigger_perceptions = false;
-  for (const auto & p : perceptions_) {
+  for (const auto & p : *perceptions_) {
     auto perception = p.perception->load();
     trigger_perceptions = trigger_perceptions || perception->new_data;
     perception->new_data = false;
   }
 
-  nav_state->set("perceptions", perceptions_);
+  nav_state->set_shared_ptr("perceptions", perceptions_);
 
   return trigger_perceptions;
 }
@@ -188,17 +189,17 @@ SensorsNode::cycle(std::shared_ptr<NavState> nav_state)
 {
   EASYNAV_TRACE_EVENT;
 
-  for (auto & p : perceptions_) {
+  for (auto & p : *perceptions_) {
     auto perception = p.perception->load();
     if (perception->valid && (now() - perception->stamp).seconds() > forget_time_) {
       perception->valid = false;
     }
   }
 
-  nav_state->set("perceptions", perceptions_);
+  nav_state->set_shared_ptr("perceptions", perceptions_);
 
   if (percept_pub_->get_subscription_count() > 0) {
-    auto fused = PerceptionsOpsView(perceptions_)
+    auto fused = PerceptionsOpsView(*perceptions_)
       .fuse(perception_default_frame_);
 
     auto fused_points = fused->as_points();

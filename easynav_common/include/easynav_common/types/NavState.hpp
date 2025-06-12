@@ -20,229 +20,166 @@
 /// \file
 /// \brief A blackboard-like structure to hold the current state of the navigation system.
 
-#ifndef EASYNAV_COMMON_TYPES__NAVSTATE_HPP_
-#define EASYNAV_COMMON_TYPES__NAVSTATE_HPP_
+
+#ifndef EASYNAV__TYPES__NAVSTATE_HPP_
+#define EASYNAV__TYPES__NAVSTATE_HPP_
 
 #include <string>
-#include <map>
-#include <any>
-#include <typeinfo>
+#include <unordered_map>
+#include <memory>
+#include <atomic>
 #include <stdexcept>
 #include <sstream>
-#include <execinfo.h>
-#include <unistd.h>
-#include <cstdlib>
+#include <type_traits>
 #include <iostream>
-
-#include "rclcpp/time.hpp"
-#include "nav_msgs/msg/odometry.hpp"
-#include "nav_msgs/msg/path.hpp"
-#include "nav_msgs/msg/goals.hpp"
-#include "geometry_msgs/msg/twist_stamped.hpp"
-
-#include "easynav_common/types/Perceptions.hpp"
+#include <functional>
+#include <execinfo.h>
+#include <typeinfo>
 
 namespace easynav
 {
 
-/**
- * @brief A typed key-value store for sharing navigation-related state.
- *
- * Provides safe typed access to stored values using std::any.
- */
 class NavState
 {
 public:
-  /**
-   * @brief Stores a value of any type under the given key.
-   *
-   * @tparam T Type of the value.
-   * @param key Identifier to store the value under.
-   * @param value The value to store.
-   */
+  NavState()
+  {
+    register_basic_printers();
+  }
+  virtual ~NavState() = default;
+
   template<typename T>
   void set(const std::string & key, const T & value)
   {
-    data_[key] = value;
+    static_assert(std::is_copy_constructible_v<T>, "T must be copy constructible");
+    auto ptr = std::make_shared<T>(value);
+    std::atomic_store(&values_[key], std::static_pointer_cast<void>(ptr));
+    types_[key] = typeid(T).hash_code();
   }
 
-  /**
-   * @brief Retrieves a copy of the value stored under the given key.
-   *
-   * @tparam T Expected type of the value.
-   * @param key Key of the value.
-   * @return T Copy of the stored value.
-   * @throws std::bad_cast if the stored type does not match T.
-   * @throws std::out_of_range if the key is not found.
-   */
+  template<typename T>
+  void set_ptr(const std::string & key, T * raw_ptr)
+  {
+    if (raw_ptr == nullptr) {
+      throw std::invalid_argument("Cannot store nullptr in set_ptr");
+    }
+    std::shared_ptr<T> shared(raw_ptr, [](T *){});
+    std::atomic_store(&values_[key], std::static_pointer_cast<void>(shared));
+    types_[key] = typeid(T).hash_code();
+  }
+
+  template<typename T>
+  void set_shared_ptr(const std::string & key, std::shared_ptr<T> shared)
+  {
+    if (!shared) {
+      throw std::invalid_argument("Cannot store nullptr shared_ptr in set_shared_ptr");
+    }
+    std::atomic_store(&values_[key], std::static_pointer_cast<void>(shared));
+    types_[key] = typeid(T).hash_code();
+  }
+
   template<typename T>
   T get(const std::string & key) const
   {
-    const auto & any_ref = get_raw(key);
-    try {
-      return std::any_cast<T>(any_ref);
-    } catch (const std::bad_any_cast &) {
-      std::cerr << "[NavState] std::bad_cast in get<" << typeid(T).name() << ">(\"" <<
-        key << "\")\n";
-      print_stacktrace();
-      throw std::bad_cast();
-    }
+    return *get_ptr<T>(key);
   }
 
-  /**
-   * @brief Retrieves a mutable reference to the stored value.
-   *
-   * @tparam T Expected type of the value.
-   * @param key Key of the value.
-   * @return T& Reference to the stored value.
-   * @throws std::bad_cast if the stored type does not match T.
-   * @throws std::out_of_range if the key is not found.
-   */
-  template<typename T>
-  T & get_mutable(const std::string & key)
-  {
-    auto & any_ref = get_raw_mutable(key);
-    T * ptr = std::any_cast<T>(&any_ref);
-    if (!ptr) {
-      std::cerr << "[NavState] std::bad_cast in get_mutable<" << typeid(T).name() << ">(\"" <<
-        key << "\")\n";
-      print_stacktrace();
-      throw std::bad_cast();
-    }
-    return *ptr;
-  }
-
-  /**
-   * @brief Retrieves a const reference to the stored value (no copy).
-   *
-   * @tparam T Expected type of the value.
-   * @param key Key of the value.
-   * @return const T& Const reference to the stored value.
-   * @throws std::bad_cast if the stored type does not match T.
-   * @throws std::out_of_range if the key is not found.
-   */
   template<typename T>
   const T & get_ref(const std::string & key) const
   {
-    const auto & any_ref = get_raw(key);
-    const T * ptr = std::any_cast<T>(&any_ref);
-    if (!ptr) {
-      std::cerr << "[NavState] std::bad_cast in get_ref<" << typeid(T).name() << ">(\"" <<
-        key << "\")\n";
-      print_stacktrace();
-      throw std::bad_cast();
-    }
-    return *ptr;
+    return *get_ptr<T>(key);
   }
 
-  /**
-   * @brief Checks whether a key exists.
-   */
+  template<typename T>
+  std::shared_ptr<T> get_ptr(const std::string & key) const
+  {
+    auto it = values_.find(key);
+    if (it == values_.end()) {
+      print_stacktrace();
+      throw std::out_of_range("Key not found: " + key);
+    }
+
+    auto base_ptr = std::atomic_load(&it->second);
+    if (!base_ptr) {
+      print_stacktrace();
+      throw std::runtime_error("Null pointer in NavState at key: " + key);
+    }
+
+    return std::static_pointer_cast<T>(base_ptr);
+  }
+
   bool has(const std::string & key) const
   {
-    return data_.find(key) != data_.end();
+    return values_.find(key) != values_.end();
   }
 
-  /**
-   * @brief Removes all entries from the state.
-   */
-  void clear()
-  {
-    data_.clear();
-  }
+  using AnyPrinter = std::function<std::string(std::shared_ptr<void>)>;
 
-  /**
-   * @brief Registers a printer function for a specific type T.
-   */
   template<typename T>
   static void register_printer(std::function<std::string(const T &)> printer)
   {
-    auto wrapper = [printer](const std::any & val) -> std::string {
-        return printer(std::any_cast<const T &>(val));
+    auto wrapper = [printer](std::shared_ptr<void> base_ptr) -> std::string {
+        auto typed_ptr = std::static_pointer_cast<T>(base_ptr);
+        return printer(*typed_ptr);
       };
-    printers_[std::type_index(typeid(T))] = wrapper;
+    type_printers_[typeid(T).hash_code()] = wrapper;
   }
 
-  /**
-   * @brief Returns a debug string of the entire NavState content.
-   */
   std::string debug_string() const
   {
-    std::ostringstream out;
-    for (const auto & [key, val] : data_) {
-      out << key << ": ";
-      auto it = printers_.find(std::type_index(val.type()));
-      if (it != printers_.end()) {
-        try {
-          out << it->second(val);
-        } catch (...) {
-          out << "<error printing value>";
+    std::stringstream ss;
+    for (const auto & kv : values_) {
+      ss << kv.first << " = ";
+      auto ptr = std::atomic_load(&kv.second);
+      if (ptr) {
+        auto type_it = types_.find(kv.first);
+        if (type_it != types_.end()) {
+          auto printer_it = type_printers_.find(type_it->second);
+          if (printer_it != type_printers_.end()) {
+            ss << printer_it->second(ptr);
+          } else {
+            ss << "[" << ptr.get() << " : " << type_it->second << "]";
+          }
+        } else {
+          ss << "[" << ptr.get() << " : unknown]";
         }
       } else {
-        out << "<" << val.type().name() << ">";
+        ss << "[null]";
       }
-      out << "\n";
+      ss << std::endl;
     }
-    return out.str();
+    return ss.str();
+  }
+
+  static void print_stacktrace()
+  {
+    void *array[50];
+    int size = backtrace(array, 50);
+    char **strings = backtrace_symbols(array, size);
+    std::cerr << "\nStack trace:\n";
+    for (int i = 0; i < size; ++i) {
+      std::cerr << strings[i] << std::endl;
+    }
+    std::cerr << std::endl;
+    free(strings);
+  }
+
+  static void register_basic_printers()
+  {
+    register_printer<int>([](const int & v) {return std::to_string(v);});
+    register_printer<float>([](const float & v) {return std::to_string(v);});
+    register_printer<double>([](const double & v) {return std::to_string(v);});
+    register_printer<std::string>([](const std::string & v) {return v;});
+    register_printer<bool>([](const bool & v) {return v ? "true" : "false";});
+    register_printer<char>([](const char & v) {return std::string(1, v);});
   }
 
 private:
-  /**
-   * @brief Internal access to the std::any associated with a key.
-   *
-   * @param key Key to look up.
-   * @return const std::any& Reference to the stored any object.
-   * @throws std::out_of_range if the key is not found.
-   */
-  const std::any & get_raw(const std::string & key) const
-  {
-    auto it = data_.find(key);
-    if (it == data_.end()) {
-      throw std::out_of_range("Key not found in NavState: " + key);
-    }
-    return it->second;
-  }
-
-  /**
-   * @brief Internal mutable access to the std::any associated with a key.
-   *
-   * @param key Key to look up.
-   * @return std::any& Reference to the stored any object.
-   * @throws std::out_of_range if the key is not found.
-   */
-  std::any & get_raw_mutable(const std::string & key)
-  {
-    auto it = data_.find(key);
-    if (it == data_.end()) {
-      throw std::out_of_range("Key not found in NavState: " + key);
-    }
-    return it->second;
-  }
-
-  void print_stacktrace(std::ostream & out = std::cerr, int max_frames = 64) const
-  {
-    void * addrlist[max_frames + 1];
-    int addrlen = backtrace(addrlist, max_frames);
-
-    if (addrlen == 0) {
-      out << "  <empty stack>\n";
-      return;
-    }
-
-    char ** symbols = backtrace_symbols(addrlist, addrlen);
-    out << "  Stack trace:\n";
-    for (int i = 1; i < addrlen; ++i) {
-      out << "    " << symbols[i] << "\n";
-    }
-    free(symbols);
-  }
-
-  std::map<std::string, std::any> data_;
-
-  using AnyPrinter = std::function<std::string(const std::any &)>;
-  static inline std::map<std::type_index, AnyPrinter> printers_;
+  mutable std::unordered_map<std::string, std::atomic<std::shared_ptr<void>>> values_;
+  mutable std::unordered_map<std::string, size_t> types_;
+  static inline std::unordered_map<size_t, AnyPrinter> type_printers_;
 };
 
 }  // namespace easynav
 
-#endif  // EASYNAV_COMMON_TYPES__NAVSTATE_HPP_
+#endif  // EASYNAV__TYPES__NAVSTATE_HPP_
