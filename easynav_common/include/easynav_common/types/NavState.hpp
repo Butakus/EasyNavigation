@@ -132,6 +132,8 @@ public:
 
   /// \brief Returns a const reference to the value stored under the key.
   ///
+  /// This function is extremelly dangerous. Use only if you are sure it will not change
+  ///
   /// \tparam T Expected type.
   /// \param key Lookup key.
   /// \return Const reference to the stored value.

@@ -275,7 +275,7 @@ GoalManager::update(NavState & nav_state)
   }
 
   check_goals(
-    nav_state.get_ref<nav_msgs::msg::Odometry>("robot_pose").pose.pose,
+    nav_state.get<nav_msgs::msg::Odometry>("robot_pose").pose.pose,
     position_tolerance_, angle_tolerance_);
 
   if (!nav_state.has("goals") || nav_state.get<nav_msgs::msg::Goals>("goals") != goals_) {
@@ -297,9 +297,9 @@ GoalManager::update(NavState & nav_state)
   feedback.user_id = id_;
   feedback.nav_current_user_id = current_client_id_;
 
-  const auto & odom = nav_state.get_ref<nav_msgs::msg::Odometry>("robot_pose");
+  const auto odom = nav_state.get<nav_msgs::msg::Odometry>("robot_pose");
 
-  feedback.goals = nav_state.get_ref<nav_msgs::msg::Goals>("goals");
+  feedback.goals = nav_state.get<nav_msgs::msg::Goals>("goals");
   feedback.current_pose.header = odom.header;
   feedback.current_pose.pose = odom.pose.pose;
   feedback.navigation_time = parent_node_->now() - nav_start_time_;

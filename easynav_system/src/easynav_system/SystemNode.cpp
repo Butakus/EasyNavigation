@@ -226,27 +226,6 @@ SystemNode::system_cycle_rt()
       vel_pub_->publish(current_cmd_vel.twist);
     }
   }
-
-/*  // Hay que quitar esto
-  if (navigation_state == GoalManager::State::IDLE) {
-    robot_idle_stop = current_cmd_vel.twist == geometry_msgs::msg::Twist();
-    current_cmd_vel.header.stamp = now();
-    current_cmd_vel.twist = geometry_msgs::msg::Twist();
-
-    nav_state_->set("cmd_vel", current_cmd_vel);
-  } else {
-    bool trigger = trigger_perceptions || trigger_localization;
-    trigger_controller = controller_node_->cycle_rt(nav_state_, trigger);
-  }
-
-  if (trigger_controller || !robot_idle_stop) {
-    if (vel_pub_stamped_->get_subscription_count()) {
-      vel_pub_stamped_->publish(current_cmd_vel);
-    }
-    if (vel_pub_->get_subscription_count()) {
-      vel_pub_->publish(current_cmd_vel.twist);
-    }
-  }*/
 }
 
 void
