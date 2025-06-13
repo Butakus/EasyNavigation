@@ -118,7 +118,7 @@ TEST_F(NavStateTest, DebugStringWithPosePrinter)
 
   EXPECT_NE(output.find("Position: (1, 2, 3)"), std::string::npos);
   EXPECT_NE(output.find("Orientation:"), std::string::npos);
-  EXPECT_NE(output.find("age = 10"), std::string::npos);
+  EXPECT_NE(output.find(": 10"), std::string::npos);
 }
 
 TEST(NavStateStressTest, ConcurrentMultiKeyReadWrite)

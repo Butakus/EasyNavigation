@@ -23,6 +23,7 @@
 #include "easynav_sensors/SensorsNode.hpp"
 #include "easynav_common/RTTFBuffer.hpp"
 #include "easynav_common/types/NavState.hpp"
+#include "easynav_common/types/PointPerception.hpp"
 
 #include "lifecycle_msgs/msg/transition.hpp"
 #include "lifecycle_msgs/msg/state.hpp"
@@ -312,12 +313,13 @@ TEST_F(SensorsNodeTestCase, convert_scan2pc)
 
 TEST_F(SensorsNodeTestCase, percept_laserscan)
 {
+  auto nav_state = std::make_shared<easynav::NavState>();
+
   auto sensors_node = easynav::SensorsNode::make_shared();
   auto test_node = rclcpp::Node::make_shared("test_node");
   auto laser_pub = test_node->create_publisher<sensor_msgs::msg::LaserScan>(
     "/scan1", rclcpp::SensorDataQoS().reliable());
 
-  auto nav_state = std::make_shared<easynav::NavState>();
 
   rclcpp::executors::SingleThreadedExecutor exe;
   exe.add_node(sensors_node->get_node_base_interface());
@@ -329,11 +331,13 @@ TEST_F(SensorsNodeTestCase, percept_laserscan)
 
   std::vector<std::string> sensors = {"laser1"};
   sensors_node->declare_parameter("laser1.topic", std::string("/scan1"));
-  sensors_node->declare_parameter("laser1.type", std::string("LaserScan"));
+  sensors_node->declare_parameter("laser1.type", std::string("sensor_msgs/msg/LaserScan"));
+  sensors_node->declare_parameter("laser1.group", std::string("points"));
   sensors_node->set_parameter({"sensors", sensors});
   sensors_node->set_parameter({"forget_time", 0.5});
   sensors_node->set_parameter({"laser1.topic", std::string("/scan1")});
-  sensors_node->set_parameter({"laser1.type", std::string("LaserScan")});
+  sensors_node->set_parameter({"laser1.type", std::string("sensor_msgs/msg/LaserScan")});
+  sensors_node->set_parameter({"laser1.group", std::string("points")});
 
   {
     auto start = test_node->now();
@@ -363,14 +367,15 @@ TEST_F(SensorsNodeTestCase, percept_laserscan)
     }
   }
 
-  auto perceptions = nav_state->get<easynav::Perceptions>("perceptions");
+  std::cerr << nav_state->debug_string() << std::endl;
+
+  auto perceptions = nav_state->get<easynav::PointPerceptions>("points");
 
   ASSERT_EQ(perceptions.size(), 1u);
-  ASSERT_EQ(perceptions[0].perception->load()->data.size(), 16u);
-  ASSERT_NEAR((test_node->now() - perceptions[0].perception->load()->stamp).seconds(), 0.0, 0.001);
-  ASSERT_EQ(perceptions[0].perception->load()->frame_id, "base_laser");
-  ASSERT_EQ(perceptions[0].perception->load()->valid, true);
-  ASSERT_NE(perceptions[0].subscription, nullptr);
+  ASSERT_EQ(perceptions[0]->load()->data.size(), 16u);
+  ASSERT_NEAR((test_node->now() - perceptions[0]->load()->stamp).seconds(), 0.0, 0.001);
+  ASSERT_EQ(perceptions[0]->load()->frame_id, "base_laser");
+  ASSERT_EQ(perceptions[0]->load()->valid, true);
 
   {
     auto start = test_node->now();
@@ -380,25 +385,24 @@ TEST_F(SensorsNodeTestCase, percept_laserscan)
     }
   }
 
-  perceptions = nav_state->get<easynav::Perceptions>("perceptions");
+  perceptions = nav_state->get<easynav::PointPerceptions>("points");
 
   ASSERT_EQ(perceptions.size(), 1u);
-  ASSERT_EQ(perceptions[0].perception->load()->data.size(), 16u);
-  ASSERT_EQ(perceptions[0].perception->load()->frame_id, "base_laser");
-  ASSERT_EQ(perceptions[0].perception->load()->valid, false);
-  ASSERT_NE(perceptions[0].subscription, nullptr);
+  ASSERT_EQ(perceptions[0]->load()->data.size(), 16u);
+  ASSERT_EQ(perceptions[0]->load()->frame_id, "base_laser");
+  ASSERT_EQ(perceptions[0]->load()->valid, false);
 }
 
 TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
 {
+  auto nav_state = std::make_shared<easynav::NavState>();
+
   auto sensors_node = easynav::SensorsNode::make_shared();
   auto test_node = rclcpp::Node::make_shared("test_node");
   auto laser1_pub = test_node->create_publisher<sensor_msgs::msg::LaserScan>(
     "/scan1", rclcpp::SensorDataQoS().reliable());
   auto laser2_pub = test_node->create_publisher<sensor_msgs::msg::LaserScan>(
     "/scan2", rclcpp::SensorDataQoS().reliable());
-
-  auto nav_state = std::make_shared<easynav::NavState>();
 
   sensor_msgs::msg::PointCloud2::SharedPtr fused_perception;
   auto fused_percept_sub = test_node->create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -427,15 +431,20 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
 
   std::vector<std::string> sensors = {"laser1", "laser2"};
   sensors_node->declare_parameter("laser1.topic", std::string("/scan1"));
-  sensors_node->declare_parameter("laser1.type", std::string("LaserScan"));
+  sensors_node->declare_parameter("laser1.type", std::string("sensor_msgs/msg/LaserScan"));
+  sensors_node->declare_parameter("laser1.group", std::string("points"));
   sensors_node->declare_parameter("laser2.topic", std::string("/scan2"));
-  sensors_node->declare_parameter("laser2.type", std::string("LaserScan"));
+  sensors_node->declare_parameter("laser2.type", std::string("sensor_msgs/msg/LaserScan"));
+  sensors_node->declare_parameter("laser2.group", std::string("points"));
+
   sensors_node->set_parameter({"sensors", sensors});
   sensors_node->set_parameter({"forget_time", 0.5});
   sensors_node->set_parameter({"laser1.topic", std::string("/scan1")});
-  sensors_node->set_parameter({"laser1.type", std::string("LaserScan")});
+  sensors_node->set_parameter({"laser1.type", std::string("sensor_msgs/msg/LaserScan")});
+  sensors_node->set_parameter({"laser1.group", std::string("points")});
   sensors_node->set_parameter({"laser2.topic", std::string("/scan2")});
-  sensors_node->set_parameter({"laser2.type", std::string("LaserScan")});
+  sensors_node->set_parameter({"laser2.type", std::string("sensor_msgs/msg/LaserScan")});
+  sensors_node->set_parameter({"laser2.group", std::string("points")});
 
   {
     auto start = test_node->now();
@@ -494,20 +503,18 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
       exe.spin_some();
     }
 
-    auto perceptions = nav_state->get<easynav::Perceptions>("perceptions");
+    auto perceptions = nav_state->get<easynav::PointPerceptions>("points");
 
     ASSERT_EQ(perceptions.size(), 2u);
-    ASSERT_EQ(perceptions[0].perception->load()->data.size(), 16u);
-    ASSERT_NEAR((test_node->now() - perceptions[0].perception->load()->stamp).seconds(),
+    ASSERT_EQ(perceptions[0]->load()->data.size(), 16u);
+    ASSERT_NEAR((test_node->now() - perceptions[0]->load()->stamp).seconds(),
       0.0, 0.001);
-    ASSERT_EQ(perceptions[0].perception->load()->valid, true);
-    ASSERT_NE(perceptions[0].subscription, nullptr);
-    ASSERT_EQ(perceptions[1].perception->load()->data.size(), 16u);
-    ASSERT_NEAR((test_node->now() - perceptions[1].perception->load()->stamp).seconds(),
+    ASSERT_EQ(perceptions[0]->load()->valid, true);
+    ASSERT_EQ(perceptions[1]->load()->data.size(), 16u);
+    ASSERT_NEAR((test_node->now() - perceptions[1]->load()->stamp).seconds(),
       0.0, 0.02);
-    ASSERT_EQ(perceptions[1].perception->load()->valid, true);
-    ASSERT_NE(perceptions[1].subscription, nullptr);
-    ASSERT_LT(perceptions[1].perception->load()->stamp, perceptions[0].perception->load()->stamp);
+    ASSERT_EQ(perceptions[1]->load()->valid, true);
+    ASSERT_LT(perceptions[1]->load()->stamp, perceptions[0]->load()->stamp);
 
     ASSERT_NE(fused_perception, nullptr);
 
@@ -543,17 +550,15 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
       exe.spin_some();
     }
 
-    auto perceptions = nav_state->get<easynav::Perceptions>("perceptions");
+    auto perceptions = nav_state->get<easynav::PointPerceptions>("points");
 
     ASSERT_EQ(perceptions.size(), 2u);
-    ASSERT_EQ(perceptions[0].perception->load()->data.size(), 16u);
-    ASSERT_NEAR((test_node->now() - perceptions[0].perception->load()->stamp).seconds(),
+    ASSERT_EQ(perceptions[0]->load()->data.size(), 16u);
+    ASSERT_NEAR((test_node->now() - perceptions[0]->load()->stamp).seconds(),
       0.0, 0.001);
-    ASSERT_EQ(perceptions[0].perception->load()->valid, true);
-    ASSERT_NE(perceptions[0].subscription, nullptr);
-    ASSERT_EQ(perceptions[1].perception->load()->data.size(), 16u);
-    ASSERT_EQ(perceptions[1].perception->load()->valid, false);
-    ASSERT_NE(perceptions[1].subscription, nullptr);
+    ASSERT_EQ(perceptions[0]->load()->valid, true);
+    ASSERT_EQ(perceptions[1]->load()->data.size(), 16u);
+    ASSERT_EQ(perceptions[1]->load()->valid, false);
 
     ASSERT_NE(fused_perception, nullptr);
 
@@ -570,12 +575,12 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
 
 TEST_F(SensorsNodeTestCase, percept_pc2)
 {
+  auto nav_state = std::make_shared<easynav::NavState>();
+
   auto sensors_node = easynav::SensorsNode::make_shared();
   auto test_node = rclcpp::Node::make_shared("test_node");
   auto laser3d_pub = test_node->create_publisher<sensor_msgs::msg::PointCloud2>(
     "/pc1", rclcpp::SensorDataQoS().reliable());
-
-  auto nav_state = std::make_shared<easynav::NavState>();
 
   rclcpp::executors::SingleThreadedExecutor exe;
   exe.add_node(sensors_node->get_node_base_interface());
@@ -587,11 +592,13 @@ TEST_F(SensorsNodeTestCase, percept_pc2)
 
   std::vector<std::string> sensors = {"laser3d1"};
   sensors_node->declare_parameter("laser3d1.topic", std::string("/pc1"));
-  sensors_node->declare_parameter("laser3d1.type", std::string("PointCloud"));
+  sensors_node->declare_parameter("laser3d1.type", std::string("sensor_msgs/msg/PointCloud2"));
+  sensors_node->declare_parameter("laser3d1.group", std::string("points"));
   sensors_node->set_parameter({"sensors", sensors});
   sensors_node->set_parameter({"forget_time", 0.5});
   sensors_node->set_parameter({"laser3d1.topic", std::string("/pc1")});
-  sensors_node->set_parameter({"laser3d1.type", std::string("PointCloud")});
+  sensors_node->set_parameter({"laser3d1.type", std::string("sensor_msgs/msg/PointCloud2")});
+  sensors_node->set_parameter({"laser3d1.group", std::string("points")});
 
   {
     auto start = test_node->now();
@@ -622,15 +629,14 @@ TEST_F(SensorsNodeTestCase, percept_pc2)
     }
   }
 
-  auto perceptions = nav_state->get<easynav::Perceptions>("perceptions");
+  auto perceptions = nav_state->get<easynav::PointPerceptions>("points");
 
   ASSERT_EQ(perceptions.size(), 1u);
-  ASSERT_EQ(perceptions[0].perception->load()->data.size(), 16u);
-  ASSERT_NEAR((test_node->now() - perceptions[0].perception->load()->stamp).seconds(),
+  ASSERT_EQ(perceptions[0]->load()->data.size(), 16u);
+  ASSERT_NEAR((test_node->now() - perceptions[0]->load()->stamp).seconds(),
     0.0, 0.001);
-  ASSERT_EQ(perceptions[0].perception->load()->frame_id, "base_lidar3d");
-  ASSERT_EQ(perceptions[0].perception->load()->valid, true);
-  ASSERT_NE(perceptions[0].subscription, nullptr);
+  ASSERT_EQ(perceptions[0]->load()->frame_id, "base_lidar3d");
+  ASSERT_EQ(perceptions[0]->load()->valid, true);
 
   {
     auto start = test_node->now();
@@ -640,13 +646,12 @@ TEST_F(SensorsNodeTestCase, percept_pc2)
     }
   }
 
-  perceptions = nav_state->get<easynav::Perceptions>("perceptions");
+  perceptions = nav_state->get<easynav::PointPerceptions>("points");
 
   ASSERT_EQ(perceptions.size(), 1u);
-  ASSERT_EQ(perceptions[0].perception->load()->data.size(), 16u);
-  ASSERT_EQ(perceptions[0].perception->load()->frame_id, "base_lidar3d");
-  ASSERT_EQ(perceptions[0].perception->load()->valid, false);
-  ASSERT_NE(perceptions[0].subscription, nullptr);
+  ASSERT_EQ(perceptions[0]->load()->data.size(), 16u);
+  ASSERT_EQ(perceptions[0]->load()->frame_id, "base_lidar3d");
+  ASSERT_EQ(perceptions[0]->load()->valid, false);
 }
 
 /*
@@ -688,20 +693,20 @@ TEST_F(SensorsNodeTestCase, percept_fuse_all)
 
   std::vector<std::string> sensors = {"laser1", "laser2", "laser3d1"};
   sensors_node->declare_parameter("laser1.topic", std::string("/scan1"));
-  sensors_node->declare_parameter("laser1.type", std::string("LaserScan"));
+  sensors_node->declare_parameter("laser1.type", std::string("sensor_msgs/msg/LaserScan"));
   sensors_node->declare_parameter("laser2.topic", std::string("/scan2"));
-  sensors_node->declare_parameter("laser2.type", std::string("LaserScan"));
+  sensors_node->declare_parameter("laser2.type", std::string("sensor_msgs/msg/LaserScan"));
   sensors_node->declare_parameter("laser3d1.topic", std::string("/pc1"));
-  sensors_node->declare_parameter("laser3d1.type", std::string("PointCloud"));
+  sensors_node->declare_parameter("laser3d1.type", std::string("sensor_msgs/msg/PointCloud2"));
 
   sensors_node->set_parameter({"sensors", sensors});
   sensors_node->set_parameter({"forget_time", 0.5});
   sensors_node->set_parameter({"laser1.topic", std::string("/scan1")});
-  sensors_node->set_parameter({"laser1.type", std::string("LaserScan")});
+  sensors_node->set_parameter({"laser1.type", std::string("sensor_msgs/msg/LaserScan")});
   sensors_node->set_parameter({"laser2.topic", std::string("/scan2")});
-  sensors_node->set_parameter({"laser2.type", std::string("LaserScan")});
+  sensors_node->set_parameter({"laser2.type", std::string("sensor_msgs/msg/LaserScan")});
   sensors_node->set_parameter({"laser3d1.topic", std::string("/pc1")});
-  sensors_node->set_parameter({"laser3d1.type", std::string("PointCloud")});
+  sensors_node->set_parameter({"laser3d1.type", std::string("sensor_msgs/msg/PointCloud2")});
   {
     auto start = test_node->now();
     while (test_node->now() - start < 100ms) {
@@ -755,7 +760,7 @@ TEST_F(SensorsNodeTestCase, percept_fuse_all)
       exe.spin_some();
     }
 
-   auto perceptions = nav_state->get<easynav::Perceptions>("perceptions");
+   auto perceptions = nav_state->get<easynav::PointPerceptions>("points");
 
     ASSERT_EQ(perceptions.size(), 3u);
     ASSERT_EQ(perceptions[0]->data.size(), 16u);
@@ -802,7 +807,7 @@ TEST_F(SensorsNodeTestCase, percept_fuse_all)
       exe.spin_some();
     }
 
-   auto perceptions = nav_state->get<easynav::Perceptions>("perceptions");
+   auto perceptions = nav_state->get<easynav::PointPerceptions>("points");
 
     ASSERT_EQ(perceptions.size(), 3u);
     ASSERT_EQ(perceptions[0]->data.size(), 16u);

@@ -33,14 +33,16 @@
 #include "easynav_sensors/SensorsNode.hpp"
 #include "easynav_common/YTSession.hpp"
 
+#include "easynav_common/types/ImagePerception.hpp"
+#include "easynav_common/types/PointPerception.hpp"
+
 namespace easynav
 {
 
 using namespace std::chrono_literals;
 
-SensorsNode::SensorsNode(std::shared_ptr<NavState> nav_state, const rclcpp::NodeOptions & options)
-: LifecycleNode("sensors_node", options),
-  nav_state_(nav_state)
+SensorsNode::SensorsNode(const rclcpp::NodeOptions & options)
+: LifecycleNode("sensors_node", options)
 {
   realtime_cbg_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
 
@@ -84,7 +86,7 @@ SensorsNode::on_configure(const rclcpp_lifecycle::State & state)
   get_parameter("perception_default_frame", perception_default_frame_);
 
   for (const auto & sensor_id : sensors) {
-    std::string topic, type, group;
+    std::string topic, msg_type, group;
 
     if (!has_parameter(sensor_id + ".topic")) {
       declare_parameter(sensor_id + ".topic", topic);
@@ -98,18 +100,19 @@ SensorsNode::on_configure(const rclcpp_lifecycle::State & state)
 
     get_parameter(sensor_id + ".topic", topic);
     get_parameter(sensor_id + ".type", msg_type);
-    get_parameter(sensor_id + ".group", msg_type);
+    get_parameter(sensor_id + ".group", group);
 
     auto handler_it = handlers_.find(group);
     if (handler_it == handlers_.end()) {
-      RCLCPP_WARN(get_logger(), "No handler for group %s", group.c_str());
+      RCLCPP_WARN(get_logger(), "No handler for group [%s]", group.c_str());
       continue;
     }
 
     auto atomic_ptr = std::make_shared<std::atomic<std::shared_ptr<PerceptionBase>>>(
       handler_it->second->create(sensor_id));
 
-    auto sub = handler_it->second->create_subscription(*node, topic, type, atomic_ptr);
+    auto sub = handler_it->second->create_subscription(*this, topic, msg_type, atomic_ptr,
+      realtime_cbg_);
 
     perceptions_[group].emplace_back(PerceptionPtr{atomic_ptr, sub});
   }
@@ -170,20 +173,20 @@ SensorsNode::cycle_rt(std::shared_ptr<NavState> nav_state, bool trigger)
 {
   EASYNAV_TRACE_EVENT;
 
-  /*(void)trigger;
+  (void)trigger;
 
   bool trigger_perceptions = false;
-  for (const auto & p : *perceptions_) {
-    auto perception = p.perception->load();
-    trigger_perceptions = trigger_perceptions || perception->new_data;
-    perception->new_data = false;
+
+  for (auto & group_perceptions : perceptions_) {
+    for (auto & p : group_perceptions.second) {
+      auto perception = p.perception->load();
+      trigger_perceptions = trigger_perceptions || perception->new_data;
+      perception->new_data = false;
+    }
+    nav_state->set(group_perceptions.first, get_point_perceptions(group_perceptions.second));
   }
 
-  nav_state->set_shared_ptr("perceptions", perceptions_);
-
   return trigger_perceptions;
-  */
- return false;
 }
 
 void
@@ -191,27 +194,28 @@ SensorsNode::cycle(std::shared_ptr<NavState> nav_state)
 {
   EASYNAV_TRACE_EVENT;
 
-  /*for (auto & p : *perceptions_) {
-    auto perception = p.perception->load();
-    if (perception->valid && (now() - perception->stamp).seconds() > forget_time_) {
-      perception->valid = false;
+  for (auto & group_perceptions : perceptions_) {
+    for (auto & p : group_perceptions.second) {
+      auto perception = p.perception->load();
+      if (perception->valid && (now() - perception->stamp).seconds() > forget_time_) {
+        perception->valid = false;
+      }
     }
+    nav_state->set(group_perceptions.first, get_point_perceptions(group_perceptions.second));
   }
 
-  nav_state->set_shared_ptr("perceptions", perceptions_);
-
   if (percept_pub_->get_subscription_count() > 0) {
-    auto fused = PerceptionsOpsView(*perceptions_)
+    auto fused = PointPerceptionsOpsView(get_point_perceptions(perceptions_["points"]))
       .fuse(perception_default_frame_);
 
     auto fused_points = fused->as_points();
 
     auto msg = points_to_rosmsg(fused_points);
     msg.header.frame_id = perception_default_frame_;
-    msg.header.stamp = fused->get_perceptions()[0].perception->load()->stamp;
+    msg.header.stamp = fused->get_perceptions()[0]->load()->stamp;
 
     percept_pub_->publish(msg);
-  }*/
+  }
 }
 
 void

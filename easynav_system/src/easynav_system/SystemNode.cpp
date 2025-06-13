@@ -31,6 +31,7 @@
 #include "easynav_planner/PlannerNode.hpp"
 #include "easynav_sensors/SensorsNode.hpp"
 #include "easynav_common/YTSession.hpp"
+#include "easynav_common/types/PointPerception.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/macros.hpp"
@@ -49,17 +50,19 @@ SystemNode::SystemNode(const rclcpp::NodeOptions & options)
 
   nav_state_ = std::make_shared<NavState>();
 
-  NavState::register_printer<Perceptions>(
-    [](const Perceptions & perceptions) {
-      std::string ret = "Perception " + std::to_string(perceptions.size()) + " with :\n";
+  NavState::register_printer<PointPerceptions>(
+    [](const PointPerceptions & perceptions) {
+      std::ostringstream ret;
+      ret << "PointPerception " << perceptions.size() << " with:\n";
       for (const auto & perception : perceptions) {
-        std::string p_str = "\t--> " + std::to_string(perception.perception->load()->data.size()) +
-        " points [" + perception.perception->load()->frame_id + "] " +
-        std::to_string(perception.perception->load()->stamp.seconds()) + "\n";
-        ret = ret + p_str;
+        auto loaded = perception->load();
+        ret << "\t[" << static_cast<const void *>(perception.get()) << "] --> "
+            << loaded->data.size() << " points in frame [" << loaded->frame_id
+            << "] with ts " << loaded->stamp.seconds() << "\n";
       }
-      return ret;
+      return ret.str();
     });
+
 
   NavState::register_printer<nav_msgs::msg::Goals>(
     [](const nav_msgs::msg::Goals & goals) {
@@ -205,14 +208,32 @@ SystemNode::system_cycle_rt()
   bool trigger_controller = false;
   bool robot_idle_stop = true;
 
-  const auto & navigation_state = nav_state_->get<GoalManager::State>("navigation_state");
+  const auto navigation_state = nav_state_->get<GoalManager::State>("navigation_state");
 
-  // Hay que quitar esto
+  geometry_msgs::msg::TwistStamped current_cmd_vel;
+  if (nav_state_->has("cmd_vel")) {
+    current_cmd_vel = nav_state_->get<geometry_msgs::msg::TwistStamped>("cmd_vel");
+  }
+
+  bool trigger = trigger_perceptions || trigger_localization;
+  trigger_controller = controller_node_->cycle_rt(nav_state_, trigger);
+
+  if (trigger_controller) {
+    if (vel_pub_stamped_->get_subscription_count()) {
+      vel_pub_stamped_->publish(current_cmd_vel);
+    }
+    if (vel_pub_->get_subscription_count()) {
+      vel_pub_->publish(current_cmd_vel.twist);
+    }
+  }
+
+/*  // Hay que quitar esto
   if (navigation_state == GoalManager::State::IDLE) {
-    geometry_msgs::msg::TwistStamped cmd_vel;
-    cmd_vel.header.stamp = now();
+    robot_idle_stop = current_cmd_vel.twist == geometry_msgs::msg::Twist();
+    current_cmd_vel.header.stamp = now();
+    current_cmd_vel.twist = geometry_msgs::msg::Twist();
 
-    nav_state_->set("cmd_vel", cmd_vel);
+    nav_state_->set("cmd_vel", current_cmd_vel);
   } else {
     bool trigger = trigger_perceptions || trigger_localization;
     trigger_controller = controller_node_->cycle_rt(nav_state_, trigger);
@@ -220,12 +241,12 @@ SystemNode::system_cycle_rt()
 
   if (trigger_controller || !robot_idle_stop) {
     if (vel_pub_stamped_->get_subscription_count()) {
-      vel_pub_stamped_->publish(nav_state_->get_ref<geometry_msgs::msg::TwistStamped>("cmd_vel"));
+      vel_pub_stamped_->publish(current_cmd_vel);
     }
     if (vel_pub_->get_subscription_count()) {
-      vel_pub_->publish(nav_state_->get_ref<geometry_msgs::msg::TwistStamped>("cmd_vel").twist);
+      vel_pub_->publish(current_cmd_vel.twist);
     }
-  }
+  }*/
 }
 
 void
@@ -236,9 +257,6 @@ SystemNode::system_cycle()
   sensors_node_->cycle(nav_state_);
   localizer_node_->cycle(nav_state_);
   maps_manager_node_->cycle(nav_state_);
-
-  const auto & navigation_state = nav_state_->get_ref<GoalManager::State>("navigation_state");
-
   goal_manager_->update(*nav_state_);
   planner_node_->cycle(nav_state_);
 }

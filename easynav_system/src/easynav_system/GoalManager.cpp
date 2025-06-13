@@ -59,6 +59,17 @@ GoalManager::GoalManager(
   id_ = "easynav_system";
   last_control_ = std::make_unique<easynav_interfaces::msg::NavigationControl>();
 
+  NavState::register_printer<State>(
+    [](const State & state) {
+      std::ostringstream ret;
+      if (state == State::IDLE) {
+        ret << "State IDLE\n";
+      } else {
+        ret << "State ACTIVE\n";
+      }
+      return ret.str();
+    });
+
   // parent_node_->get_logger().set_level(rclcpp::Logger::Level::Debug);
 }
 
@@ -254,6 +265,7 @@ GoalManager::update(NavState & nav_state)
   }
 
   if (state_ == State::IDLE) {
+    nav_state.set("goals", nav_msgs::msg::Goals());
     return;
   }
 

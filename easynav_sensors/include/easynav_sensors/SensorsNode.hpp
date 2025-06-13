@@ -54,7 +54,7 @@ public:
    * @brief Constructor.
    * @param options Node configuration options.
    */
-  explicit SensorsNode(std::shared_ptr<NavState> nav_state, const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+  explicit SensorsNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
   /// @brief Destructor.
   ~SensorsNode();
@@ -139,15 +139,8 @@ private:
 
   std::shared_ptr<NavState> nav_state_;
 
-  std::map<std::string, std::list<PerceptionPtr>> perceptions_;
+  std::map<std::string, std::vector<PerceptionPtr>> perceptions_;
   std::map<std::string, std::shared_ptr<PerceptionHandler>> handlers_;
-
-  template<typename MsgT>
-  rclcpp::SubscriptionBase::SharedPtr create_typed_subscription(
-    const std::string & topic,
-    const std::string & topic,
-  );
-
 };
 
 }  // namespace easynav

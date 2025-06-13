@@ -212,12 +212,12 @@ public:
         if (type_it != types_.end()) {
           auto printer_it = type_printers_.find(type_it->second);
           if (printer_it != type_printers_.end()) {
-            ss << printer_it->second(ptr);
+            ss << "[" << ptr.get() << "] : " << printer_it->second(ptr);
           } else {
-            ss << "[" << ptr.get() << " : " << type_it->second << "]";
+            ss << "[" << ptr.get() << "] : " << type_it->second << "]";
           }
         } else {
-          ss << "[" << ptr.get() << " : unknown]";
+          ss << "[" << ptr.get() << "] : unknown]";
         }
       } else {
         ss << "[null]";

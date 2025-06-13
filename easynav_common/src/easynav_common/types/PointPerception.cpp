@@ -101,7 +101,7 @@ PointPerceptionHandler::create_subscription(
       options);
   }
 
-  throw std::runtime_error("Unsupported message type for PointPerceptionHandler");
+  throw std::runtime_error("Unsupported message type for PointPerceptionHandler [" + type + "]");
 }
 
 void
@@ -158,7 +158,7 @@ points_to_rosmsg(const pcl::PointCloud<pcl::PointXYZ> & cloud)
 PointPerceptionsOpsView::PointPerceptionsOpsView(const PointPerceptions & perceptions)
 : perceptions_(perceptions), indices_(perceptions.size())
 {
-  for (std::size_t i = 0; i < perceptions.size(); ++i) {
+  for (std::size_t i = 0; i < perceptions_.size(); ++i) {
     auto p = perceptions_[i]->load();
     if (p) {
       indices_[i].indices.resize(p->data.size());
@@ -172,10 +172,11 @@ PointPerceptionsOpsView::PointPerceptionsOpsView(PointPerceptions && perceptions
 {
   for (std::size_t i = 0; i < perceptions_.size(); ++i) {
     auto p = perceptions_[i]->load();
-    if (p) {
-      indices_[i].indices.resize(p->data.size());
-      std::iota(indices_[i].indices.begin(), indices_[i].indices.end(), 0);
-    }
+
+    if (!p || !p->valid || p->data.empty()) {continue;}
+
+    indices_[i].indices.resize(p->data.size());
+    std::iota(indices_[i].indices.begin(), indices_[i].indices.end(), 0);
   }
 }
 
@@ -186,7 +187,7 @@ PointPerceptionsOpsView::filter(
 {
   for (std::size_t i = 0; i < perceptions_.size(); ++i) {
     auto p = perceptions_[i]->load();
-    if (!p) {continue;}
+    if (!p || !p->valid || p->data.empty()) {continue;}
 
     const auto & cloud = p->data;
     auto & indices = indices_[i].indices;
@@ -218,7 +219,8 @@ PointPerceptionsOpsView::downsample(double resolution)
 {
   for (std::size_t i = 0; i < perceptions_.size(); ++i) {
     auto p = perceptions_[i]->load();
-    if (!p) {continue;}
+
+    if (!p || !p->valid || p->data.empty()) {continue;}
 
     const auto & cloud = p->data;
     auto & indices = indices_[i].indices;
@@ -254,7 +256,8 @@ PointPerceptionsOpsView::collapse(const std::vector<double> & collapse_dims) con
     if (!pptr) {continue;}
 
     auto perception = pptr->load();
-    if (!perception) {continue;}
+
+    if (!perception || !perception->valid || perception->data.empty()) {continue;}
 
     auto collapsed = std::make_shared<PointPerception>();
     collapsed->valid = perception->valid;
@@ -287,7 +290,8 @@ PointPerceptionsOpsView::as_points() const
     if (!pptr) {continue;}
 
     auto perception = pptr->load();
-    if (!perception) {continue;}
+
+    if (!perception || !perception->valid || perception->data.empty()) {continue;}
 
     const auto & cloud = perception->data;
     const auto & index_list = indices_[i].indices;

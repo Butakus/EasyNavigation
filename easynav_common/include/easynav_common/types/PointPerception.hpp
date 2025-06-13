@@ -140,6 +140,32 @@ sensor_msgs::msg::PointCloud2 points_to_rosmsg(const pcl::PointCloud<pcl::PointX
 using PointPerceptions =
   std::vector<std::shared_ptr<std::atomic<std::shared_ptr<PointPerception>>>>;
 
+PointPerceptions get_point_perceptions(std::vector<PerceptionPtr> & perceptionptr)
+{
+  PointPerceptions ret;
+
+  for (auto & ptr : perceptionptr) {
+    if (!ptr.perception) {
+      continue;
+    }
+
+    auto base = ptr.perception->load();
+    if (!base) {
+      continue;
+    }
+
+    auto point_ptr = std::dynamic_pointer_cast<PointPerception>(base);
+    if (!point_ptr) {
+      continue;
+    }
+
+    auto atomic_ptr = std::make_shared<std::atomic<std::shared_ptr<PointPerception>>>(point_ptr);
+    ret.push_back(atomic_ptr);
+  }
+
+  return ret;
+}
+
 /// \class PointPerceptionsOpsView
 /// \brief Provides efficient, non-destructive, chainable operations over a set of point-based perceptions.
 ///
