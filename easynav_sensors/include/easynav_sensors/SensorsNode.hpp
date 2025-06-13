@@ -54,7 +54,7 @@ public:
    * @brief Constructor.
    * @param options Node configuration options.
    */
-  explicit SensorsNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+  explicit SensorsNode(std::shared_ptr<NavState> nav_state, const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
   /// @brief Destructor.
   ~SensorsNode();
@@ -119,6 +119,8 @@ public:
    */
   void cycle(std::shared_ptr<NavState> nav_state);
 
+  void register_handler(std::shared_ptr<PerceptionHandler> handler);
+
 private:
   /// @brief Callback group for real-time operations.
   rclcpp::CallbackGroup::SharedPtr realtime_cbg_;
@@ -129,14 +131,23 @@ private:
   /// @brief Last fused perception message.
   sensor_msgs::msg::PointCloud2 perecption_msg_;
 
-  /// @brief Current set of active perceptions.
-  std::shared_ptr<Perceptions> perceptions_;
-
   /// @brief Maximum time (seconds) a perception remains valid.
   double forget_time_;
 
   /// @brief Target frame for perception fusion.
   std::string perception_default_frame_;
+
+  std::shared_ptr<NavState> nav_state_;
+
+  std::map<std::string, std::list<PerceptionPtr>> perceptions_;
+  std::map<std::string, std::shared_ptr<PerceptionHandler>> handlers_;
+
+  template<typename MsgT>
+  rclcpp::SubscriptionBase::SharedPtr create_typed_subscription(
+    const std::string & topic,
+    const std::string & topic,
+  );
+
 };
 
 }  // namespace easynav

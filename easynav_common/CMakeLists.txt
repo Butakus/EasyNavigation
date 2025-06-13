@@ -20,11 +20,13 @@ find_package(sensor_msgs REQUIRED)
 find_package(yaets REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common io)
 find_package(pcl_conversions REQUIRED)
+find_package(cv_bridge REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 
 add_library(${PROJECT_NAME} SHARED
-  src/easynav_common/types/Perceptions.cpp
+  src/easynav_common/types/ImagePerception.cpp
+  src/easynav_common/types/PointPerception.cpp
 )
 target_include_directories(${PROJECT_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -37,7 +39,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   pcl_conversions::pcl_conversions
   tf2_ros::tf2_ros
   tf2_geometry_msgs::tf2_geometry_msgs
-  pcl_conversions::pcl_conversions
+  cv_bridge::cv_bridge
   ${geometry_msgs_TARGETS}
   ${sensor_msgs_TARGETS}
   ${nav_msgs_TARGETS}
@@ -89,5 +91,6 @@ ament_export_dependencies(
   tf2_geometry_msgs
   yaets
   PCL
+  cv_bridge
 )
 ament_package()

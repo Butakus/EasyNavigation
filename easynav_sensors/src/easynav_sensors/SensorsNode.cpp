@@ -38,8 +38,9 @@ namespace easynav
 
 using namespace std::chrono_literals;
 
-SensorsNode::SensorsNode(const rclcpp::NodeOptions & options)
-: LifecycleNode("sensors_node", options)
+SensorsNode::SensorsNode(std::shared_ptr<NavState> nav_state, const rclcpp::NodeOptions & options)
+: LifecycleNode("sensors_node", options),
+  nav_state_(nav_state)
 {
   realtime_cbg_ = create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
 
@@ -59,7 +60,8 @@ SensorsNode::SensorsNode(const rclcpp::NodeOptions & options)
     declare_parameter("perception_default_frame", perception_default_frame_);
   }
 
-  perceptions_ = std::make_shared<Perceptions>();
+  register_handler(std::make_shared<PointPerceptionHandler>());
+  register_handler(std::make_shared<ImagePerceptionHandler>());
 }
 
 SensorsNode::~SensorsNode()
@@ -81,37 +83,35 @@ SensorsNode::on_configure(const rclcpp_lifecycle::State & state)
   get_parameter("forget_time", forget_time_);
   get_parameter("perception_default_frame", perception_default_frame_);
 
-  for (const auto & sensor : sensors) {
-    std::string topic, msg_type;
+  for (const auto & sensor_id : sensors) {
+    std::string topic, type, group;
 
-    if (!has_parameter(sensor + ".topic")) {
-      declare_parameter(sensor + ".topic", topic);
+    if (!has_parameter(sensor_id + ".topic")) {
+      declare_parameter(sensor_id + ".topic", topic);
     }
-    if (!has_parameter(sensor + ".type")) {
-      declare_parameter(sensor + ".type", msg_type);
+    if (!has_parameter(sensor_id + ".type")) {
+      declare_parameter(sensor_id + ".type", msg_type);
     }
-
-    get_parameter(sensor + ".topic", topic);
-    get_parameter(sensor + ".type", msg_type);
-
-    auto atomic_perception = std::make_shared<std::atomic<std::shared_ptr<Perception>>>(
-      std::make_shared<Perception>());
-
-    PerceptionPtr perception_entry;
-    perception_entry.perception = atomic_perception;
-
-    if (msg_type == "LaserScan") {
-      perception_entry.subscription = create_typed_subscription<sensor_msgs::msg::LaserScan>(
-        *this, topic, atomic_perception, realtime_cbg_);
-    } else if (msg_type == "PointCloud") {
-      perception_entry.subscription = create_typed_subscription<sensor_msgs::msg::PointCloud2>(
-        *this, topic, atomic_perception, realtime_cbg_);
-    } else {
-      RCLCPP_ERROR(get_logger(), "Sensor type [%s] not supported", msg_type.c_str());
-      return CallbackReturnT::FAILURE;
+    if (!has_parameter(sensor_id + ".group")) {
+      declare_parameter(sensor_id + ".group", group);
     }
 
-    perceptions_->push_back(perception_entry);
+    get_parameter(sensor_id + ".topic", topic);
+    get_parameter(sensor_id + ".type", msg_type);
+    get_parameter(sensor_id + ".group", msg_type);
+
+    auto handler_it = handlers_.find(group);
+    if (handler_it == handlers_.end()) {
+      RCLCPP_WARN(get_logger(), "No handler for group %s", group.c_str());
+      continue;
+    }
+
+    auto atomic_ptr = std::make_shared<std::atomic<std::shared_ptr<PerceptionBase>>>(
+      handler_it->second->create(sensor_id));
+
+    auto sub = handler_it->second->create_subscription(*node, topic, type, atomic_ptr);
+
+    perceptions_[group].emplace_back(PerceptionPtr{atomic_ptr, sub});
   }
 
   return CallbackReturnT::SUCCESS;
@@ -170,7 +170,7 @@ SensorsNode::cycle_rt(std::shared_ptr<NavState> nav_state, bool trigger)
 {
   EASYNAV_TRACE_EVENT;
 
-  (void)trigger;
+  /*(void)trigger;
 
   bool trigger_perceptions = false;
   for (const auto & p : *perceptions_) {
@@ -182,6 +182,8 @@ SensorsNode::cycle_rt(std::shared_ptr<NavState> nav_state, bool trigger)
   nav_state->set_shared_ptr("perceptions", perceptions_);
 
   return trigger_perceptions;
+  */
+ return false;
 }
 
 void
@@ -189,7 +191,7 @@ SensorsNode::cycle(std::shared_ptr<NavState> nav_state)
 {
   EASYNAV_TRACE_EVENT;
 
-  for (auto & p : *perceptions_) {
+  /*for (auto & p : *perceptions_) {
     auto perception = p.perception->load();
     if (perception->valid && (now() - perception->stamp).seconds() > forget_time_) {
       perception->valid = false;
@@ -209,7 +211,13 @@ SensorsNode::cycle(std::shared_ptr<NavState> nav_state)
     msg.header.stamp = fused->get_perceptions()[0].perception->load()->stamp;
 
     percept_pub_->publish(msg);
-  }
+  }*/
+}
+
+void
+SensorsNode::register_handler(std::shared_ptr<PerceptionHandler> handler)
+{
+  handlers_[handler->group()] = handler;
 }
 
 }  // namespace easynav
