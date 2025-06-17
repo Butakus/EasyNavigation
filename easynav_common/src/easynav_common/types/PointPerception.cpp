@@ -49,7 +49,7 @@ PointPerceptionHandler::create_subscription(
   rclcpp_lifecycle::LifecycleNode & node,
   const std::string & topic,
   const std::string & type,
-  std::shared_ptr<std::atomic<std::shared_ptr<PerceptionBase>>> target,
+  std::shared_ptr<PerceptionBase> target,
   rclcpp::CallbackGroup::SharedPtr cb_group)
 {
   auto options = rclcpp::SubscriptionOptions();
@@ -62,18 +62,13 @@ PointPerceptionHandler::create_subscription(
       {
         EASYNAV_TRACE_NAMED_EVENT("Lambda::PointCloud2");
 
-        auto current = std::dynamic_pointer_cast<PointPerception>(target->load());
-        if (!current.unique() && current != nullptr) {
-          current = std::make_shared<PointPerception>(*current);
-        }
+        auto typed_target = std::dynamic_pointer_cast<PointPerception>(target);
 
-        pcl::fromROSMsg(*msg, current->data);
-        current->frame_id = msg->header.frame_id;
-        current->stamp = msg->header.stamp;
-        current->valid = true;
-        current->new_data = true;
-
-        target->store(current);
+        pcl::fromROSMsg(*msg, typed_target->data);
+        typed_target->frame_id = msg->header.frame_id;
+        typed_target->stamp = msg->header.stamp;
+        typed_target->valid = true;
+        typed_target->new_data = true;
       },
       options);
   }
@@ -85,18 +80,13 @@ PointPerceptionHandler::create_subscription(
       {
         EASYNAV_TRACE_NAMED_EVENT("Lambda::LaserScan");
 
-        auto current = std::dynamic_pointer_cast<PointPerception>(target->load());
-        if (!current.unique() && current != nullptr) {
-          current = std::make_shared<PointPerception>(*current);
-        }
+        auto typed_target = std::dynamic_pointer_cast<PointPerception>(target);
 
-        convert(*msg, current->data);
-        current->frame_id = msg->header.frame_id;
-        current->stamp = msg->header.stamp;
-        current->valid = true;
-        current->new_data = true;
-
-        target->store(current);
+        convert(*msg, typed_target->data);
+        typed_target->frame_id = msg->header.frame_id;
+        typed_target->stamp = msg->header.stamp;
+        typed_target->valid = true;
+        typed_target->new_data = true;
       },
       options);
   }
@@ -159,9 +149,8 @@ PointPerceptionsOpsView::PointPerceptionsOpsView(const PointPerceptions & percep
 : perceptions_(perceptions), indices_(perceptions.size())
 {
   for (std::size_t i = 0; i < perceptions_.size(); ++i) {
-    auto p = perceptions_[i]->load();
-    if (p) {
-      indices_[i].indices.resize(p->data.size());
+    if (perceptions_[i]) {
+      indices_[i].indices.resize(perceptions_[i]->data.size());
       std::iota(indices_[i].indices.begin(), indices_[i].indices.end(), 0);
     }
   }
@@ -171,11 +160,9 @@ PointPerceptionsOpsView::PointPerceptionsOpsView(PointPerceptions && perceptions
 : owned_(std::move(perceptions)), perceptions_(*owned_), indices_(perceptions_.size())
 {
   for (std::size_t i = 0; i < perceptions_.size(); ++i) {
-    auto p = perceptions_[i]->load();
+    if (!perceptions_[i] || !perceptions_[i]->valid || perceptions_[i]->data.empty()) {continue;}
 
-    if (!p || !p->valid || p->data.empty()) {continue;}
-
-    indices_[i].indices.resize(p->data.size());
+    indices_[i].indices.resize(perceptions_[i]->data.size());
     std::iota(indices_[i].indices.begin(), indices_[i].indices.end(), 0);
   }
 }
@@ -186,10 +173,9 @@ PointPerceptionsOpsView::filter(
   const std::vector<double> & max_bounds)
 {
   for (std::size_t i = 0; i < perceptions_.size(); ++i) {
-    auto p = perceptions_[i]->load();
-    if (!p || !p->valid || p->data.empty()) {continue;}
+    if (!perceptions_[i] || !perceptions_[i]->valid || perceptions_[i]->data.empty()) {continue;}
 
-    const auto & cloud = p->data;
+    const auto & cloud = perceptions_[i]->data;
     auto & indices = indices_[i].indices;
 
     std::size_t write_idx = 0;
@@ -218,11 +204,9 @@ PointPerceptionsOpsView &
 PointPerceptionsOpsView::downsample(double resolution)
 {
   for (std::size_t i = 0; i < perceptions_.size(); ++i) {
-    auto p = perceptions_[i]->load();
+    if (!perceptions_[i] || !perceptions_[i]->valid || perceptions_[i]->data.empty()) {continue;}
 
-    if (!p || !p->valid || p->data.empty()) {continue;}
-
-    const auto & cloud = p->data;
+    const auto & cloud = perceptions_[i]->data;
     auto & indices = indices_[i].indices;
 
     std::unordered_set<std::tuple<int, int, int>> voxel_set;
@@ -253,18 +237,14 @@ PointPerceptionsOpsView::collapse(const std::vector<double> & collapse_dims) con
 
   for (std::size_t i = 0; i < perceptions_.size(); ++i) {
     const auto & pptr = perceptions_[i];
-    if (!pptr) {continue;}
-
-    auto perception = pptr->load();
-
-    if (!perception || !perception->valid || perception->data.empty()) {continue;}
+    if (!pptr || !pptr->valid || pptr->data.empty()) {continue;}
 
     auto collapsed = std::make_shared<PointPerception>();
-    collapsed->valid = perception->valid;
-    collapsed->frame_id = perception->frame_id;
-    collapsed->stamp = perception->stamp;
+    collapsed->valid = pptr->valid;
+    collapsed->frame_id = pptr->frame_id;
+    collapsed->stamp = pptr->stamp;
 
-    const auto & cloud = perception->data;
+    const auto & cloud = pptr->data;
     for (int idx : indices_[i].indices) {
       auto pt = cloud[idx];
       if (!std::isnan(collapse_dims[0])) {pt.x = collapse_dims[0];}
@@ -273,7 +253,7 @@ PointPerceptionsOpsView::collapse(const std::vector<double> & collapse_dims) con
       collapsed->data.push_back(pt);
     }
 
-    result.push_back(std::make_shared<std::atomic<std::shared_ptr<PointPerception>>>(collapsed));
+    result.push_back(collapsed);
   }
 
   return std::make_shared<PointPerceptionsOpsView>(std::move(result));
@@ -286,10 +266,7 @@ PointPerceptionsOpsView::as_points() const
   pcl::PointCloud<pcl::PointXYZ> output;
 
   for (std::size_t i = 0; i < perceptions_.size(); ++i) {
-    const auto & pptr = perceptions_[i];
-    if (!pptr) {continue;}
-
-    auto perception = pptr->load();
+    auto perception = perceptions_[i];
 
     if (!perception || !perception->valid || perception->data.empty()) {continue;}
 
@@ -315,10 +292,7 @@ PointPerceptionsOpsView::fuse(const std::string & target_frame) const
   std::optional<rclcpp::Time> latest_stamp;
 
   for (std::size_t i = 0; i < perceptions_.size(); ++i) {
-    const auto & pptr = perceptions_[i];
-    if (!pptr) {continue;}
-
-    auto p = pptr->load();
+    auto p = perceptions_[i];
     if (!p || !p->valid || p->data.empty()) {continue;}
 
     geometry_msgs::msg::TransformStamped tf_msg;
@@ -351,7 +325,7 @@ PointPerceptionsOpsView::fuse(const std::string & target_frame) const
   fused->stamp = latest_stamp.value_or(rclcpp::Time(0));
 
   PointPerceptions result;
-  result.push_back(std::make_shared<std::atomic<std::shared_ptr<PointPerception>>>(fused));
+  result.push_back(fused);
 
   return std::make_shared<PointPerceptionsOpsView>(std::move(result));
 }

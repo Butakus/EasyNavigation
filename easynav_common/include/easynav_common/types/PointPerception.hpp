@@ -96,7 +96,7 @@ public:
 /// \brief PerceptionHandler implementation for sensors producing point-based data.
 ///
 /// This handler supports both `sensor_msgs::msg::LaserScan` and `sensor_msgs::msg::PointCloud2`.
-/// It converts incoming messages into `PointPerception` instances and stores them atomically.
+/// It converts incoming messages into `PointPerception` instances and stores them.
 class PointPerceptionHandler : public PerceptionHandler
 {
 public:
@@ -111,12 +111,12 @@ public:
     return std::make_shared<PointPerception>();
   }
 
-  /// \brief Creates a subscription to LaserScan or PointCloud2 messages and updates the atomic perception.
+  /// \brief Creates a subscription to LaserScan or PointCloud2 messages and updates the  perception.
   rclcpp::SubscriptionBase::SharedPtr create_subscription(
     rclcpp_lifecycle::LifecycleNode & node,
     const std::string & topic,
     const std::string & type,
-    std::shared_ptr<std::atomic<std::shared_ptr<PerceptionBase>>> target,
+    std::shared_ptr<PerceptionBase> target,
     rclcpp::CallbackGroup::SharedPtr cb_group) override;
 };
 
@@ -136,9 +136,9 @@ sensor_msgs::msg::PointCloud2 perception_to_rosmsg(const PointPerception & perce
 sensor_msgs::msg::PointCloud2 points_to_rosmsg(const pcl::PointCloud<pcl::PointXYZ> & points);
 
 /// \typedef PointPerceptions
-/// \brief Alias for a vector of atomic pointers to PointPerception objects.
+/// \brief Alias for a vector of pointers to PointPerception objects.
 using PointPerceptions =
-  std::vector<std::shared_ptr<std::atomic<std::shared_ptr<PointPerception>>>>;
+  std::vector<std::shared_ptr<PointPerception>>;
 
 PointPerceptions get_point_perceptions(std::vector<PerceptionPtr> & perceptionptr)
 {
@@ -149,18 +149,12 @@ PointPerceptions get_point_perceptions(std::vector<PerceptionPtr> & perceptionpt
       continue;
     }
 
-    auto base = ptr.perception->load();
-    if (!base) {
-      continue;
-    }
-
-    auto point_ptr = std::dynamic_pointer_cast<PointPerception>(base);
+    auto point_ptr = std::dynamic_pointer_cast<PointPerception>(ptr.perception);
     if (!point_ptr) {
       continue;
     }
 
-    auto atomic_ptr = std::make_shared<std::atomic<std::shared_ptr<PointPerception>>>(point_ptr);
-    ret.push_back(atomic_ptr);
+    ret.push_back(point_ptr);
   }
 
   return ret;

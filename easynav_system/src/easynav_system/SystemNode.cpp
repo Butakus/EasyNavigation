@@ -55,10 +55,9 @@ SystemNode::SystemNode(const rclcpp::NodeOptions & options)
       std::ostringstream ret;
       ret << "PointPerception " << perceptions.size() << " with:\n";
       for (const auto & perception : perceptions) {
-        auto loaded = perception->load();
         ret << "\t[" << static_cast<const void *>(perception.get()) << "] --> "
-            << loaded->data.size() << " points in frame [" << loaded->frame_id
-            << "] with ts " << loaded->stamp.seconds() << "\n";
+            << perception->data.size() << " points in frame [" << perception->frame_id
+            << "] with ts " << perception->stamp.seconds() << "\n";
       }
       return ret.str();
     });
@@ -202,6 +201,8 @@ SystemNode::system_cycle_rt()
 {
   EASYNAV_TRACE_EVENT;
 
+  RCLCPP_DEBUG(get_logger(), "SystemNode::system_cycle_rt\n%s", nav_state_->debug_string().c_str());
+
   bool trigger_perceptions = sensors_node_->cycle_rt(nav_state_);
   bool trigger_localization = localizer_node_->cycle_rt(nav_state_, trigger_perceptions);
 
@@ -232,6 +233,8 @@ void
 SystemNode::system_cycle()
 {
   EASYNAV_TRACE_EVENT;
+
+  RCLCPP_DEBUG(get_logger(), "SystemNode::system_cycle\n%s", nav_state_->debug_string().c_str());
 
   sensors_node_->cycle(nav_state_);
   localizer_node_->cycle(nav_state_);

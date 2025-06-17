@@ -42,6 +42,17 @@ ControllerNode::ControllerNode(
 
   controller_loader_ = std::make_unique<pluginlib::ClassLoader<easynav::ControllerMethodBase>>(
     "easynav_core", "easynav::ControllerMethodBase");
+
+  NavState::register_printer<geometry_msgs::msg::TwistStamped>(
+    [](const geometry_msgs::msg::TwistStamped & twist) {
+      std::ostringstream ret;
+
+      ret << "Twist with (" << twist.twist.linear.x << ", " << twist.twist.linear.y << ", " <<
+        twist.twist.linear.z << ") (" << twist.twist.angular.x << ", " <<
+        twist.twist.angular.y << ", " << twist.twist.angular.z << ")";
+
+      return ret.str();
+    });
 }
 
 

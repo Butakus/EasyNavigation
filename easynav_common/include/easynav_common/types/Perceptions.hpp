@@ -67,12 +67,12 @@ public:
 /// \struct PerceptionPtr
 /// \brief Represents a perception entry with its state and ROS subscription.
 ///
-/// Holds an atomic pointer to a perception object (`PerceptionBase`) and the associated subscription.
+/// Holds an pointer to a perception object (`PerceptionBase`) and the associated subscription.
 /// Used internally by perception managers to update and access sensor data.
 struct PerceptionPtr
 {
   /// \brief Atomic shared pointer to the current perception object.
-  std::shared_ptr<std::atomic<std::shared_ptr<PerceptionBase>>> perception;
+  std::shared_ptr<PerceptionBase> perception;
 
   /// \brief ROS 2 subscription to the sensor topic that provides data.
   rclcpp::SubscriptionBase::SharedPtr subscription;
@@ -96,7 +96,7 @@ public:
   /// \brief Creates a subscription that processes messages into PerceptionBase instances.
   ///
   /// The handler is expected to parse the message received on `topic` of type `type`
-  /// and store the result in the atomic `target`.
+  /// and store the result in the `target`.
   ///
   /// \param node Reference to the lifecycle node used for creating the subscription.
   /// \param topic Topic name to subscribe to.
@@ -108,7 +108,7 @@ public:
     rclcpp_lifecycle::LifecycleNode & node,
     const std::string & topic,
     const std::string & type,
-    std::shared_ptr<std::atomic<std::shared_ptr<PerceptionBase>>> target,
+    std::shared_ptr<PerceptionBase> target,
     rclcpp::CallbackGroup::SharedPtr cb_group) = 0;
 
   /// \brief Returns the group identifier associated with this handler.

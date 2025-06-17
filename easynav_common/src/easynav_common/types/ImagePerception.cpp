@@ -39,7 +39,7 @@ ImagePerceptionHandler::create_subscription(
   rclcpp_lifecycle::LifecycleNode & node,
   const std::string & topic,
   const std::string & type,
-  std::shared_ptr<std::atomic<std::shared_ptr<PerceptionBase>>> target,
+  std::shared_ptr<PerceptionBase> target,
   rclcpp::CallbackGroup::SharedPtr cb_group)
 {
   if (type != "sensor_msgs/msg/Image") {
@@ -53,23 +53,22 @@ ImagePerceptionHandler::create_subscription(
     topic, rclcpp::SensorDataQoS(),
     [target](const sensor_msgs::msg::Image::SharedPtr msg)
     {
-      auto new_p = std::make_shared<ImagePerception>();
-      new_p->stamp = msg->header.stamp;
-      new_p->frame_id = msg->header.frame_id;
-      new_p->new_data = true;
+      auto typed_target = std::dynamic_pointer_cast<ImagePerception>(target);
+
+      typed_target->stamp = msg->header.stamp;
+      typed_target->frame_id = msg->header.frame_id;
+      typed_target->new_data = true;
 
       try {
         cv_bridge::CvImageConstPtr cv_ptr = cv_bridge::toCvShare(msg, msg->encoding);
-        new_p->data = cv_ptr->image.clone();  // se clona para evitar compartir buffers
-        new_p->valid = true;
+        typed_target->data = cv_ptr->image.clone();  // se clona para evitar compartir buffers
+        typed_target->valid = true;
       } catch (const cv_bridge::Exception & e) {
         RCLCPP_WARN(
           rclcpp::get_logger("ImagePerceptionHandler"),
           "cv_bridge exception: %s", e.what());
-        new_p->valid = false;
+        typed_target->valid = false;
       }
-
-      target->store(new_p);
     },
     options);
 }

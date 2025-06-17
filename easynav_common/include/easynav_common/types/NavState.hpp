@@ -30,7 +30,6 @@
 #include <string>
 #include <unordered_map>
 #include <memory>
-#include <atomic>
 #include <stdexcept>
 #include <sstream>
 #include <type_traits>
@@ -47,7 +46,7 @@ namespace easynav
 /// \brief A generic, type-safe, lock-free blackboard to hold runtime state.
 ///
 /// NavState provides:
-/// - Type-erased storage using `std::shared_ptr<void>` under atomic protection.
+/// - Type-erased storage using `std::shared_ptr<void>`.
 /// - Runtime type verification and safe casting via `typeid`.
 /// - Support for raw, shared, and copy-based insertion.
 /// - Debug utilities including stack trace and introspection.
@@ -258,8 +257,8 @@ public:
   }
 
 private:
-  /// \brief Internal storage of values as atomic shared void pointers.
-  mutable std::unordered_map<std::string, std::atomic<std::shared_ptr<void>>> values_;
+  /// \brief Internal storage of values as shared void pointers.
+  mutable std::unordered_map<std::string, std::shared_ptr<void>> values_;
 
   /// \brief Stores typeid hashes for each key.
   mutable std::unordered_map<std::string, size_t> types_;

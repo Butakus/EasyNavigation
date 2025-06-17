@@ -57,7 +57,7 @@ public:
 /// \brief Handles the creation and updating of ImagePerception instances from sensor_msgs::msg::Image messages.
 ///
 /// This class provides methods to register subscriptions to image topics, decode the messages into OpenCV images,
-/// and populate ImagePerception objects using atomic shared pointers.
+/// and populate ImagePerception objects using shared pointers.
 class ImagePerceptionHandler : public PerceptionHandler
 {
 public:
@@ -73,7 +73,7 @@ public:
     return std::make_shared<ImagePerception>();
   }
 
-  /// \brief Creates a subscription to an image topic that updates an atomic perception.
+  /// \brief Creates a subscription to an image topic that updates an perception.
   /// \param node Reference to the lifecycle node used for subscription creation.
   /// \param topic Topic name to subscribe to.
   /// \param type ROS message type as a string (must be "sensor_msgs/msg/Image").
@@ -84,16 +84,16 @@ public:
     rclcpp_lifecycle::LifecycleNode & node,
     const std::string & topic,
     const std::string & type,
-    std::shared_ptr<std::atomic<std::shared_ptr<PerceptionBase>>> target,
+    std::shared_ptr<PerceptionBase> target,
     rclcpp::CallbackGroup::SharedPtr cb_group) override;
 };
 
 /**
  * @typedef ImagePerceptions
- * @brief Alias for a vector of atomic shared pointers to ImagePerception objects.
+ * @brief Alias for a vector of shared pointers to ImagePerception objects.
  */
 using ImagePerceptions =
-  std::vector<std::shared_ptr<std::atomic<std::shared_ptr<ImagePerception>>>>;
+  std::vector<std::shared_ptr<ImagePerception>>;
 
 }  // namespace easynav
 

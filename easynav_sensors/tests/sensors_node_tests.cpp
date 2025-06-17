@@ -372,10 +372,10 @@ TEST_F(SensorsNodeTestCase, percept_laserscan)
   auto perceptions = nav_state->get<easynav::PointPerceptions>("points");
 
   ASSERT_EQ(perceptions.size(), 1u);
-  ASSERT_EQ(perceptions[0]->load()->data.size(), 16u);
-  ASSERT_NEAR((test_node->now() - perceptions[0]->load()->stamp).seconds(), 0.0, 0.001);
-  ASSERT_EQ(perceptions[0]->load()->frame_id, "base_laser");
-  ASSERT_EQ(perceptions[0]->load()->valid, true);
+  ASSERT_EQ(perceptions[0]->data.size(), 16u);
+  ASSERT_NEAR((test_node->now() - perceptions[0]->stamp).seconds(), 0.0, 0.001);
+  ASSERT_EQ(perceptions[0]->frame_id, "base_laser");
+  ASSERT_EQ(perceptions[0]->valid, true);
 
   {
     auto start = test_node->now();
@@ -388,9 +388,9 @@ TEST_F(SensorsNodeTestCase, percept_laserscan)
   perceptions = nav_state->get<easynav::PointPerceptions>("points");
 
   ASSERT_EQ(perceptions.size(), 1u);
-  ASSERT_EQ(perceptions[0]->load()->data.size(), 16u);
-  ASSERT_EQ(perceptions[0]->load()->frame_id, "base_laser");
-  ASSERT_EQ(perceptions[0]->load()->valid, false);
+  ASSERT_EQ(perceptions[0]->data.size(), 16u);
+  ASSERT_EQ(perceptions[0]->frame_id, "base_laser");
+  ASSERT_EQ(perceptions[0]->valid, false);
 }
 
 TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
@@ -506,15 +506,15 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
     auto perceptions = nav_state->get<easynav::PointPerceptions>("points");
 
     ASSERT_EQ(perceptions.size(), 2u);
-    ASSERT_EQ(perceptions[0]->load()->data.size(), 16u);
-    ASSERT_NEAR((test_node->now() - perceptions[0]->load()->stamp).seconds(),
+    ASSERT_EQ(perceptions[0]->data.size(), 16u);
+    ASSERT_NEAR((test_node->now() - perceptions[0]->stamp).seconds(),
       0.0, 0.001);
-    ASSERT_EQ(perceptions[0]->load()->valid, true);
-    ASSERT_EQ(perceptions[1]->load()->data.size(), 16u);
-    ASSERT_NEAR((test_node->now() - perceptions[1]->load()->stamp).seconds(),
+    ASSERT_EQ(perceptions[0]->valid, true);
+    ASSERT_EQ(perceptions[1]->data.size(), 16u);
+    ASSERT_NEAR((test_node->now() - perceptions[1]->stamp).seconds(),
       0.0, 0.02);
-    ASSERT_EQ(perceptions[1]->load()->valid, true);
-    ASSERT_LT(perceptions[1]->load()->stamp, perceptions[0]->load()->stamp);
+    ASSERT_EQ(perceptions[1]->valid, true);
+    ASSERT_LT(perceptions[1]->stamp, perceptions[0]->stamp);
 
     ASSERT_NE(fused_perception, nullptr);
 
@@ -553,12 +553,12 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
     auto perceptions = nav_state->get<easynav::PointPerceptions>("points");
 
     ASSERT_EQ(perceptions.size(), 2u);
-    ASSERT_EQ(perceptions[0]->load()->data.size(), 16u);
-    ASSERT_NEAR((test_node->now() - perceptions[0]->load()->stamp).seconds(),
+    ASSERT_EQ(perceptions[0]->data.size(), 16u);
+    ASSERT_NEAR((test_node->now() - perceptions[0]->stamp).seconds(),
       0.0, 0.001);
-    ASSERT_EQ(perceptions[0]->load()->valid, true);
-    ASSERT_EQ(perceptions[1]->load()->data.size(), 16u);
-    ASSERT_EQ(perceptions[1]->load()->valid, false);
+    ASSERT_EQ(perceptions[0]->valid, true);
+    ASSERT_EQ(perceptions[1]->data.size(), 16u);
+    ASSERT_EQ(perceptions[1]->valid, false);
 
     ASSERT_NE(fused_perception, nullptr);
 
@@ -632,11 +632,11 @@ TEST_F(SensorsNodeTestCase, percept_pc2)
   auto perceptions = nav_state->get<easynav::PointPerceptions>("points");
 
   ASSERT_EQ(perceptions.size(), 1u);
-  ASSERT_EQ(perceptions[0]->load()->data.size(), 16u);
-  ASSERT_NEAR((test_node->now() - perceptions[0]->load()->stamp).seconds(),
+  ASSERT_EQ(perceptions[0]->data.size(), 16u);
+  ASSERT_NEAR((test_node->now() - perceptions[0]->stamp).seconds(),
     0.0, 0.001);
-  ASSERT_EQ(perceptions[0]->load()->frame_id, "base_lidar3d");
-  ASSERT_EQ(perceptions[0]->load()->valid, true);
+  ASSERT_EQ(perceptions[0]->frame_id, "base_lidar3d");
+  ASSERT_EQ(perceptions[0]->valid, true);
 
   {
     auto start = test_node->now();
@@ -649,9 +649,9 @@ TEST_F(SensorsNodeTestCase, percept_pc2)
   perceptions = nav_state->get<easynav::PointPerceptions>("points");
 
   ASSERT_EQ(perceptions.size(), 1u);
-  ASSERT_EQ(perceptions[0]->load()->data.size(), 16u);
-  ASSERT_EQ(perceptions[0]->load()->frame_id, "base_lidar3d");
-  ASSERT_EQ(perceptions[0]->load()->valid, false);
+  ASSERT_EQ(perceptions[0]->data.size(), 16u);
+  ASSERT_EQ(perceptions[0]->frame_id, "base_lidar3d");
+  ASSERT_EQ(perceptions[0]->valid, false);
 }
 
 /*
