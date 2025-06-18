@@ -56,11 +56,13 @@ public:
   virtual std::expected<void, std::string> on_initialize() override;
 
   /**
-   * @brief Get the last stored odometry estimate.
+   * @brief Update the localization using the current navigation state.
    *
-   * @return Odometry message with current localization estimate.
+   * This dummy version performs no actual computation.
+   *
+   * @param nav_state The current navigation state.
    */
-  [[nodiscard]] virtual nav_msgs::msg::Odometry get_odom() override;
+  virtual void update_rt(NavState & nav_state) override;
 
   /**
    * @brief Update the localization using the current navigation state.
@@ -69,20 +71,11 @@ public:
    *
    * @param nav_state The current navigation state.
    */
-  virtual void update_rt(const NavState & nav_state) override;
-
-  /**
-   * @brief Update the localization using the current navigation state.
-   *
-   * This dummy version performs no actual computation.
-   *
-   * @param nav_state The current navigation state.
-   */
-  virtual void update(const NavState & nav_state) override;
+  virtual void update(NavState & nav_state) override;
 
 private:
-  /// @brief Internal odometry placeholder.
-  nav_msgs::msg::Odometry odom_;
+  /// @brief Internal pose placeholder.
+  nav_msgs::msg::Odometry robot_pose_;
 
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 

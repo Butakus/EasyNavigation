@@ -33,6 +33,9 @@
 #include "easynav_sensors/SensorsNode.hpp"
 #include "easynav_common/YTSession.hpp"
 
+#include "easynav_common/types/ImagePerception.hpp"
+#include "easynav_common/types/PointPerception.hpp"
+
 namespace easynav
 {
 
@@ -59,6 +62,8 @@ SensorsNode::SensorsNode(const rclcpp::NodeOptions & options)
     declare_parameter("perception_default_frame", perception_default_frame_);
   }
 
+  register_handler(std::make_shared<PointPerceptionHandler>());
+  register_handler(std::make_shared<ImagePerceptionHandler>());
 }
 
 SensorsNode::~SensorsNode()
@@ -80,37 +85,34 @@ SensorsNode::on_configure(const rclcpp_lifecycle::State & state)
   get_parameter("forget_time", forget_time_);
   get_parameter("perception_default_frame", perception_default_frame_);
 
-  for (const auto & sensor : sensors) {
-    std::string topic, msg_type;
+  for (const auto & sensor_id : sensors) {
+    std::string topic, msg_type, group;
 
-    if (!has_parameter(sensor + ".topic")) {
-      declare_parameter(sensor + ".topic", topic);
+    if (!has_parameter(sensor_id + ".topic")) {
+      declare_parameter(sensor_id + ".topic", topic);
     }
-    if (!has_parameter(sensor + ".type")) {
-      declare_parameter(sensor + ".type", msg_type);
+    if (!has_parameter(sensor_id + ".type")) {
+      declare_parameter(sensor_id + ".type", msg_type);
     }
-
-    get_parameter(sensor + ".topic", topic);
-    get_parameter(sensor + ".type", msg_type);
-
-    auto atomic_perception = std::make_shared<std::atomic<std::shared_ptr<Perception>>>(
-      std::make_shared<Perception>());
-
-    PerceptionPtr perception_entry;
-    perception_entry.perception = atomic_perception;
-
-    if (msg_type == "LaserScan") {
-      perception_entry.subscription = create_typed_subscription<sensor_msgs::msg::LaserScan>(
-        *this, topic, atomic_perception, realtime_cbg_);
-    } else if (msg_type == "PointCloud") {
-      perception_entry.subscription = create_typed_subscription<sensor_msgs::msg::PointCloud2>(
-        *this, topic, atomic_perception, realtime_cbg_);
-    } else {
-      RCLCPP_ERROR(get_logger(), "Sensor type [%s] not supported", msg_type.c_str());
-      return CallbackReturnT::FAILURE;
+    if (!has_parameter(sensor_id + ".group")) {
+      declare_parameter(sensor_id + ".group", group);
     }
 
-    perceptions_.push_back(perception_entry);
+    get_parameter(sensor_id + ".topic", topic);
+    get_parameter(sensor_id + ".type", msg_type);
+    get_parameter(sensor_id + ".group", group);
+
+    auto handler_it = handlers_.find(group);
+    if (handler_it == handlers_.end()) {
+      RCLCPP_WARN(get_logger(), "No handler for group [%s]", group.c_str());
+      continue;
+    }
+
+    auto ptr = handler_it->second->create(sensor_id);
+    auto sub = handler_it->second->create_subscription(*this, topic, msg_type, ptr,
+      realtime_cbg_);
+
+    perceptions_[group].emplace_back(PerceptionPtr{ptr, sub});
   }
 
   return CallbackReturnT::SUCCESS;
@@ -165,45 +167,57 @@ SensorsNode::get_real_time_cbg()
 }
 
 bool
-SensorsNode::cycle_rt(bool trigger)
+SensorsNode::cycle_rt(std::shared_ptr<NavState> nav_state, bool trigger)
 {
   EASYNAV_TRACE_EVENT;
 
   (void)trigger;
 
   bool trigger_perceptions = false;
-  for (const auto & p : perceptions_) {
-    auto perception = p.perception->load();
-    trigger_perceptions = trigger_perceptions || perception->new_data;
-    perception->new_data = false;
+
+  for (auto & group_perceptions : perceptions_) {
+    for (auto & p : group_perceptions.second) {
+      trigger_perceptions = trigger_perceptions || p.perception->new_data;
+      p.perception->new_data = false;
+    }
+    nav_state->set(group_perceptions.first, get_point_perceptions(group_perceptions.second));
   }
+
   return trigger_perceptions;
 }
 
 void
-SensorsNode::cycle()
+SensorsNode::cycle(std::shared_ptr<NavState> nav_state)
 {
   EASYNAV_TRACE_EVENT;
 
-  for (auto & p : perceptions_) {
-    auto perception = p.perception->load();
-    if (perception->valid && (now() - perception->stamp).seconds() > forget_time_) {
-      perception->valid = false;
+  for (auto & group_perceptions : perceptions_) {
+    for (auto & p : group_perceptions.second) {
+      if (p.perception->valid && (now() - p.perception->stamp).seconds() > forget_time_) {
+        p.perception->valid = false;
+      }
     }
+    nav_state->set(group_perceptions.first, get_point_perceptions(group_perceptions.second));
   }
 
   if (percept_pub_->get_subscription_count() > 0) {
-    auto fused = PerceptionsOpsView(perceptions_)
+    auto fused = PointPerceptionsOpsView(get_point_perceptions(perceptions_["points"]))
       .fuse(perception_default_frame_);
 
     auto fused_points = fused->as_points();
 
     auto msg = points_to_rosmsg(fused_points);
     msg.header.frame_id = perception_default_frame_;
-    msg.header.stamp = fused->get_perceptions()[0].perception->load()->stamp;
+    msg.header.stamp = fused->get_perceptions()[0]->stamp;
 
     percept_pub_->publish(msg);
   }
+}
+
+void
+SensorsNode::register_handler(std::shared_ptr<PerceptionHandler> handler)
+{
+  handlers_[handler->group()] = handler;
 }
 
 }  // namespace easynav

@@ -48,20 +48,11 @@ public:
   virtual ~PlannerMethodBase() = default;
 
   /**
-   * @brief Get the current path.
-   *
-   * Should return the last computed path without triggering a new computation.
-   *
-   * @return A Path message representing the current planned path.
-   */
-  [[nodiscard]] virtual nav_msgs::msg::Path get_path() = 0;
-
-  /**
    * @brief Helper to run the planner update if it is time.
    *
    * @param nav_state The current state of the navigation system.
    */
-  void internal_update(const NavState & nav_state);
+  void internal_update(NavState & nav_state);
 
 protected:
   /**
@@ -71,7 +62,7 @@ protected:
    *
    * @param nav_state The current state of the navigation system.
    */
-  virtual void update(const NavState & nav_state) = 0;
+  virtual void update(NavState & nav_state) = 0;
 };
 
 }  // namespace easynav

@@ -26,7 +26,6 @@
 #include "rclcpp/macros.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
-#include "easynav_common/types/MapTypeBase.hpp"
 #include "easynav_core/MapsManagerBase.hpp"
 #include "pluginlib/class_loader.hpp"
 
@@ -102,24 +101,14 @@ public:
    * @brief Execute one update cycle (non real-time).
    * @param nav_state Shared pointer to the navigation state structure.
    */
-  void cycle(std::shared_ptr<const NavState> nav_state);
-
-  /**
-   * @brief Get the currently available maps.
-   * @return Map of map IDs to map instances.
-   */
-  std::map<std::string, std::shared_ptr<MapsTypeBase>> get_maps() {return maps_;}
+  void cycle(std::shared_ptr<NavState> nav_state);
 
 private:
-  /// @brief Active map instances.
-  std::map<std::string, std::shared_ptr<MapsTypeBase>> maps_;
-
   /// @brief Plugin loader for map manager implementations.
   std::unique_ptr<pluginlib::ClassLoader<MapsManagerBase>> maps_manager_loader_;
 
   /// @brief Active map manager plugins.
   std::vector<std::shared_ptr<MapsManagerBase>> maps_managers_;
-
 };
 
 }  // namespace easynav

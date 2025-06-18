@@ -33,7 +33,7 @@ namespace easynav
 {
 
 bool
-LocalizerMethodBase::internal_update_rt(const NavState & nav_state, bool trigger)
+LocalizerMethodBase::internal_update_rt(NavState & nav_state, bool trigger)
 {
   if (isTime2RunRT() || trigger) {
     EASYNAV_TRACE_EVENT;
@@ -46,7 +46,7 @@ LocalizerMethodBase::internal_update_rt(const NavState & nav_state, bool trigger
 }
 
 void
-LocalizerMethodBase::internal_update(const NavState & nav_state)
+LocalizerMethodBase::internal_update(NavState & nav_state)
 {
   if (isTime2Run()) {
     EASYNAV_TRACE_EVENT;

@@ -42,6 +42,17 @@ ControllerNode::ControllerNode(
 
   controller_loader_ = std::make_unique<pluginlib::ClassLoader<easynav::ControllerMethodBase>>(
     "easynav_core", "easynav::ControllerMethodBase");
+
+  NavState::register_printer<geometry_msgs::msg::TwistStamped>(
+    [](const geometry_msgs::msg::TwistStamped & twist) {
+      std::ostringstream ret;
+
+      ret << "Twist with (" << twist.twist.linear.x << ", " << twist.twist.linear.y << ", " <<
+        twist.twist.linear.z << ") (" << twist.twist.angular.x << ", " <<
+        twist.twist.angular.y << ", " << twist.twist.angular.z << ")";
+
+      return ret.str();
+    });
 }
 
 
@@ -157,18 +168,8 @@ ControllerNode::get_real_time_cbg()
   return realtime_cbg_;
 }
 
-geometry_msgs::msg::TwistStamped
-ControllerNode::get_cmd_vel() const
-{
-  if (controller_method_ == nullptr) {
-    return geometry_msgs::msg::TwistStamped();
-  }
-
-  return controller_method_->get_cmd_vel();
-}
-
 bool
-ControllerNode::cycle_rt(std::shared_ptr<const NavState> nav_state, bool trigger)
+ControllerNode::cycle_rt(std::shared_ptr<NavState> nav_state, bool trigger)
 {
   EASYNAV_TRACE_EVENT;
 

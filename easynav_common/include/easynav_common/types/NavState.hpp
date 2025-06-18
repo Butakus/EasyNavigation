@@ -19,52 +19,218 @@
 
 /// \file
 /// \brief A blackboard-like structure to hold the current state of the navigation system.
+///
+/// This file defines the NavState class, which provides a lock-free key-value store
+/// where values can be of any type and stored/retrieved via smart pointers.
+/// It is designed for concurrent, type-safe access in robotics applications.
 
-#ifndef EASYNAV_COMMON_TYPES__NAVSTATE_HPP_
-#define EASYNAV_COMMON_TYPES__NAVSTATE_HPP_
+#ifndef EASYNAV__TYPES__NAVSTATE_HPP_
+#define EASYNAV__TYPES__NAVSTATE_HPP_
 
-#include "rclcpp/time.hpp"
-#include "nav_msgs/msg/odometry.hpp"
-#include "nav_msgs/msg/path.hpp"
-#include "nav_msgs/msg/goals.hpp"
-#include "geometry_msgs/msg/twist_stamped.hpp"
-
-#include "easynav_common/types/Perceptions.hpp"
-#include "easynav_common/types/MapTypeBase.hpp"
+#include <string>
+#include <unordered_map>
+#include <memory>
+#include <mutex>
+#include <stdexcept>
+#include <sstream>
+#include <type_traits>
+#include <iostream>
+#include <functional>
+#include <execinfo.h>
+#include <typeinfo>
 
 namespace easynav
 {
 
-/**
- * @brief Represents the state of the navigation system.
- *
- * This structure contains information about the current position, velocity,
- * and other relevant data for the navigation system.
- */
-struct NavState
+
+/// \class NavState
+/// \brief A generic, type-safe, lock-free blackboard to hold runtime state.
+///
+/// NavState provides:
+/// - Type-erased storage using `std::shared_ptr<void>`.
+/// - Runtime type verification and safe casting via `typeid`.
+/// - Support for raw, shared, and copy-based insertion.
+/// - Debug utilities including stack trace and introspection.
+///
+/// Example usage:
+/// ```cpp
+/// NavState state;
+/// state.set("goal_reached", false);
+/// bool reached = state.get<bool>("goal_reached");
+/// ```
+class NavState
 {
-  /// @brief The timestamp of the current navigation state.
-  rclcpp::Time timestamp;
+public:
+  /// \brief Constructs an empty NavState and registers basic type printers.
+  NavState()
+  {
+    register_basic_printers();
+  }
 
-  /// @brief The current position of the robot in global coordinates.
-  nav_msgs::msg::Odometry odom;
+  /// \brief Destructor.
+  virtual ~NavState() = default;
 
-  /// @brief The current perception data.
-  Perceptions perceptions;
+  /// \brief Stores a value of type T associated with the given key.
+  ///
+  /// If the key does not exist, a new shared_ptr<T> is created and stored.
+  /// If the key already exists, the stored value is updated in-place.
+  ///
+  /// The value is internally managed through a shared_ptr<T>.
+  ///
+  /// \tparam T The type of the value to store. Must be copy-assignable.
+  /// \param key The key associated with the value.
+  /// \param value The value to store.
+  /// \throws std::runtime_error if there is a type mismatch with an existing key.
+  template<typename T>
+  void set(const std::string & key, const T & value)
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = values_.find(key);
 
-  /// @brief The current list of map representations.
-  std::map<std::string, std::shared_ptr<MapsTypeBase>> maps;
+    if (it == values_.end()) {
+      values_[key] = std::make_shared<T>(value);
+      types_[key] = typeid(T).hash_code();
+    } else {
+      if (types_[key] != typeid(T).hash_code()) {
+        throw std::runtime_error("Type mismatch in set for key: " + key);
+      }
 
-  /// @brief The current path.
-  nav_msgs::msg::Path path;
+      auto ptr = std::static_pointer_cast<T>(it->second);
+      *ptr = value;
+    }
+  }
 
-  /// @brief The current goal (list of goals).
-  nav_msgs::msg::Goals goals;
+  /// \brief Retrieves a const reference to the value of type T associated with the given key.
+  ///
+  /// The reference points to the value managed internally through a shared_ptr<T>.
+  /// This avoids unnecessary copies, but care must be taken not to hold the reference
+  /// beyond the lifetime of the NavState instance.
+  ///
+  /// \tparam T The expected type of the stored value.
+  /// \param key The key of the value to retrieve.
+  /// \return const T& A const reference to the stored value.
+  /// \throws std::runtime_error if the key is not found or there is a type mismatch.
+  template<typename T>
+  const T & get(const std::string & key) const
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = values_.find(key);
 
-  /// @brief The current velocity command.
-  geometry_msgs::msg::TwistStamped cmd_vel;
+    if (it == values_.end()) {
+      throw std::runtime_error("Key not found in get: " + key);
+    }
+
+    if (types_.at(key) != typeid(T).hash_code()) {
+      throw std::runtime_error("Type mismatch in get for key: " + key);
+    }
+
+    auto ptr = std::static_pointer_cast<T>(it->second);
+    return *ptr;
+  }
+
+  /// \brief Checks whether a key exists in the NavState.
+  /// \param key Lookup key.
+  /// \return True if the key is registered.
+  bool has(const std::string & key) const
+  {
+    return values_.find(key) != values_.end();
+  }
+
+  /// \brief Type alias for a generic printer function.
+  ///
+  /// Used to print debug output for stored values.
+  using AnyPrinter = std::function<std::string(std::shared_ptr<void>)>;
+
+  /// \brief Registers a printer for a given type.
+  ///
+  /// The function will be used to convert values of this type into strings
+  /// for use in `debug_string()`.
+  ///
+  /// \tparam T Type to register.
+  /// \param printer Function that converts a const reference to string.
+  template<typename T>
+  static void register_printer(std::function<std::string(const T &)> printer)
+  {
+    auto wrapper = [printer](std::shared_ptr<void> base_ptr) -> std::string {
+        auto typed_ptr = std::static_pointer_cast<T>(base_ptr);
+        return printer(*typed_ptr);
+      };
+    type_printers_[typeid(T).hash_code()] = wrapper;
+  }
+
+  /// \brief Dumps all keys and their values to a formatted string.
+  ///
+  /// If a printer is registered for a given type, it is used;
+  /// otherwise, the raw pointer address and hash are shown.
+  ///
+  /// \return String representation of current state.
+  std::string debug_string() const
+  {
+    std::stringstream ss;
+    for (const auto & kv : values_) {
+      ss << kv.first << " = ";
+      auto ptr = kv.second;
+      if (ptr) {
+        auto type_it = types_.find(kv.first);
+        if (type_it != types_.end()) {
+          auto printer_it = type_printers_.find(type_it->second);
+          if (printer_it != type_printers_.end()) {
+            ss << "[" << ptr.get() << "] : " << printer_it->second(ptr);
+          } else {
+            ss << "[" << ptr.get() << "] : " << type_it->second << "]";
+          }
+        } else {
+          ss << "[" << ptr.get() << "] : unknown]";
+        }
+      } else {
+        ss << "[null]";
+      }
+      ss << std::endl;
+    }
+    return ss.str();
+  }
+
+  /// \brief Prints the current C++ stack trace to standard error.
+  ///
+  /// Used to assist debugging in exception contexts.
+  static void print_stacktrace()
+  {
+    void *array[50];
+    int size = backtrace(array, 50);
+    char **strings = backtrace_symbols(array, size);
+    std::cerr << "\nStack trace:\n";
+    for (int i = 0; i < size; ++i) {
+      std::cerr << strings[i] << std::endl;
+    }
+    std::cerr << std::endl;
+    free(strings);
+  }
+
+  /// \brief Registers default string printers for basic types:
+  /// `int`, `float`, `double`, `std::string`, `bool`, `char`.
+  static void register_basic_printers()
+  {
+    register_printer<int>([](const int & v) {return std::to_string(v);});
+    register_printer<float>([](const float & v) {return std::to_string(v);});
+    register_printer<double>([](const double & v) {return std::to_string(v);});
+    register_printer<std::string>([](const std::string & v) {return v;});
+    register_printer<bool>([](const bool & v) {return v ? "true" : "false";});
+    register_printer<char>([](const char & v) {return std::string(1, v);});
+  }
+
+private:
+  mutable std::mutex mutex_;
+
+  /// \brief Internal storage of values as shared void pointers.
+  mutable std::unordered_map<std::string, std::shared_ptr<void>> values_;
+
+  /// \brief Stores typeid hashes for each key.
+  mutable std::unordered_map<std::string, size_t> types_;
+
+  /// \brief Maps typeid hashes to printable string renderers.
+  static inline std::unordered_map<size_t, AnyPrinter> type_printers_;
 };
 
 }  // namespace easynav
 
-#endif  // EASYNAV_COMMON_TYPES__NAVSTATE_HPP_
+#endif  // EASYNAV__TYPES__NAVSTATE_HPP_

@@ -36,7 +36,7 @@ namespace easynav
  * @brief Abstract base class for localization methods in Easy Navigation.
  *
  * This class defines the interface for localization algorithm implementations.
- * Derived classes must implement the update and get_odom methods.
+ * Derived classes must implement the update methods.
  */
 class LocalizerMethodBase : public MethodBase
 {
@@ -48,29 +48,20 @@ public:
   virtual ~LocalizerMethodBase() = default;
 
   /**
-   * @brief Get the current localization state.
-   *
-   * Should return the last estimated pose of the robot.
-   *
-   * @return An Odometry message representing the current estimated state.
-   */
-  [[nodiscard]] virtual nav_msgs::msg::Odometry get_odom() = 0;
-
-  /**
    * @brief Helper to run the real-time update if appropriate.
    *
    * @param nav_state The current state of the navigation system.
    * @param trigger Force execution regardless of timing.
    * @return True if update_rt() was called, false otherwise.
    */
-  bool internal_update_rt(const NavState & nav_state, bool trigger = false);
+  bool internal_update_rt(NavState & nav_state, bool trigger = false);
 
   /**
    * @brief Helper to run the non-real-time update if appropriate.
    *
    * @param nav_state The current state of the navigation system.
    */
-  void internal_update(const NavState & nav_state);
+  void internal_update(NavState & nav_state);
 
 protected:
   /**
@@ -78,14 +69,14 @@ protected:
    *
    * @param nav_state The current state of the navigation system.
    */
-  virtual void update_rt(const NavState & nav_state) = 0;
+  virtual void update_rt(NavState & nav_state) = 0;
 
   /**
    * @brief Run the non-real-time localization update.
    *
    * @param nav_state The current state of the navigation system.
    */
-  virtual void update(const NavState & nav_state) = 0;
+  virtual void update(NavState & nav_state) = 0;
 };
 
 }  // namespace easynav

@@ -53,16 +53,10 @@ public:
   virtual std::expected<void, std::string> on_initialize() override;
 
   /**
-   * @brief Get the current path.
-   * @return Stored (empty) path.
-   */
-  [[nodiscard]] virtual nav_msgs::msg::Path get_path() override;
-
-  /**
    * @brief Dummy update method.
    * @param nav_state Current navigation state.
    */
-  virtual void update(const NavState & nav_state) override;
+  virtual void update(NavState & nav_state) override;
 
 private:
   /// @brief Stored path message (unused in dummy).

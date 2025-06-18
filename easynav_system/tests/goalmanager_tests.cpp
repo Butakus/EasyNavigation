@@ -22,6 +22,7 @@
 #include "easynav_system/GoalManagerClient.hpp"
 #include "easynav_common/types/NavState.hpp"
 
+#include "nav_msgs/msg/odometry.hpp"
 
 #include "rclcpp/node.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
@@ -58,6 +59,8 @@ using namespace std::chrono_literals;
 TEST_F(GoalManagerTestCase, initpose_topic)
 {
   auto nav_state = std::make_shared<easynav::NavState>();
+  nav_state->set("robot_pose", nav_msgs::msg::Odometry());
+
   auto client_node = rclcpp::Node::make_shared("client_node");
   auto system_node = rclcpp_lifecycle::LifecycleNode::make_shared("system_node");
 
@@ -78,10 +81,12 @@ TEST_F(GoalManagerTestCase, initpose_topic)
       last_control = *msg;
     });
 
-  auto gm_server = easynav::GoalManager::make_shared(nav_state, system_node);
+  auto gm_server = easynav::GoalManager::make_shared(*nav_state, system_node);
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
-
+  ASSERT_TRUE(nav_state->has("navigation_state"));
+  auto state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
 
   // Navigation 1 succesfull
   RCLCPP_INFO(client_node->get_logger(), "Navigation 1 succesfull");
@@ -96,13 +101,14 @@ TEST_F(GoalManagerTestCase, initpose_topic)
   rclcpp::Rate rate(20);
   auto start = client_node->now();
   while (client_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::ACTIVE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::ACTIVE);
 
   nav_msgs::msg::Goals req_goals = gm_server->get_goals();
   ASSERT_EQ(req_goals.goals.size(), 1);
@@ -117,8 +123,7 @@ TEST_F(GoalManagerTestCase, initpose_topic)
 
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
   }
 
@@ -126,13 +131,14 @@ TEST_F(GoalManagerTestCase, initpose_topic)
 
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
 
   req_goals = gm_server->get_goals();
   ASSERT_TRUE(req_goals.goals.empty());
@@ -141,11 +147,14 @@ TEST_F(GoalManagerTestCase, initpose_topic)
   ASSERT_EQ(last_control.user_id, std::string("easynav_system"));
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
 }
 
 TEST_F(GoalManagerTestCase, initpose_topic_with_preempt)
 {
   auto nav_state = std::make_shared<easynav::NavState>();
+  nav_state->set("robot_pose", nav_msgs::msg::Odometry());
   auto client_node = rclcpp::Node::make_shared("client_node");
   auto system_node = rclcpp_lifecycle::LifecycleNode::make_shared("system_node");
 
@@ -166,10 +175,14 @@ TEST_F(GoalManagerTestCase, initpose_topic_with_preempt)
       last_control = *msg;
     });
 
-  auto gm_server = easynav::GoalManager::make_shared(nav_state, system_node);
+  auto gm_server = easynav::GoalManager::make_shared(*nav_state, system_node);
   auto gm_client = easynav::GoalManagerClient::make_shared(client_node);
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  ASSERT_TRUE(nav_state->has("navigation_state"));
+  auto state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
+
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::IDLE);
 
  // Navigation 1 succesfull
@@ -185,13 +198,14 @@ TEST_F(GoalManagerTestCase, initpose_topic_with_preempt)
   rclcpp::Rate rate(20);
   auto start = client_node->now();
   while (client_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::ACTIVE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::ACTIVE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::ACCEPTED_AND_NAVIGATING);
 
   nav_msgs::msg::Goals req_goals = gm_server->get_goals();
@@ -210,8 +224,7 @@ TEST_F(GoalManagerTestCase, initpose_topic_with_preempt)
 
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
   }
 
@@ -224,13 +237,15 @@ TEST_F(GoalManagerTestCase, initpose_topic_with_preempt)
 
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::ACTIVE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::ACTIVE);
+
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::NAVIGATION_CANCELLED);
 
   req_goals = gm_server->get_goals();
@@ -245,8 +260,7 @@ TEST_F(GoalManagerTestCase, initpose_topic_with_preempt)
 
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
   }
 
@@ -254,13 +268,14 @@ TEST_F(GoalManagerTestCase, initpose_topic_with_preempt)
 
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
 
   req_goals = gm_server->get_goals();
   ASSERT_TRUE(req_goals.goals.empty());
@@ -271,12 +286,16 @@ TEST_F(GoalManagerTestCase, initpose_topic_with_preempt)
   gm_client->reset();
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
+
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::IDLE);
 }
 
 TEST_F(GoalManagerTestCase, simple_nav_node)
 {
   auto nav_state = std::make_shared<easynav::NavState>();
+  nav_state->set("robot_pose", nav_msgs::msg::Odometry());
   auto client_node = rclcpp::Node::make_shared("client_node");
   auto system_node = rclcpp_lifecycle::LifecycleNode::make_shared("system_node");
 
@@ -288,9 +307,12 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   exe.add_node(system_node->get_node_base_interface());
 
   auto gm_client = easynav::GoalManagerClient::make_shared(client_node);
-  auto gm_server = easynav::GoalManager::make_shared(nav_state, system_node);
+  auto gm_server = easynav::GoalManager::make_shared(*nav_state, system_node);
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  ASSERT_TRUE(nav_state->has("navigation_state"));
+  auto state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::IDLE);
 
 
@@ -307,13 +329,14 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   rclcpp::Rate rate(20);
   auto start = client_node->now();
   while (client_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::ACTIVE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::ACTIVE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::ACCEPTED_AND_NAVIGATING);
 
   nav_msgs::msg::Goals req_goals = gm_server->get_goals();
@@ -333,8 +356,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
   }
 
@@ -342,17 +364,17 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::NAVIGATION_FINISHED);
 
   req_goals = gm_server->get_goals();
-  ASSERT_EQ(req_goals.header, goal.header);
   ASSERT_TRUE(req_goals.goals.empty());
 
   last_control = gm_client->get_last_control();
@@ -364,6 +386,8 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   gm_client->reset();
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::IDLE);
 
   // Navigation 2 succesfull
@@ -377,13 +401,14 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::ACTIVE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::ACTIVE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::ACCEPTED_AND_NAVIGATING);
 
   req_goals = gm_server->get_goals();
@@ -404,17 +429,17 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::NAVIGATION_FINISHED);
 
   req_goals = gm_server->get_goals();
-  ASSERT_EQ(req_goals.header, goal.header);
   ASSERT_TRUE(req_goals.goals.empty());
 
   last_control = gm_client->get_last_control();
@@ -426,6 +451,8 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   gm_client->reset();
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::IDLE);
 
   // Navigation 3 : Refresh goal position
@@ -439,13 +466,14 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::ACTIVE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::ACTIVE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::ACCEPTED_AND_NAVIGATING);
 
   req_goals = gm_server->get_goals();
@@ -466,8 +494,7 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
@@ -476,13 +503,14 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 
   start = client_node->now();
   while (client_node->now() - start < 800ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::ACTIVE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::ACTIVE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::ACCEPTED_AND_NAVIGATING);
 
   req_goals = gm_server->get_goals();
@@ -503,17 +531,17 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::NAVIGATION_FINISHED);
 
   req_goals = gm_server->get_goals();
-  ASSERT_EQ(req_goals.header, goal.header);
   ASSERT_TRUE(req_goals.goals.empty());
 
   last_control = gm_client->get_last_control();
@@ -528,6 +556,8 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   gm_client->reset();
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::IDLE);
 
   // Navigation 3 : Cancel Navigation from Client
@@ -541,13 +571,14 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::ACTIVE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::ACTIVE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::ACCEPTED_AND_NAVIGATING);
 
   req_goals = gm_server->get_goals();
@@ -568,13 +599,14 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::NAVIGATION_CANCELLED);
 
   req_goals = gm_server->get_goals();
@@ -592,6 +624,8 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   gm_client->reset();
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::IDLE);
 
   // Navigation 5 succesfull
@@ -606,13 +640,14 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::ACTIVE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::ACTIVE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::ACCEPTED_AND_NAVIGATING);
 
   req_goals = gm_server->get_goals();
@@ -633,17 +668,17 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::NAVIGATION_FINISHED);
 
   req_goals = gm_server->get_goals();
-  ASSERT_EQ(req_goals.header, goal.header);
   ASSERT_TRUE(req_goals.goals.empty());
 
   last_control = gm_client->get_last_control();
@@ -658,6 +693,8 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   gm_client->reset();
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::IDLE);
 
   // Navigation 6 : Navigation failed
@@ -672,13 +709,14 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::ACTIVE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::ACTIVE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::ACCEPTED_AND_NAVIGATING);
 
   req_goals = gm_server->get_goals();
@@ -699,17 +737,17 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::NAVIGATION_FAILED);
 
   req_goals = gm_server->get_goals();
-  ASSERT_EQ(req_goals.header, goal.header);
   ASSERT_TRUE(req_goals.goals.empty());
 
   last_control = gm_client->get_last_control();
@@ -725,6 +763,8 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   gm_client->reset();
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::IDLE);
 
   // Navigation 7 succesfull
@@ -739,13 +779,14 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::ACTIVE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::ACTIVE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::ACCEPTED_AND_NAVIGATING);
 
   req_goals = gm_server->get_goals();
@@ -766,17 +807,17 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::NAVIGATION_FINISHED);
 
   req_goals = gm_server->get_goals();
-  ASSERT_EQ(req_goals.header, goal.header);
   ASSERT_TRUE(req_goals.goals.empty());
 
   last_control = gm_client->get_last_control();
@@ -791,6 +832,8 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   gm_client->reset();
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::IDLE);
 
   // Navigation 8 : Navigation error
@@ -805,13 +848,14 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::ACTIVE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::ACTIVE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::ACCEPTED_AND_NAVIGATING);
 
   req_goals = gm_server->get_goals();
@@ -832,19 +876,19 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::ERROR);
 
   req_goals = gm_server->get_goals();
-  ASSERT_EQ(req_goals.header, goal.header);
   ASSERT_TRUE(req_goals.goals.empty());
-  ASSERT_EQ(req_goals.header.frame_id, "map");
+  ASSERT_EQ(req_goals.header.frame_id, "");
 
   last_control = gm_client->get_last_control();
   last_feedback = gm_client->get_feedback();
@@ -859,6 +903,8 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   gm_client->reset();
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::IDLE);
 
   // Navigation 9 succesfull
@@ -873,13 +919,14 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 
   start = client_node->now();
   while (client_node->now() - start < 200ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::ACTIVE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::ACTIVE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::ACCEPTED_AND_NAVIGATING);
 
   req_goals = gm_server->get_goals();
@@ -900,19 +947,19 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
 
   start = client_node->now();
   while (client_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::NAVIGATION_FINISHED);
 
   req_goals = gm_server->get_goals();
-  ASSERT_EQ(req_goals.header, goal.header);
   ASSERT_TRUE(req_goals.goals.empty());
-  ASSERT_EQ(req_goals.header.frame_id, "map");
+  ASSERT_EQ(req_goals.header.frame_id, "");
 
   last_control = gm_client->get_last_control();
   last_feedback = gm_client->get_feedback();
@@ -926,12 +973,15 @@ TEST_F(GoalManagerTestCase, simple_nav_node)
   gm_client->reset();
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client->get_state(), easynav::GoalManagerClient::State::IDLE);
 }
 
 TEST_F(GoalManagerTestCase, two_clients)
 {
   auto nav_state = std::make_shared<easynav::NavState>();
+  nav_state->set("robot_pose", nav_msgs::msg::Odometry());
   auto client_node1 = rclcpp::Node::make_shared("client_node1");
   auto client_node2 = rclcpp::Node::make_shared("client_node2");
   auto system_node = rclcpp_lifecycle::LifecycleNode::make_shared("system_node");
@@ -947,9 +997,13 @@ TEST_F(GoalManagerTestCase, two_clients)
 
   auto gm_client1 = easynav::GoalManagerClient::make_shared(client_node1);
   auto gm_client2 = easynav::GoalManagerClient::make_shared(client_node2);
-  auto gm_server = easynav::GoalManager::make_shared(nav_state, system_node);
+  auto gm_server = easynav::GoalManager::make_shared(*nav_state, system_node);
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  ASSERT_TRUE(nav_state->has("navigation_state"));
+  auto state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
+
   ASSERT_EQ(gm_client1->get_state(), easynav::GoalManagerClient::State::IDLE);
   ASSERT_EQ(gm_client2->get_state(), easynav::GoalManagerClient::State::IDLE);
 
@@ -967,13 +1021,14 @@ TEST_F(GoalManagerTestCase, two_clients)
   rclcpp::Rate rate(20);
   auto start = system_node->now();
   while (system_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::ACTIVE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::ACTIVE);
   ASSERT_EQ(gm_client1->get_state(), easynav::GoalManagerClient::State::ACCEPTED_AND_NAVIGATING);
   ASSERT_EQ(gm_client2->get_state(), easynav::GoalManagerClient::State::IDLE);
 
@@ -994,8 +1049,7 @@ TEST_F(GoalManagerTestCase, two_clients)
 
   start = system_node->now();
   while (system_node->now() - start < 200ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
   }
 
@@ -1003,18 +1057,18 @@ TEST_F(GoalManagerTestCase, two_clients)
 
   start = system_node->now();
   while (system_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client1->get_state(), easynav::GoalManagerClient::State::NAVIGATION_FINISHED);
   ASSERT_EQ(gm_client2->get_state(), easynav::GoalManagerClient::State::IDLE);
 
   req_goals = gm_server->get_goals();
-  ASSERT_EQ(req_goals.header, goal.header);
   ASSERT_TRUE(req_goals.goals.empty());
 
   last_control = gm_client1->get_last_control();
@@ -1029,6 +1083,8 @@ TEST_F(GoalManagerTestCase, two_clients)
   gm_client1->reset();
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client1->get_state(), easynav::GoalManagerClient::State::IDLE);
   ASSERT_EQ(gm_client2->get_state(), easynav::GoalManagerClient::State::IDLE);
 
@@ -1040,13 +1096,14 @@ TEST_F(GoalManagerTestCase, two_clients)
 
   start = system_node->now();
   while (system_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::ACTIVE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::ACTIVE);
   ASSERT_EQ(gm_client2->get_state(), easynav::GoalManagerClient::State::ACCEPTED_AND_NAVIGATING);
   ASSERT_EQ(gm_client1->get_state(), easynav::GoalManagerClient::State::IDLE);
 
@@ -1067,8 +1124,7 @@ TEST_F(GoalManagerTestCase, two_clients)
 
   start = system_node->now();
   while (system_node->now() - start < 200ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
   }
 
@@ -1076,18 +1132,18 @@ TEST_F(GoalManagerTestCase, two_clients)
 
   start = system_node->now();
   while (system_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client2->get_state(), easynav::GoalManagerClient::State::NAVIGATION_FINISHED);
   ASSERT_EQ(gm_client1->get_state(), easynav::GoalManagerClient::State::IDLE);
 
   req_goals = gm_server->get_goals();
-  ASSERT_EQ(req_goals.header, goal.header);
   ASSERT_TRUE(req_goals.goals.empty());
 
   last_control = gm_client2->get_last_control();
@@ -1102,6 +1158,8 @@ TEST_F(GoalManagerTestCase, two_clients)
   gm_client2->reset();
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client1->get_state(), easynav::GoalManagerClient::State::IDLE);
   ASSERT_EQ(gm_client2->get_state(), easynav::GoalManagerClient::State::IDLE);
 
@@ -1113,13 +1171,14 @@ TEST_F(GoalManagerTestCase, two_clients)
 
   start = system_node->now();
   while (system_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::ACTIVE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::ACTIVE);
   ASSERT_EQ(gm_client2->get_state(), easynav::GoalManagerClient::State::ACCEPTED_AND_NAVIGATING);
   ASSERT_EQ(gm_client1->get_state(), easynav::GoalManagerClient::State::IDLE);
 
@@ -1140,8 +1199,7 @@ TEST_F(GoalManagerTestCase, two_clients)
 
   start = system_node->now();
   while (system_node->now() - start < 200ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
   }
 
@@ -1149,12 +1207,13 @@ TEST_F(GoalManagerTestCase, two_clients)
 
   start = system_node->now();
   while (system_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::ACTIVE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::ACTIVE);
   ASSERT_EQ(gm_client2->get_state(), easynav::GoalManagerClient::State::ACCEPTED_AND_NAVIGATING);
   ASSERT_EQ(gm_client1->get_state(), easynav::GoalManagerClient::State::IDLE);
 
@@ -1162,18 +1221,18 @@ TEST_F(GoalManagerTestCase, two_clients)
 
   start = system_node->now();
   while (system_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client2->get_state(), easynav::GoalManagerClient::State::NAVIGATION_FINISHED);
   ASSERT_EQ(gm_client1->get_state(), easynav::GoalManagerClient::State::IDLE);
 
   req_goals = gm_server->get_goals();
-  ASSERT_EQ(req_goals.header, goal.header);
   ASSERT_TRUE(req_goals.goals.empty());
 
   last_control = gm_client2->get_last_control();
@@ -1189,6 +1248,8 @@ TEST_F(GoalManagerTestCase, two_clients)
   gm_client1->reset();
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client1->get_state(), easynav::GoalManagerClient::State::IDLE);
   ASSERT_EQ(gm_client2->get_state(), easynav::GoalManagerClient::State::IDLE);
 
@@ -1200,13 +1261,14 @@ TEST_F(GoalManagerTestCase, two_clients)
 
   start = system_node->now();
   while (system_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::ACTIVE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::ACTIVE);
   ASSERT_EQ(gm_client2->get_state(), easynav::GoalManagerClient::State::ACCEPTED_AND_NAVIGATING);
   ASSERT_EQ(gm_client1->get_state(), easynav::GoalManagerClient::State::IDLE);
 
@@ -1227,8 +1289,7 @@ TEST_F(GoalManagerTestCase, two_clients)
 
   start = system_node->now();
   while (system_node->now() - start < 200ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
   }
 
@@ -1236,12 +1297,13 @@ TEST_F(GoalManagerTestCase, two_clients)
 
   start = system_node->now();
   while (system_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::ACTIVE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::ACTIVE);
   ASSERT_EQ(gm_client1->get_state(), easynav::GoalManagerClient::State::ACCEPTED_AND_NAVIGATING);
   ASSERT_EQ(gm_client2->get_state(), easynav::GoalManagerClient::State::NAVIGATION_CANCELLED);
 
@@ -1249,18 +1311,18 @@ TEST_F(GoalManagerTestCase, two_clients)
 
   start = system_node->now();
   while (system_node->now() - start < 400ms) {
-    gm_server->update();
-    nav_state->goals = gm_server->get_goals();
+    gm_server->update(*nav_state);
     exe.spin_some();
     rate.sleep();
   }
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client1->get_state(), easynav::GoalManagerClient::State::NAVIGATION_FINISHED);
   ASSERT_EQ(gm_client2->get_state(), easynav::GoalManagerClient::State::NAVIGATION_CANCELLED);
 
   req_goals = gm_server->get_goals();
-  ASSERT_EQ(req_goals.header, goal.header);
   ASSERT_TRUE(req_goals.goals.empty());
 
   last_control = gm_client1->get_last_control();
@@ -1280,6 +1342,8 @@ TEST_F(GoalManagerTestCase, two_clients)
   gm_client1->reset();
 
   ASSERT_EQ(gm_server->get_state(), easynav::GoalManager::State::IDLE);
+  state = nav_state->get<easynav::GoalManager::State>("navigation_state");
+  ASSERT_EQ(state, easynav::GoalManager::State::IDLE);
   ASSERT_EQ(gm_client1->get_state(), easynav::GoalManagerClient::State::IDLE);
   ASSERT_EQ(gm_client2->get_state(), easynav::GoalManagerClient::State::IDLE);
 }

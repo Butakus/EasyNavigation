@@ -48,20 +48,11 @@ public:
   virtual ~MapsManagerBase() = default;
 
   /**
-   * @brief Get the current set of maps.
-   *
-   * Should return the last generated or updated maps, without performing computation.
-   *
-   * @return A map from identifiers to map representations.
-   */
-  [[nodiscard]] virtual std::map<std::string, std::shared_ptr<MapsTypeBase>> get_maps() = 0;
-
-  /**
    * @brief Helper to run the update method if it is time to do so.
    *
    * @param nav_state The current state of the navigation system.
    */
-  void internal_update(const NavState & nav_state);
+  void internal_update(NavState & nav_state);
 
 protected:
   /**
@@ -71,7 +62,7 @@ protected:
    *
    * @param nav_state The current state of the navigation system.
    */
-  virtual void update(const NavState & nav_state) = 0;
+  virtual void update(NavState & nav_state) = 0;
 };
 
 }  // namespace easynav

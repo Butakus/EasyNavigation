@@ -105,24 +105,18 @@ public:
   rclcpp::CallbackGroup::SharedPtr get_real_time_cbg();
 
   /**
-   * @brief Get the current odometry estimation.
-   * @return Latest robot odometry from the localization plugin.
-   */
-  [[nodiscard]] nav_msgs::msg::Odometry get_odom() const;
-
-  /**
    * @brief Run a real-time localization cycle.
    * @param nav_state Shared pointer to the navigation state structure.
    * @param trigger Optional override to force execution.
    * @return True if plugin update was executed.
    */
-  bool cycle_rt(std::shared_ptr<const NavState> nav_state, bool trigger = false);
+  bool cycle_rt(std::shared_ptr<NavState> nav_state, bool trigger = false);
 
   /**
    * @brief Run a non-real-time localization cycle.
    * @param nav_state Shared pointer to the navigation state structure.
    */
-  void cycle(std::shared_ptr<const NavState> nav_state);
+  void cycle(std::shared_ptr<NavState> nav_state);
 
 private:
   /// @brief Callback group reserved for real-time operations.

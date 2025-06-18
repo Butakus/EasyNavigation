@@ -43,12 +43,7 @@ std::expected<void, std::string> DummyLocalizer::on_initialize()
   return {};
 }
 
-nav_msgs::msg::Odometry DummyLocalizer::get_odom()
-{
-  return odom_;
-}
-
-void DummyLocalizer::update_rt([[maybe_unused]] const NavState & nav_state)
+void DummyLocalizer::update_rt([[maybe_unused]] NavState & nav_state)
 {
   auto start = get_node()->now();
   while ((get_node()->now() - start).seconds() < cycle_time_rt_) {}
@@ -60,9 +55,11 @@ void DummyLocalizer::update_rt([[maybe_unused]] const NavState & nav_state)
 
   RTTFBuffer::getInstance()->setTransform(tf_msg, "easynav", false);
   tf_broadcaster_->sendTransform(tf_msg);
+
+  nav_state.set("robot_pose", robot_pose_);
 }
 
-void DummyLocalizer::update([[maybe_unused]] const NavState & nav_state)
+void DummyLocalizer::update([[maybe_unused]] NavState & nav_state)
 {
   auto start = get_node()->now();
   while ((get_node()->now() - start).seconds() < cycle_time_nort_) {}
@@ -74,6 +71,8 @@ void DummyLocalizer::update([[maybe_unused]] const NavState & nav_state)
 
   RTTFBuffer::getInstance()->setTransform(tf_msg, "easynav", false);
   tf_broadcaster_->sendTransform(tf_msg);
+
+  nav_state.set("robot_pose", robot_pose_);
 }
 
 }  // namespace easynav

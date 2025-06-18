@@ -26,7 +26,7 @@
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
 
-#include "easynav_common/types/Perceptions.hpp"
+#include "easynav_common/types/PointPerception.hpp"
 #include "easynav_common/RTTFBuffer.hpp"
 
 #include "rclcpp/rclcpp.hpp"
@@ -50,31 +50,24 @@ protected:
 
 TEST(PerceptionsOpsViewTests, FilterTest)
 {
-  std::vector<easynav::PerceptionPtr> perceptions;
+  easynav::PointPerceptions perceptions;
 
   {
-    std::shared_ptr<std::atomic<std::shared_ptr<easynav::Perception>>> atomic =
-      std::make_shared<std::atomic<std::shared_ptr<easynav::Perception>>>(
-        std::make_shared<easynav::Perception>());
+    auto perception = std::make_shared<easynav::PointPerception>();
 
-    easynav::PerceptionPtr entry;
-    entry.perception = atomic;
-
-    std::shared_ptr<easynav::Perception> inner = atomic->load();
-    inner->valid = true;
+    perception->valid = true;
     for (float i = -1.0f; i <= 1.0f; i += 0.1f) {
       pcl::PointXYZ pt;
       pt.x = i;
       pt.y = i;
       pt.z = i;
-      inner->data.push_back(pt);
+      perception->data.push_back(pt);
     }
-    atomic->store(inner);
 
-    perceptions.push_back(entry);
+    perceptions.push_back(perception);
   }
 
-  easynav::PerceptionsOpsView view(perceptions);
+  easynav::PointPerceptionsOpsView view(perceptions);
 
   std::vector<double> min_bounds = {0.0, 0.0, 0.0};
   std::vector<double> max_bounds = {0.5, 0.5, 0.5};
@@ -91,24 +84,21 @@ TEST(PerceptionsOpsViewTests, FilterTest)
   }
 }
 
+
 TEST_F(PerceptionsOpsTest, CollapseTest)
 {
-  std::vector<easynav::PerceptionPtr> p;
+  easynav::PointPerceptions perceptions;
 
-  easynav::PerceptionPtr entry;
-  entry.perception = std::make_shared<std::atomic<std::shared_ptr<easynav::Perception>>>(
-    std::make_shared<easynav::Perception>());
+  auto perception = std::make_shared<easynav::PointPerception>();
 
-  std::shared_ptr<easynav::Perception> inner = entry.perception->load();
-  inner->valid = true;
-  inner->data.push_back(pcl::PointXYZ(1.0f, 2.0f, 0.9f));
-  inner->data.push_back(pcl::PointXYZ(1.0f, 4.0f, 1.3f));
-  entry.perception->store(inner);
+  perception->valid = true;
+  perception->data.push_back(pcl::PointXYZ(1.0f, 2.0f, 0.9f));
+  perception->data.push_back(pcl::PointXYZ(1.0f, 4.0f, 1.3f));
 
-  p.push_back(entry);
+  perceptions.push_back(perception);
 
   pcl::PointCloud<pcl::PointXYZ> collapsed =
-    easynav::PerceptionsOpsView(p)
+    easynav::PointPerceptionsOpsView(perceptions)
     .collapse({NAN, NAN, 0.5})
     ->as_points();
 
@@ -118,44 +108,34 @@ TEST_F(PerceptionsOpsTest, CollapseTest)
     EXPECT_FLOAT_EQ(pt.z, 0.5f);
   }
 
-  // Comprobar que el original no se ha modificado
-  std::shared_ptr<easynav::Perception> original = entry.perception->load();
-  EXPECT_EQ(original->data.size(), 2u);
-  EXPECT_FLOAT_EQ(original->data[0].x, 1.0f);
-  EXPECT_FLOAT_EQ(original->data[0].y, 2.0f);
-  EXPECT_FLOAT_EQ(original->data[0].z, 0.9f);
-  EXPECT_FLOAT_EQ(original->data[1].x, 1.0f);
-  EXPECT_FLOAT_EQ(original->data[1].y, 4.0f);
-  EXPECT_FLOAT_EQ(original->data[1].z, 1.3f);
+  EXPECT_EQ(perception->data.size(), 2u);
+  EXPECT_FLOAT_EQ(perception->data[0].x, 1.0f);
+  EXPECT_FLOAT_EQ(perception->data[0].y, 2.0f);
+  EXPECT_FLOAT_EQ(perception->data[0].z, 0.9f);
+  EXPECT_FLOAT_EQ(perception->data[1].x, 1.0f);
+  EXPECT_FLOAT_EQ(perception->data[1].y, 4.0f);
+  EXPECT_FLOAT_EQ(perception->data[1].z, 1.3f);
 }
 
 TEST(PerceptionsOpsViewTests, DownsampleTest)
 {
-  std::vector<easynav::PerceptionPtr> perceptions;
+  easynav::PointPerceptions perceptions;
 
   {
-    std::shared_ptr<std::atomic<std::shared_ptr<easynav::Perception>>> atomic =
-      std::make_shared<std::atomic<std::shared_ptr<easynav::Perception>>>(
-        std::make_shared<easynav::Perception>());
+    auto perception = std::make_shared<easynav::PointPerception>();
 
-    easynav::PerceptionPtr entry;
-    entry.perception = atomic;
-
-    std::shared_ptr<easynav::Perception> inner = atomic->load();
-    inner->valid = true;
+    perception->valid = true;
     for (float i = 0.0; i < 1.0; i += 0.1f) {
       pcl::PointXYZ pt;
       pt.x = i;
       pt.y = 0.0f;
       pt.z = 0.0f;
-      inner->data.push_back(pt);
+      perception->data.push_back(pt);
     }
-    atomic->store(inner);
-
-    perceptions.push_back(entry);
+    perceptions.push_back(perception);
   }
 
-  easynav::PerceptionsOpsView view(perceptions);
+  easynav::PointPerceptionsOpsView view(perceptions);
   view.downsample(0.2);
 
   pcl::PointCloud<pcl::PointXYZ> result = view.as_points();
@@ -189,40 +169,32 @@ TEST_F(PerceptionsOpsTest, FuseOperation)
   tf_buffer->setTransform(tf1, "default_authority", false);
   tf_buffer->setTransform(tf2, "default_authority", false);
 
-  std::vector<easynav::PerceptionPtr> perceptions;
+  easynav::PointPerceptions perceptions;
 
   {
-    easynav::PerceptionPtr ptr;
-    ptr.perception = std::make_shared<std::atomic<std::shared_ptr<easynav::Perception>>>(
-      std::make_shared<easynav::Perception>());
+    auto perception = std::make_shared<easynav::PointPerception>();
 
-    auto p = ptr.perception->load();
-    p->valid = true;
-    p->stamp = stamp;
-    p->frame_id = "sensor";
-    p->data.push_back(pcl::PointXYZ(1.0, 2.0, 3.0));
-    ptr.perception->store(p);
+    perception->valid = true;
+    perception->stamp = stamp;
+    perception->frame_id = "sensor";
+    perception->data.push_back(pcl::PointXYZ(1.0, 2.0, 3.0));
 
-    perceptions.push_back(ptr);
+    perceptions.push_back(perception);
   }
 
   {
-    easynav::PerceptionPtr ptr;
-    ptr.perception = std::make_shared<std::atomic<std::shared_ptr<easynav::Perception>>>(
-      std::make_shared<easynav::Perception>());
+    auto perception = std::make_shared<easynav::PointPerception>();
 
-    auto p = ptr.perception->load();
-    p->valid = true;
-    p->stamp = stamp;
-    p->frame_id = "sensor2";
-    p->data.push_back(pcl::PointXYZ(1.0, 2.0, 3.0));
-    ptr.perception->store(p);
+    perception->valid = true;
+    perception->stamp = stamp;
+    perception->frame_id = "sensor2";
+    perception->data.push_back(pcl::PointXYZ(1.0, 2.0, 3.0));
 
-    perceptions.push_back(ptr);
+    perceptions.push_back(perception);
   }
 
   pcl::PointCloud<pcl::PointXYZ> fused =
-    easynav::PerceptionsOpsView(perceptions)
+    easynav::PointPerceptionsOpsView(perceptions)
     .fuse("odom")
     ->as_points();
 

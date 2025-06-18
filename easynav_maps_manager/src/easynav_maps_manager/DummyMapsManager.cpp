@@ -41,7 +41,7 @@ std::expected<void, std::string> DummyMapsManager::on_initialize()
 }
 
 void
-DummyMapsManager::update([[maybe_unused]] const NavState & nav_state)
+DummyMapsManager::update([[maybe_unused]] NavState & nav_state)
 {
   auto start = get_node()->now();
   while ((get_node()->now() - start).seconds() < cycle_time_nort_) {}

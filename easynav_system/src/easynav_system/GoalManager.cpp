@@ -23,19 +23,24 @@
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "easynav_system/GoalManager.hpp"
 
+#include "nav_msgs/msg/odometry.hpp"
+
 namespace easynav
 {
 
 GoalManager::GoalManager(
-  const std::shared_ptr<const NavState> & nav_state,
+  NavState & nav_state,
   rclcpp_lifecycle::LifecycleNode::SharedPtr parent_node)
-: parent_node_(parent_node),
-  nav_state_(nav_state)
+: parent_node_(parent_node)
 {
-  state_ = State::IDLE;
+  nav_state.set("navigation_state", state_);
 
   parent_node_->declare_parameter("allow_preempt_goal", allow_preempt_goal_);
+  parent_node_->declare_parameter("position_tolerance", position_tolerance_);
+  parent_node_->declare_parameter("angle_tolerance", angle_tolerance_);
   parent_node_->get_parameter("allow_preempt_goal", allow_preempt_goal_);
+  parent_node_->get_parameter("position_tolerance", position_tolerance_);
+  parent_node_->get_parameter("angle_tolerance", angle_tolerance_);
 
   control_sub_ = parent_node_->create_subscription<easynav_interfaces::msg::NavigationControl>(
     "easynav_control", 100,
@@ -52,6 +57,19 @@ GoalManager::GoalManager(
 
   id_ = "easynav_system";
   last_control_ = std::make_unique<easynav_interfaces::msg::NavigationControl>();
+
+  NavState::register_printer<State>(
+    [](const State & state) {
+      std::ostringstream ret;
+      if (state == State::IDLE) {
+        ret << "State IDLE\n";
+      } else {
+        ret << "State ACTIVE\n";
+      }
+      return ret.str();
+    });
+
+  // parent_node_->get_logger().set_level(rclcpp::Logger::Level::Debug);
 }
 
 void
@@ -132,7 +150,6 @@ GoalManager::control_callback(easynav_interfaces::msg::NavigationControl::Unique
           response.nav_current_user_id = msg->user_id;
         } else {
           RCLCPP_DEBUG(parent_node_->get_logger(), "Navigation cancelation accepted");
-          state_ = State::IDLE;
           goals_.goals.clear();
           response.status_message = "Goal cancelled";
           response.type = easynav_interfaces::msg::NavigationControl::CANCELLED;
@@ -239,9 +256,38 @@ GoalManager::comanded_pose_callback(geometry_msgs::msg::PoseStamped::UniquePtr m
 }
 
 void
-GoalManager::update()
+GoalManager::update(NavState & nav_state)
 {
-  if (state_ == State::IDLE) {return;}
+  if (nav_state.get<State>("navigation_state") != state_) {
+    nav_state.set("navigation_state", state_);
+  }
+
+  if (state_ == State::IDLE) {
+    goals_ = nav_msgs::msg::Goals();
+    nav_state.set("goals", goals_);
+    return;
+  }
+
+  if (!nav_state.has("robot_pose")) {
+    RCLCPP_WARN(parent_node_->get_logger(), "No robot pose at GoalManager::Update");
+    return;
+  }
+
+  check_goals(
+    nav_state.get<nav_msgs::msg::Odometry>("robot_pose").pose.pose,
+    position_tolerance_, angle_tolerance_);
+
+  if (!nav_state.has("goals") || nav_state.get<nav_msgs::msg::Goals>("goals") != goals_) {
+    nav_state.set("goals", goals_);
+  }
+
+  if (goals_.goals.empty()) {
+    set_finished();
+  }
+
+  if (nav_state.get<State>("navigation_state") != state_) {
+    nav_state.set("navigation_state", state_);
+  }
 
   easynav_interfaces::msg::NavigationControl feedback;
   feedback.type = easynav_interfaces::msg::NavigationControl::FEEDBACK;
@@ -250,9 +296,11 @@ GoalManager::update()
   feedback.user_id = id_;
   feedback.nav_current_user_id = current_client_id_;
 
-  feedback.goals = nav_state_->goals;
-  feedback.current_pose.header = nav_state_->odom.header;
-  feedback.current_pose.pose = nav_state_->odom.pose.pose;
+  const auto odom = nav_state.get<nav_msgs::msg::Odometry>("robot_pose");
+
+  feedback.goals = goals_;
+  feedback.current_pose.header = odom.header;
+  feedback.current_pose.pose = odom.pose.pose;
   feedback.navigation_time = parent_node_->now() - nav_start_time_;
 
   // ToDo[@fmrico]: Complete feedback info

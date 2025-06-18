@@ -51,20 +51,15 @@ std::expected<void, std::string> DummyController::on_initialize()
   return {};
 }
 
-geometry_msgs::msg::TwistStamped DummyController::get_cmd_vel()
-{
-  return cmd_vel_;
-}
-
-void DummyController::update_rt(const NavState & nav_state)
+void DummyController::update_rt(NavState & nav_state)
 {
   auto start = get_node()->now();
   while ((get_node()->now() - start).seconds() < cycle_time_rt_) {}
 
-  cmd_vel_.header.stamp = nav_state.timestamp;
-  cmd_vel_.header.frame_id = "base_link";
   // Compute the current command...
   // cmd_vel_.angular.z = 1.0;
+
+  nav_state.set("cmd_vel", cmd_vel_);
 }
 
 }  // namespace easynav

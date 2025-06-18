@@ -1,6 +1,6 @@
 // Copyright 2025 Intelligent Robotics Lab
 //
-// This file is part of the project Easy Navigation (EasyNav in sh0rt)
+// This file is part of the project Easy Navigation (EasyNav in short)
 // licensed under the GNU General Public License v3.0.
 // See <http://www.gnu.org/licenses/> for details.
 //
@@ -17,30 +17,82 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-/// \file
-/// \brief Definition of the Perception struct and the Perceptions container used for sensor data input.
-
-
 #include <string>
 #include <vector>
-#include <tuple>
-#include <functional>  // Por si acaso
+#include <optional>
 
-#include "pcl/point_types.h"
 #include "pcl_conversions/pcl_conversions.h"
 #include "pcl/point_types_conversion.h"
+
+#include "pcl/common/transforms.h"
+#include "pcl/point_cloud.h"
+#include "pcl/point_types.h"
+#include "pcl/PointIndices.h"
 
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 
-#include "easynav_common/types/Perceptions.hpp"
-#include "easynav_common/RTTFBuffer.hpp"
+#include "rclcpp/time.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
+
+#include "easynav_common/types/PointPerception.hpp"
 #include "easynav_common/YTSession.hpp"
+#include "easynav_common/RTTFBuffer.hpp"
 
 namespace easynav
 {
+
+rclcpp::SubscriptionBase::SharedPtr
+PointPerceptionHandler::create_subscription(
+  rclcpp_lifecycle::LifecycleNode & node,
+  const std::string & topic,
+  const std::string & type,
+  std::shared_ptr<PerceptionBase> target,
+  rclcpp::CallbackGroup::SharedPtr cb_group)
+{
+  auto options = rclcpp::SubscriptionOptions();
+  options.callback_group = cb_group;
+
+  if (type == "sensor_msgs/msg/PointCloud2") {
+    return node.create_subscription<sensor_msgs::msg::PointCloud2>(
+      topic, rclcpp::SensorDataQoS().reliable(),
+      [target](const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+      {
+        EASYNAV_TRACE_NAMED_EVENT("Lambda::PointCloud2");
+
+        auto typed_target = std::dynamic_pointer_cast<PointPerception>(target);
+
+        pcl::fromROSMsg(*msg, typed_target->data);
+        typed_target->frame_id = msg->header.frame_id;
+        typed_target->stamp = msg->header.stamp;
+        typed_target->valid = true;
+        typed_target->new_data = true;
+      },
+      options);
+  }
+
+  if (type == "sensor_msgs/msg/LaserScan") {
+    return node.create_subscription<sensor_msgs::msg::LaserScan>(
+      topic, rclcpp::SensorDataQoS().reliable(),
+      [target](const sensor_msgs::msg::LaserScan::SharedPtr msg)
+      {
+        EASYNAV_TRACE_NAMED_EVENT("Lambda::LaserScan");
+
+        auto typed_target = std::dynamic_pointer_cast<PointPerception>(target);
+
+        convert(*msg, typed_target->data);
+        typed_target->frame_id = msg->header.frame_id;
+        typed_target->stamp = msg->header.stamp;
+        typed_target->valid = true;
+        typed_target->new_data = true;
+      },
+      options);
+  }
+
+  throw std::runtime_error("Unsupported message type for PointPerceptionHandler [" + type + "]");
+}
 
 void
 convert(const sensor_msgs::msg::LaserScan & scan, pcl::PointCloud<pcl::PointXYZ> & pc)
@@ -75,7 +127,7 @@ convert(const sensor_msgs::msg::LaserScan & scan, pcl::PointCloud<pcl::PointXYZ>
 }
 
 sensor_msgs::msg::PointCloud2
-perception_to_rosmsg(const Perception & perception)
+perception_to_rosmsg(const PointPerception & perception)
 {
   sensor_msgs::msg::PointCloud2 msg;
   pcl::toROSMsg(perception.data, msg);
@@ -92,116 +144,38 @@ points_to_rosmsg(const pcl::PointCloud<pcl::PointXYZ> & cloud)
   return msg;
 }
 
-template<typename MsgT>
-rclcpp::SubscriptionBase::SharedPtr create_typed_subscription(
-  rclcpp_lifecycle::LifecycleNode & node,
-  const std::string & topic,
-  std::shared_ptr<Perception> perception)
-{
-  return nullptr;
-}
 
-template<>
-rclcpp::SubscriptionBase::SharedPtr
-create_typed_subscription<sensor_msgs::msg::LaserScan>(
-  rclcpp_lifecycle::LifecycleNode & node,
-  const std::string & topic,
-  std::shared_ptr<std::atomic<std::shared_ptr<Perception>>> atomic_perception,
-  rclcpp::CallbackGroup::SharedPtr cbg)
-{
-  rclcpp::SubscriptionOptions options;
-  options.callback_group = cbg;
-
-  return create_subscription<sensor_msgs::msg::LaserScan>(
-    node,
-    topic,
-    rclcpp::SensorDataQoS().reliable(),
-    [atomic_perception](sensor_msgs::msg::LaserScan::UniquePtr msg) {
-      EASYNAV_TRACE_NAMED_EVENT("Lambda::LaserScan");
-
-      auto current = atomic_perception->load();
-      if (!current.unique() && current != nullptr) {
-        current = std::make_shared<Perception>(*current);
-      }
-
-      convert(*msg, current->data);
-      current->frame_id = msg->header.frame_id;
-      current->stamp = msg->header.stamp;
-      current->valid = true;
-      current->new_data = true;
-
-      atomic_perception->store(current);
-    }, options);
-}
-
-template<>
-rclcpp::SubscriptionBase::SharedPtr
-create_typed_subscription<sensor_msgs::msg::PointCloud2>(
-  rclcpp_lifecycle::LifecycleNode & node,
-  const std::string & topic,
-  std::shared_ptr<std::atomic<std::shared_ptr<Perception>>> atomic_perception,
-  rclcpp::CallbackGroup::SharedPtr cbg)
-{
-  rclcpp::SubscriptionOptions options;
-  options.callback_group = cbg;
-
-  return create_subscription<sensor_msgs::msg::PointCloud2>(
-    node,
-    topic,
-    rclcpp::SensorDataQoS().reliable(),
-    [atomic_perception](sensor_msgs::msg::PointCloud2::UniquePtr msg) {
-      EASYNAV_TRACE_NAMED_EVENT("Lambda::PointCloud2");
-
-      auto current = atomic_perception->load();
-      if (!current.unique() && current != nullptr) {
-        current = std::make_shared<Perception>(*current);
-      }
-
-      pcl::fromROSMsg(*msg, current->data);
-      current->frame_id = msg->header.frame_id;
-      current->stamp = msg->header.stamp;
-      current->valid = true;
-      current->new_data = true;
-
-      atomic_perception->store(current);
-    }, options);
-}
-
-
-PerceptionsOpsView::PerceptionsOpsView(const Perceptions & perceptions)
+PointPerceptionsOpsView::PointPerceptionsOpsView(const PointPerceptions & perceptions)
 : perceptions_(perceptions), indices_(perceptions.size())
 {
-  for (std::size_t i = 0; i < perceptions.size(); ++i) {
-    auto p = perceptions_[i].perception->load();
-    if (p) {
-      indices_[i].indices.resize(p->data.size());
+  for (std::size_t i = 0; i < perceptions_.size(); ++i) {
+    if (perceptions_[i]) {
+      indices_[i].indices.resize(perceptions_[i]->data.size());
       std::iota(indices_[i].indices.begin(), indices_[i].indices.end(), 0);
     }
   }
 }
 
-PerceptionsOpsView::PerceptionsOpsView(Perceptions && perceptions)
+PointPerceptionsOpsView::PointPerceptionsOpsView(PointPerceptions && perceptions)
 : owned_(std::move(perceptions)), perceptions_(*owned_), indices_(perceptions_.size())
 {
   for (std::size_t i = 0; i < perceptions_.size(); ++i) {
-    auto p = perceptions_[i].perception->load();
-    if (p) {
-      indices_[i].indices.resize(p->data.size());
-      std::iota(indices_[i].indices.begin(), indices_[i].indices.end(), 0);
-    }
+    if (!perceptions_[i] || !perceptions_[i]->valid || perceptions_[i]->data.empty()) {continue;}
+
+    indices_[i].indices.resize(perceptions_[i]->data.size());
+    std::iota(indices_[i].indices.begin(), indices_[i].indices.end(), 0);
   }
 }
 
-PerceptionsOpsView &
-PerceptionsOpsView::filter(
+PointPerceptionsOpsView &
+PointPerceptionsOpsView::filter(
   const std::vector<double> & min_bounds,
   const std::vector<double> & max_bounds)
 {
   for (std::size_t i = 0; i < perceptions_.size(); ++i) {
-    auto p = perceptions_[i].perception->load();
-    if (!p) {continue;}
+    if (!perceptions_[i] || !perceptions_[i]->valid || perceptions_[i]->data.empty()) {continue;}
 
-    const auto & cloud = p->data;
+    const auto & cloud = perceptions_[i]->data;
     auto & indices = indices_[i].indices;
 
     std::size_t write_idx = 0;
@@ -226,14 +200,13 @@ PerceptionsOpsView::filter(
   return *this;
 }
 
-PerceptionsOpsView &
-PerceptionsOpsView::downsample(double resolution)
+PointPerceptionsOpsView &
+PointPerceptionsOpsView::downsample(double resolution)
 {
   for (std::size_t i = 0; i < perceptions_.size(); ++i) {
-    auto p = perceptions_[i].perception->load();
-    if (!p) {continue;}
+    if (!perceptions_[i] || !perceptions_[i]->valid || perceptions_[i]->data.empty()) {continue;}
 
-    const auto & cloud = p->data;
+    const auto & cloud = perceptions_[i]->data;
     auto & indices = indices_[i].indices;
 
     std::unordered_set<std::tuple<int, int, int>> voxel_set;
@@ -257,24 +230,21 @@ PerceptionsOpsView::downsample(double resolution)
   return *this;
 }
 
-std::shared_ptr<PerceptionsOpsView>
-PerceptionsOpsView::collapse(const std::vector<double> & collapse_dims) const
+std::shared_ptr<PointPerceptionsOpsView>
+PointPerceptionsOpsView::collapse(const std::vector<double> & collapse_dims) const
 {
-  Perceptions result;
+  PointPerceptions result;
 
   for (std::size_t i = 0; i < perceptions_.size(); ++i) {
     const auto & pptr = perceptions_[i];
-    if (!pptr.perception) {continue;}
+    if (!pptr || !pptr->valid || pptr->data.empty()) {continue;}
 
-    auto perception = pptr.perception->load();
-    if (!perception) {continue;}
+    auto collapsed = std::make_shared<PointPerception>();
+    collapsed->valid = pptr->valid;
+    collapsed->frame_id = pptr->frame_id;
+    collapsed->stamp = pptr->stamp;
 
-    auto collapsed = std::make_shared<Perception>();
-    collapsed->valid = perception->valid;
-    collapsed->frame_id = perception->frame_id;
-    collapsed->stamp = perception->stamp;
-
-    const auto & cloud = perception->data;
+    const auto & cloud = pptr->data;
     for (int idx : indices_[i].indices) {
       auto pt = cloud[idx];
       if (!std::isnan(collapse_dims[0])) {pt.x = collapse_dims[0];}
@@ -283,24 +253,22 @@ PerceptionsOpsView::collapse(const std::vector<double> & collapse_dims) const
       collapsed->data.push_back(pt);
     }
 
-    result.push_back({std::make_shared<std::atomic<std::shared_ptr<Perception>>>(collapsed), {}});
+    result.push_back(collapsed);
   }
 
-  return std::make_shared<PerceptionsOpsView>(std::move(result));
+  return std::make_shared<PointPerceptionsOpsView>(std::move(result));
 }
 
 
 pcl::PointCloud<pcl::PointXYZ>
-PerceptionsOpsView::as_points() const
+PointPerceptionsOpsView::as_points() const
 {
   pcl::PointCloud<pcl::PointXYZ> output;
 
   for (std::size_t i = 0; i < perceptions_.size(); ++i) {
-    const auto & pptr = perceptions_[i];
-    if (!pptr.perception) {continue;}
+    auto perception = perceptions_[i];
 
-    auto perception = pptr.perception->load();
-    if (!perception) {continue;}
+    if (!perception || !perception->valid || perception->data.empty()) {continue;}
 
     const auto & cloud = perception->data;
     const auto & index_list = indices_[i].indices;
@@ -315,19 +283,16 @@ PerceptionsOpsView::as_points() const
   return output;
 }
 
-std::shared_ptr<PerceptionsOpsView>
-PerceptionsOpsView::fuse(const std::string & target_frame) const
+std::shared_ptr<PointPerceptionsOpsView>
+PointPerceptionsOpsView::fuse(const std::string & target_frame) const
 {
-  auto fused = std::make_shared<Perception>();
+  auto fused = std::make_shared<PointPerception>();
   fused->valid = true;
   fused->frame_id = target_frame;
   std::optional<rclcpp::Time> latest_stamp;
 
   for (std::size_t i = 0; i < perceptions_.size(); ++i) {
-    const auto & pptr = perceptions_[i];
-    if (!pptr.perception) {continue;}
-
-    auto p = pptr.perception->load();
+    auto p = perceptions_[i];
     if (!p || !p->valid || p->data.empty()) {continue;}
 
     geometry_msgs::msg::TransformStamped tf_msg;
@@ -335,7 +300,7 @@ PerceptionsOpsView::fuse(const std::string & target_frame) const
       tf_msg = RTTFBuffer::getInstance()->lookupTransform(
         target_frame, p->frame_id, tf2_ros::fromMsg(p->stamp), tf2::durationFromSec(0.0));
     } catch (const tf2::TransformException & ex) {
-      RCLCPP_WARN(rclcpp::get_logger("PerceptionsOpsView"), "TF failed: %s", ex.what());
+      RCLCPP_WARN(rclcpp::get_logger("PointPerceptionsOpsView"), "TF failed: %s", ex.what());
       continue;
     }
 
@@ -359,13 +324,10 @@ PerceptionsOpsView::fuse(const std::string & target_frame) const
 
   fused->stamp = latest_stamp.value_or(rclcpp::Time(0));
 
-  Perceptions result;
-  result.push_back({
-      std::make_shared<std::atomic<std::shared_ptr<Perception>>>(fused),
-      nullptr  // no subscription
-  });
+  PointPerceptions result;
+  result.push_back(fused);
 
-  return std::make_shared<PerceptionsOpsView>(std::move(result));
+  return std::make_shared<PointPerceptionsOpsView>(std::move(result));
 }
 
 }  // namespace easynav

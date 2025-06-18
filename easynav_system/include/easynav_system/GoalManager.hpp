@@ -66,7 +66,7 @@ public:
    * @param parent_node Lifecycle node for parameter and interface management.
    */
   GoalManager(
-    const std::shared_ptr<const NavState> & nav_state,
+    NavState & nav_state,
     rclcpp_lifecycle::LifecycleNode::SharedPtr parent_node);
 
   /**
@@ -101,8 +101,7 @@ public:
   /**
    * @brief Update internal logic, including preemption and timeout checks.
    */
-  void update();
-
+  void update(NavState & nav_state);
 
   /**
    * @brief Check if the robot is currently at the first goal.
@@ -121,6 +120,12 @@ public:
 private:
   /// @brief Lifecycle node.
   rclcpp_lifecycle::LifecycleNode::SharedPtr parent_node_;
+
+  /// @brief Positional tolerance in meters.
+  double position_tolerance_ {0.03};
+
+  /// @brief Angular tolerance in radians.
+  double angle_tolerance_ {0.01};
 
   /// @brief Currently active goals.
   nav_msgs::msg::Goals goals_;
@@ -149,9 +154,6 @@ private:
   /// @brief Timestamp when the current navigation started.
   rclcpp::Time nav_start_time_;
 
-  /// @brief Shared pointer to current navigation state.
-  const std::shared_ptr<const NavState> nav_state_;
-
   /// @brief Handle new goal request and populate the response.
   void accept_request(
     const easynav_interfaces::msg::NavigationControl & msg,
@@ -167,7 +169,7 @@ private:
   void set_preempted();
 
   /// @brief Internal goal state.
-  State state_;
+  State state_ {State::IDLE};
 };
 
 }  // namespace easynav

@@ -138,12 +138,6 @@ public:
   void system_cycle();
 
 private:
-  /// @brief Positional tolerance in meters.
-  double position_tolerance_ {0.03};
-
-  /// @brief Angular tolerance in radians.
-  double angle_tolerance_ {0.01};
-
   /// @brief Real-time callback group.
   rclcpp::CallbackGroup::SharedPtr realtime_cbg_;
 
@@ -166,7 +160,7 @@ private:
   SensorsNode::SharedPtr sensors_node_;
 
   /// @brief Shared navigation state.
-  std::atomic<std::shared_ptr<const NavState>> nav_state_;
+  std::shared_ptr<NavState> nav_state_;
 
   /// @brief Goal manager.
   GoalManager::SharedPtr goal_manager_;
