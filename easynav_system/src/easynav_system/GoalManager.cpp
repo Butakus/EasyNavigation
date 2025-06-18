@@ -33,8 +33,10 @@ GoalManager::GoalManager(
   rclcpp_lifecycle::LifecycleNode::SharedPtr parent_node)
 : parent_node_(parent_node)
 {
-  state_ = State::IDLE;
-  nav_state.set("navigation_state", state_);
+  state_ = std::make_shared<State>(State::IDLE);
+  goals_ = std::make_shared<nav_msgs::msg::Goals>();
+  
+  nav_state.set_shared_ptr("navigation_state", state_);
 
   parent_node_->declare_parameter("allow_preempt_goal", allow_preempt_goal_);
   parent_node_->declare_parameter("position_tolerance", position_tolerance_);
@@ -82,13 +84,13 @@ GoalManager::accept_request(
 
   RCLCPP_DEBUG(parent_node_->get_logger(), "Accepted navigation request");
 
-  goals_ = msg.goals;
+  *goals_ = msg.goals;
 
   current_client_id_ = msg.user_id;
   response.status_message = "Goal accepted";
   response.type = easynav_interfaces::msg::NavigationControl::ACCEPT;
   response.nav_current_user_id = current_client_id_;
-  state_ = State::ACTIVE;
+  *state_ = State::ACTIVE;
 }
 
 
@@ -115,7 +117,7 @@ GoalManager::control_callback(easynav_interfaces::msg::NavigationControl::Unique
         response.type = easynav_interfaces::msg::NavigationControl::REJECT;
         response.nav_current_user_id = msg->user_id;
       } else {
-        if (state_ == State::IDLE) {
+        if (*state_ == State::IDLE) {
           accept_request(*msg, response);
         } else {
           if (allow_preempt_goal_) {
@@ -143,7 +145,7 @@ GoalManager::control_callback(easynav_interfaces::msg::NavigationControl::Unique
         response.type = easynav_interfaces::msg::NavigationControl::REJECT;
         response.nav_current_user_id = msg->user_id;
       } else {
-        if (state_ == State::IDLE) {
+        if (*state_ == State::IDLE) {
           RCLCPP_DEBUG(parent_node_->get_logger(),
             "Navigation cancelation rejected (not navigating)");
           response.status_message = "Nothing to cancel; easynav is idle";
@@ -151,12 +153,11 @@ GoalManager::control_callback(easynav_interfaces::msg::NavigationControl::Unique
           response.nav_current_user_id = msg->user_id;
         } else {
           RCLCPP_DEBUG(parent_node_->get_logger(), "Navigation cancelation accepted");
-          state_ = State::IDLE;
-          goals_.goals.clear();
+          goals_->goals.clear();
           response.status_message = "Goal cancelled";
           response.type = easynav_interfaces::msg::NavigationControl::CANCELLED;
           response.nav_current_user_id = current_client_id_;
-          state_ = State::IDLE;
+          *state_ = State::IDLE;
         }
       }
       break;
@@ -175,7 +176,7 @@ GoalManager::control_callback(easynav_interfaces::msg::NavigationControl::Unique
 void
 GoalManager::set_preempted()
 {
-  goals_.goals.clear();
+  goals_->goals.clear();
 
   easynav_interfaces::msg::NavigationControl response;
   response = *last_control_;
@@ -192,8 +193,8 @@ GoalManager::set_preempted()
 void
 GoalManager::set_finished()
 {
-  state_ = State::IDLE;
-  goals_.goals.clear();
+  *state_ = State::IDLE;
+  goals_->goals.clear();
 
   easynav_interfaces::msg::NavigationControl response;
   response = *last_control_;
@@ -210,8 +211,8 @@ GoalManager::set_finished()
 void
 GoalManager::set_error(const std::string & reason)
 {
-  state_ = State::IDLE;
-  goals_.goals.clear();
+  *state_ = State::IDLE;
+  goals_->goals.clear();
 
   easynav_interfaces::msg::NavigationControl response;
   response = *last_control_;
@@ -228,8 +229,8 @@ GoalManager::set_error(const std::string & reason)
 void
 GoalManager::set_failed(const std::string & reason)
 {
-  state_ = State::IDLE;
-  goals_.goals.clear();
+  *state_ = State::IDLE;
+  goals_->goals.clear();
 
   easynav_interfaces::msg::NavigationControl response;
   response = *last_control_;
@@ -260,12 +261,13 @@ GoalManager::comanded_pose_callback(geometry_msgs::msg::PoseStamped::UniquePtr m
 void
 GoalManager::update(NavState & nav_state)
 {
-  if (nav_state.get<State>("navigation_state") != state_) {
-    nav_state.set("navigation_state", state_);
+  if (nav_state.get<State>("navigation_state") != *state_) {
+    nav_state.set_shared_ptr("navigation_state", state_);
   }
 
-  if (state_ == State::IDLE) {
-    nav_state.set("goals", nav_msgs::msg::Goals());
+  if (*state_ == State::IDLE) {
+    *goals_ = nav_msgs::msg::Goals();
+    nav_state.set_shared_ptr("goals", goals_);
     return;
   }
 
@@ -278,16 +280,16 @@ GoalManager::update(NavState & nav_state)
     nav_state.get<nav_msgs::msg::Odometry>("robot_pose").pose.pose,
     position_tolerance_, angle_tolerance_);
 
-  if (!nav_state.has("goals") || nav_state.get<nav_msgs::msg::Goals>("goals") != goals_) {
-    nav_state.set("goals", goals_);
+  if (!nav_state.has("goals") || nav_state.get<nav_msgs::msg::Goals>("goals") != *goals_) {
+    nav_state.set_shared_ptr("goals", goals_);
   }
 
-  if (goals_.goals.empty()) {
+  if (goals_->goals.empty()) {
     set_finished();
   }
 
-  if (nav_state.get<State>("navigation_state") != state_) {
-    nav_state.set("navigation_state", state_);
+  if (nav_state.get<State>("navigation_state") != *state_) {
+    nav_state.set_shared_ptr("navigation_state", state_);
   }
 
   easynav_interfaces::msg::NavigationControl feedback;
@@ -299,7 +301,7 @@ GoalManager::update(NavState & nav_state)
 
   const auto odom = nav_state.get<nav_msgs::msg::Odometry>("robot_pose");
 
-  feedback.goals = nav_state.get<nav_msgs::msg::Goals>("goals");
+  feedback.goals = *goals_;
   feedback.current_pose.header = odom.header;
   feedback.current_pose.pose = odom.pose.pose;
   feedback.navigation_time = parent_node_->now() - nav_start_time_;
@@ -316,9 +318,9 @@ GoalManager::check_goals(
   const geometry_msgs::msg::Pose & current_pose,
   double position_tolerance, double angle_tolerance)
 {
-  if (goals_.goals.empty()) {return;}
+  if (goals_->goals.empty()) {return;}
 
-  const auto & first_goal = goals_.goals.front().pose;
+  const auto & first_goal = goals_->goals.front().pose;
 
   double dx = current_pose.position.x - first_goal.position.x;
   double dy = current_pose.position.y - first_goal.position.y;
@@ -336,7 +338,7 @@ GoalManager::check_goals(
   double angle_diff = q_current.angleShortestPath(q_goal);
 
   if (angle_diff <= angle_tolerance) {
-    goals_.goals.erase(goals_.goals.begin());
+    goals_->goals.erase(goals_->goals.begin());
   }
 }
 

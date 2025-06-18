@@ -73,13 +73,13 @@ public:
    * @brief Get current goals.
    * @return Goals message.
    */
-  [[nodiscard]] inline nav_msgs::msg::Goals get_goals() const {return goals_;}
+  [[nodiscard]] inline nav_msgs::msg::Goals get_goals() const {return *goals_;}
 
   /**
    * @brief Get current internal goal state.
    * @return GoalManager::State value.
    */
-  [[nodiscard]] inline State get_state() const {return state_;}
+  [[nodiscard]] inline State get_state() const {return *state_;}
 
   /**
    * @brief Mark the current goal as successfully completed.
@@ -128,7 +128,7 @@ private:
   double angle_tolerance_ {0.01};
 
   /// @brief Currently active goals.
-  nav_msgs::msg::Goals goals_;
+  std::shared_ptr<nav_msgs::msg::Goals> goals_;
 
   /// @brief Publisher for goal control responses.
   rclcpp::Publisher<easynav_interfaces::msg::NavigationControl>::SharedPtr control_pub_;
@@ -169,7 +169,7 @@ private:
   void set_preempted();
 
   /// @brief Internal goal state.
-  State state_;
+  std::shared_ptr<State> state_;
 };
 
 }  // namespace easynav
