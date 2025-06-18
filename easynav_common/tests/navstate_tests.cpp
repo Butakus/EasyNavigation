@@ -43,23 +43,6 @@ TEST_F(NavStateTest, SetAndGet)
   EXPECT_EQ(state.get<int>("count"), 42);
 }
 
-TEST_F(NavStateTest, SetSharedPtrAndGet)
-{
-  easynav::NavState state;
-  auto ptr = std::make_shared<std::string>("easy");
-  state.set_shared_ptr("label", ptr);
-  auto result = state.get_ptr<std::string>("label");
-  EXPECT_EQ(*result, "easy");
-}
-
-TEST_F(NavStateTest, SetPtrWithoutOwnership)
-{
-  easynav::NavState state;
-  std::string value = "manual";
-  state.set_ptr("entry", &value);
-  EXPECT_EQ(state.get<std::string>("entry"), "manual");
-}
-
 TEST_F(NavStateTest, OverwriteEntry)
 {
   easynav::NavState state;
@@ -79,16 +62,7 @@ TEST_F(NavStateTest, HasReturnsCorrect)
 TEST_F(NavStateTest, MissingKeyThrows)
 {
   easynav::NavState state;
-  EXPECT_THROW(state.get<float>("invalid"), std::out_of_range);
-  EXPECT_THROW(state.get_ptr<float>("invalid"), std::out_of_range);
-}
-
-TEST_F(NavStateTest, NullPointerStoredThrows)
-{
-  easynav::NavState state;
-  EXPECT_THROW(state.set_ptr<std::string>("bad", nullptr), std::invalid_argument);
-  EXPECT_THROW(state.set_shared_ptr<std::string>("bad", std::shared_ptr<std::string>()),
-    std::invalid_argument);
+  EXPECT_THROW(state.get<float>("invalid"), std::runtime_error);
 }
 
 TEST_F(NavStateTest, DebugStringWithPosePrinter)
@@ -126,14 +100,12 @@ TEST(NavStateStressTest, ConcurrentMultiKeyReadWrite)
   easynav::NavState state;
   std::atomic<bool> start_flag{false};
 
-  // Pre-populate keys
   state.set<int>("int_key", 0);
   state.set<double>("double_key", 0.0);
   geometry_msgs::msg::Pose pose;
   pose.position.x = 0.0;
   pose.orientation.w = 1.0;
   state.set("pose_key", pose);
-  state.set_shared_ptr("pose_ptr_key", std::make_shared<geometry_msgs::msg::Pose>(pose));
 
   auto writer = [&]() {
       while (!start_flag.load()) {std::this_thread::yield();}
@@ -144,7 +116,6 @@ TEST(NavStateStressTest, ConcurrentMultiKeyReadWrite)
         p.position.x = static_cast<double>(i);
         p.orientation.w = 1.0;
         state.set("pose_key", p);
-        state.set_shared_ptr("pose_ptr_key", std::make_shared<geometry_msgs::msg::Pose>(p));
       }
     };
 
@@ -154,12 +125,9 @@ TEST(NavStateStressTest, ConcurrentMultiKeyReadWrite)
         int vi = state.get<int>("int_key");
         double vd = state.get<double>("double_key");
         geometry_msgs::msg::Pose vp = state.get<geometry_msgs::msg::Pose>("pose_key");
-        auto vpp = state.get_ptr<geometry_msgs::msg::Pose>("pose_ptr_key");
 
         ASSERT_GE(vi, 0);
         ASSERT_GE(vd, 0.0);
-        ASSERT_TRUE(vpp != nullptr);
-        ASSERT_EQ(vpp->orientation.w, 1.0);
         ASSERT_EQ(vp.orientation.w, 1.0);
       }
     };

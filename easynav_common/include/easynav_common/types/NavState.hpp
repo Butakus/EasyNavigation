@@ -30,6 +30,7 @@
 #include <string>
 #include <unordered_map>
 #include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <sstream>
 #include <type_traits>
@@ -69,101 +70,62 @@ public:
   /// \brief Destructor.
   virtual ~NavState() = default;
 
-  /// \brief Stores a copy of a value in the blackboard.
-  /// \tparam T The type of the value (must be copy-constructible).
-  /// \param key The string identifier.
-  /// \param value The value to copy and store.
+  /// \brief Stores a value of type T associated with the given key.
+  ///
+  /// If the key does not exist, a new shared_ptr<T> is created and stored.
+  /// If the key already exists, the stored value is updated in-place.
+  ///
+  /// The value is internally managed through a shared_ptr<T>.
+  ///
+  /// \tparam T The type of the value to store. Must be copy-assignable.
+  /// \param key The key associated with the value.
+  /// \param value The value to store.
+  /// \throws std::runtime_error if there is a type mismatch with an existing key.
   template<typename T>
   void set(const std::string & key, const T & value)
   {
-    static_assert(std::is_copy_constructible_v<T>, "T must be copy constructible");
-    auto ptr = std::make_shared<T>(value);
-    std::atomic_store(&values_[key], std::static_pointer_cast<void>(ptr));
-    types_[key] = typeid(T).hash_code();
-  }
-
-  /// \brief Stores a raw pointer without taking ownership.
-  ///
-  /// The destructor is a no-op. Use only for externally managed memory.
-  ///
-  /// \tparam T Type of the pointed object.
-  /// \param key Key to store under.
-  /// \param raw_ptr Raw pointer to the value (must not be null).
-  template<typename T>
-  void set_ptr(const std::string & key, T * raw_ptr)
-  {
-    if (raw_ptr == nullptr) {
-      throw std::invalid_argument("Cannot store nullptr in set_ptr");
-    }
-    std::shared_ptr<T> shared(raw_ptr, [](T *){});
-    std::atomic_store(&values_[key], std::static_pointer_cast<void>(shared));
-    types_[key] = typeid(T).hash_code();
-  }
-
-  /// \brief Stores a shared pointer.
-  ///
-  /// This variant takes ownership and ensures atomic safety.
-  ///
-  /// \tparam T The stored type.
-  /// \param key Key for the value.
-  /// \param shared Valid shared pointer to the value.
-  template<typename T>
-  void set_shared_ptr(const std::string & key, std::shared_ptr<T> shared)
-  {
-    if (!shared) {
-      throw std::invalid_argument("Cannot store nullptr shared_ptr in set_shared_ptr");
-    }
-    std::atomic_store(&values_[key], std::static_pointer_cast<void>(shared));
-    types_[key] = typeid(T).hash_code();
-  }
-
-  /// \brief Returns a copy of the value stored under the key.
-  ///
-  /// \tparam T Expected type of the value.
-  /// \param key Key to look up.
-  /// \return A copy of the stored value.
-  /// \throws std::bad_cast or std::out_of_range on type/key mismatch.
-  template<typename T>
-  T get(const std::string & key) const
-  {
-    return *get_ptr<T>(key);
-  }
-
-  /// \brief Returns a const reference to the value stored under the key.
-  ///
-  /// This function is extremelly dangerous. Use only if you are sure it will not change
-  ///
-  /// \tparam T Expected type.
-  /// \param key Lookup key.
-  /// \return Const reference to the stored value.
-  template<typename T>
-  const T & get_ref(const std::string & key) const
-  {
-    return *get_ptr<T>(key);
-  }
-
-  /// \brief Returns a shared pointer to the stored value.
-  ///
-  /// \tparam T Expected type.
-  /// \param key Lookup key.
-  /// \return Shared pointer to the object.
-  /// \throws std::runtime_error or std::out_of_range if invalid or not found.
-  template<typename T>
-  std::shared_ptr<T> get_ptr(const std::string & key) const
-  {
+    std::lock_guard<std::mutex> lock(mutex_);
     auto it = values_.find(key);
+
     if (it == values_.end()) {
-      print_stacktrace();
-      throw std::out_of_range("Key not found: " + key);
+      values_[key] = std::make_shared<T>(value);
+      types_[key] = typeid(T).hash_code();
+    } else {
+      if (types_[key] != typeid(T).hash_code()) {
+        throw std::runtime_error("Type mismatch in set for key: " + key);
+      }
+
+      auto ptr = std::static_pointer_cast<T>(it->second);
+      *ptr = value;
+    }
+  }
+
+  /// \brief Retrieves a const reference to the value of type T associated with the given key.
+  ///
+  /// The reference points to the value managed internally through a shared_ptr<T>.
+  /// This avoids unnecessary copies, but care must be taken not to hold the reference
+  /// beyond the lifetime of the NavState instance.
+  ///
+  /// \tparam T The expected type of the stored value.
+  /// \param key The key of the value to retrieve.
+  /// \return const T& A const reference to the stored value.
+  /// \throws std::runtime_error if the key is not found or there is a type mismatch.
+  template<typename T>
+  const T & get(const std::string & key) const
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = values_.find(key);
+
+    if (it == values_.end()) {
+      throw std::runtime_error("Key not found in get: " + key);
     }
 
-    auto base_ptr = std::atomic_load(&it->second);
-    if (!base_ptr) {
-      print_stacktrace();
-      throw std::runtime_error("Null pointer in NavState at key: " + key);
+    if (types_.at(key) != typeid(T).hash_code()) {
+      throw std::runtime_error("Type mismatch in get for key: " + key);
     }
 
-    return std::static_pointer_cast<T>(base_ptr);
+    auto ptr = std::static_pointer_cast<T>(it->second);
+    return *ptr;
   }
 
   /// \brief Checks whether a key exists in the NavState.
@@ -207,7 +169,7 @@ public:
     std::stringstream ss;
     for (const auto & kv : values_) {
       ss << kv.first << " = ";
-      auto ptr = std::atomic_load(&kv.second);
+      auto ptr = kv.second;
       if (ptr) {
         auto type_it = types_.find(kv.first);
         if (type_it != types_.end()) {
@@ -257,6 +219,8 @@ public:
   }
 
 private:
+  mutable std::mutex mutex_;
+
   /// \brief Internal storage of values as shared void pointers.
   mutable std::unordered_map<std::string, std::shared_ptr<void>> values_;
 
