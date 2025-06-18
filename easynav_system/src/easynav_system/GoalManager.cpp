@@ -35,7 +35,7 @@ GoalManager::GoalManager(
 {
   state_ = std::make_shared<State>(State::IDLE);
   goals_ = std::make_shared<nav_msgs::msg::Goals>();
-  
+
   nav_state.set_shared_ptr("navigation_state", state_);
 
   parent_node_->declare_parameter("allow_preempt_goal", allow_preempt_goal_);

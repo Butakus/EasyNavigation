@@ -83,6 +83,8 @@ SystemNode::SystemNode(const rclcpp::NodeOptions & options)
 
   vel_pub_stamped_ = create_publisher<geometry_msgs::msg::TwistStamped>("cmd_vel_stamped", 100);
   vel_pub_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 100);
+
+  // get_logger().set_level(rclcpp::Logger::Level::Debug);
 }
 
 SystemNode::~SystemNode()
