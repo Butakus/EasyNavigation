@@ -79,11 +79,11 @@ int main(int argc, char ** argv)
       sch.sched_priority = 80;
 
       if (sched_setscheduler(0, SCHED_FIFO, &sch) == -1) {
-        RCLCPP_ERROR(
+        RCLCPP_WARN(
           system_node->get_logger(),
           "Failed to tet EasyNav to execute in Real Time.");
-        RCLCPP_ERROR(system_node->get_logger(), "set your system to have permissions.");
-        throw std::runtime_error{std::string("failed to set sched: ") + std::strerror(errno)};
+        RCLCPP_WARN(system_node->get_logger(), "set your system to have permissions.");
+        RCLCPP_WARN(system_node->get_logger(), "Running RT Thread with normal priority.");
       }
 
       tf2_ros::TransformListener tf_listener(*tf_buffer, tf_node, true);
