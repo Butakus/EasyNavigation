@@ -330,4 +330,24 @@ PointPerceptionsOpsView::fuse(const std::string & target_frame) const
   return std::make_shared<PointPerceptionsOpsView>(std::move(result));
 }
 
+PointPerceptions get_point_perceptions(std::vector<PerceptionPtr> & perceptionptr)
+{
+  PointPerceptions ret;
+
+  for (auto & ptr : perceptionptr) {
+    if (!ptr.perception) {
+      continue;
+    }
+
+    auto point_ptr = std::dynamic_pointer_cast<PointPerception>(ptr.perception);
+    if (!point_ptr) {
+      continue;
+    }
+
+    ret.push_back(point_ptr);
+  }
+
+  return ret;
+}
+
 }  // namespace easynav

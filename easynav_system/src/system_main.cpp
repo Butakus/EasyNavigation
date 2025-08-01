@@ -73,17 +73,26 @@ int main(int argc, char ** argv)
     return 1;
   }
 
+  bool use_real_time = true;
+  system_node->declare_parameter("use_real_time", use_real_time);
+  system_node->get_parameter("use_real_time", use_real_time);
+
   auto rt_thread = std::thread(
     [&]() {
-      sched_param sch;
-      sch.sched_priority = 80;
+      if (use_real_time) {
+        RCLCPP_INFO(system_node->get_logger(), "Selected Real-Time");
+        sched_param sch;
+        sch.sched_priority = 80;
 
-      if (sched_setscheduler(0, SCHED_FIFO, &sch) == -1) {
-        RCLCPP_WARN(
-          system_node->get_logger(),
-          "Failed to tet EasyNav to execute in Real Time.");
-        RCLCPP_WARN(system_node->get_logger(), "set your system to have permissions.");
-        RCLCPP_WARN(system_node->get_logger(), "Running RT Thread with normal priority.");
+        if (sched_setscheduler(0, SCHED_FIFO, &sch) == -1) {
+          RCLCPP_WARN(
+            system_node->get_logger(),
+            "Failed to tet EasyNav to execute in Real Time.");
+          RCLCPP_WARN(system_node->get_logger(), "set your system to have permissions.");
+          RCLCPP_WARN(system_node->get_logger(), "Running RT Thread with normal priority.");
+        }
+      } else {
+        RCLCPP_INFO(system_node->get_logger(), "Selected NO Real-Time");
       }
 
       tf2_ros::TransformListener tf_listener(*tf_buffer, tf_node, true);
