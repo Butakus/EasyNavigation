@@ -59,7 +59,7 @@ void DummyController::update_rt(NavState & nav_state)
   // Compute the current command...
   // cmd_vel_.angular.z = 1.0;
 
-  nav_state.set("cmd_vel", cmd_vel_);
+  // nav_state.set("cmd_vel", cmd_vel_);
 }
 
 }  // namespace easynav
