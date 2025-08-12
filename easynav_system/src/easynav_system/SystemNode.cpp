@@ -213,20 +213,20 @@ SystemNode::system_cycle_rt()
 
   const auto navigation_state = nav_state_->get<GoalManager::State>("navigation_state");
 
-  geometry_msgs::msg::TwistStamped current_cmd_vel;
-  if (nav_state_->has("cmd_vel")) {
-    current_cmd_vel = nav_state_->get<geometry_msgs::msg::TwistStamped>("cmd_vel");
-  }
-
   bool trigger = trigger_perceptions || trigger_localization;
   trigger_controller = controller_node_->cycle_rt(nav_state_, trigger);
 
-  if (trigger_controller) {
-    if (vel_pub_stamped_->get_subscription_count()) {
-      vel_pub_stamped_->publish(current_cmd_vel);
-    }
-    if (vel_pub_->get_subscription_count()) {
-      vel_pub_->publish(current_cmd_vel.twist);
+  if (nav_state_->has("cmd_vel")) {
+    geometry_msgs::msg::TwistStamped current_cmd_vel;
+    current_cmd_vel = nav_state_->get<geometry_msgs::msg::TwistStamped>("cmd_vel");
+
+    if (trigger_controller) {
+      if (vel_pub_stamped_->get_subscription_count()) {
+        vel_pub_stamped_->publish(current_cmd_vel);
+      }
+      if (vel_pub_->get_subscription_count()) {
+        vel_pub_->publish(current_cmd_vel.twist);
+      }
     }
   }
 }
