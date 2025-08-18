@@ -88,6 +88,9 @@ ControllerNode::on_configure(const rclcpp_lifecycle::State & state)
   declare_parameter("controller_types", controller_types);
   get_parameter("controller_types", controller_types);
 
+  std::string tf_namespace;
+  get_parameter("tf_namespace", tf_namespace);
+
   if (controller_types.size() > 1) {
     RCLCPP_ERROR(get_logger(),
       "You must instance one controller.  [%lu] found", controller_types.size());
@@ -105,7 +108,8 @@ ControllerNode::on_configure(const rclcpp_lifecycle::State & state)
 
       controller_method_ = controller_loader_->createSharedInstance(plugin);
 
-      auto result = controller_method_->initialize(shared_from_this(), controller_type);
+      auto result = controller_method_->initialize(shared_from_this(), controller_type,
+        tf_namespace);
 
       if (!result) {
         RCLCPP_ERROR(get_logger(),

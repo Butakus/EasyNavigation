@@ -85,6 +85,8 @@ SensorsNode::on_configure(const rclcpp_lifecycle::State & state)
   get_parameter("forget_time", forget_time_);
   get_parameter("perception_default_frame", perception_default_frame_);
 
+  get_parameter("tf_namespace", tf_namespace_);
+
   for (const auto & sensor_id : sensors) {
     std::string topic, msg_type, group;
 
@@ -202,12 +204,12 @@ SensorsNode::cycle(std::shared_ptr<NavState> nav_state)
 
   if (percept_pub_->get_subscription_count() > 0) {
     auto fused = PointPerceptionsOpsView(get_point_perceptions(perceptions_["points"]))
-      .fuse(perception_default_frame_);
+      .fuse(tf_namespace_ + perception_default_frame_);
 
     auto fused_points = fused->as_points();
 
     auto msg = points_to_rosmsg(fused_points);
-    msg.header.frame_id = perception_default_frame_;
+    msg.header.frame_id = tf_namespace_ + perception_default_frame_;
     msg.header.stamp = fused->get_perceptions()[0]->stamp;
 
     percept_pub_->publish(msg);

@@ -59,7 +59,8 @@ public:
   virtual std::expected<void, std::string>
   initialize(
     const std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node,
-    const std::string plugin_name);
+    const std::string & plugin_name,
+    const std::string & tf_namespace = "");
 
   /**
    * @brief Hook for custom setup logic in derived classes.
@@ -87,6 +88,14 @@ public:
   get_plugin_name() const;
 
   /**
+   * @brief Get the TF namespace.
+   *
+   * @return TF namespace with a trailing "/".
+   */
+  [[nodiscard]] const std::string &
+  get_tf_ns() const;
+
+  /**
    * @brief Check whether it is time to run a real-time update.
    *
    * Uses the configured real-time frequency to determine whether sufficient time has elapsed.
@@ -110,6 +119,9 @@ private:
 
   /// @brief Name assigned to the plugin.
   std::string plugin_name_;
+
+  /// @brief TF Namespace.
+  std::string tf_namespace_;
 
   float rt_frequency_, frequency_;
   rclcpp::Time rt_last_ts_, last_ts_;

@@ -137,6 +137,9 @@ private:
   /// @brief Target frame for perception fusion.
   std::string perception_default_frame_;
 
+  /// @brief TF Namespace
+  std::string tf_namespace_;
+
   std::shared_ptr<NavState> nav_state_;
 
   std::map<std::string, std::vector<PerceptionPtr>> perceptions_;

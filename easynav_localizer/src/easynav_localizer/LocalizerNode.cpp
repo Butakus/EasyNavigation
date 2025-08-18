@@ -74,6 +74,9 @@ LocalizerNode::on_configure(const rclcpp_lifecycle::State & state)
   declare_parameter("localizer_types", localizer_types);
   get_parameter("localizer_types", localizer_types);
 
+  std::string tf_namespace;
+  get_parameter("tf_namespace", tf_namespace);
+
   if (localizer_types.size() > 1) {
     RCLCPP_ERROR(get_logger(),
       "You must instance one localizer.  [%lu] found", localizer_types.size());
@@ -91,7 +94,8 @@ LocalizerNode::on_configure(const rclcpp_lifecycle::State & state)
 
       localizer_method_ = localizer_loader_->createSharedInstance(plugin);
 
-      auto result = localizer_method_->initialize(shared_from_this(), localizer_type);
+      auto result = localizer_method_->initialize(shared_from_this(), localizer_type,
+        tf_namespace);
 
       if (!result) {
         RCLCPP_ERROR(get_logger(),

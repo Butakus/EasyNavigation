@@ -74,7 +74,6 @@ SystemNode::SystemNode(const rclcpp::NodeOptions & options)
       return ret;
     });
 
-
   controller_node_ = ControllerNode::make_shared();
   localizer_node_ = LocalizerNode::make_shared();
   maps_manager_node_ = MapsManagerNode::make_shared();
@@ -83,6 +82,8 @@ SystemNode::SystemNode(const rclcpp::NodeOptions & options)
 
   vel_pub_stamped_ = create_publisher<geometry_msgs::msg::TwistStamped>("cmd_vel_stamped", 100);
   vel_pub_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 100);
+
+  declare_parameter<std::string>("tf_namespace", "");
 
   // get_logger().set_level(rclcpp::Logger::Level::Debug);
 }
@@ -107,7 +108,16 @@ SystemNode::on_configure(const rclcpp_lifecycle::State & state)
 {
   (void)state;
 
+  std::string tf_namespace;
+  get_parameter("tf_namespace", tf_namespace);
+  if (tf_namespace != "") {
+    tf_namespace = tf_namespace + "/";
+  }
+
   for (auto & system_node : get_system_nodes()) {
+    system_node.second.node_ptr->declare_parameter<std::string>("tf_namespace", "");
+    system_node.second.node_ptr->set_parameter({"tf_namespace", tf_namespace});
+
     RCLCPP_INFO(get_logger(), "Configuring [%s]", system_node.first.c_str());
     system_node.second.node_ptr->trigger_transition(
       lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
