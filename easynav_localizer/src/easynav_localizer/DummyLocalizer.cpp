@@ -50,8 +50,8 @@ void DummyLocalizer::update_rt([[maybe_unused]] NavState & nav_state)
 
   geometry_msgs::msg::TransformStamped tf_msg;
   tf_msg.header.stamp = get_node()->now();
-  tf_msg.header.frame_id = get_tf_ns() + "map";
-  tf_msg.child_frame_id = get_tf_ns() + "odom";
+  tf_msg.header.frame_id = get_tf_prefix() + "map";
+  tf_msg.child_frame_id = get_tf_prefix() + "odom";
 
   RTTFBuffer::getInstance()->setTransform(tf_msg, "easynav", false);
   tf_broadcaster_->sendTransform(tf_msg);
@@ -66,8 +66,8 @@ void DummyLocalizer::update([[maybe_unused]] NavState & nav_state)
 
   geometry_msgs::msg::TransformStamped tf_msg;
   tf_msg.header.stamp = get_node()->now();
-  tf_msg.header.frame_id = get_tf_ns() + "map";
-  tf_msg.child_frame_id = get_tf_ns() + "odom";
+  tf_msg.header.frame_id = get_tf_prefix() + "map";
+  tf_msg.child_frame_id = get_tf_prefix() + "odom";
 
   RTTFBuffer::getInstance()->setTransform(tf_msg, "easynav", false);
   tf_broadcaster_->sendTransform(tf_msg);

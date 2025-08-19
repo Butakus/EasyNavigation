@@ -39,7 +39,7 @@ std::expected<void, std::string> DummyPlanner::on_initialize()
 
   // Initialize the Path message
   path_.header.stamp = get_node()->now();
-  path_.header.frame_id = get_tf_ns() + "map";
+  path_.header.frame_id = get_tf_prefix() + "map";
   path_.poses.clear();
 
   return {};

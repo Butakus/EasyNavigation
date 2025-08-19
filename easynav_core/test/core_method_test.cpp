@@ -68,7 +68,7 @@ public:
 
   std::expected<void, std::string> on_initialize() override
   {
-    odom_.header.frame_id = get_tf_ns() + "base_link";
+    odom_.header.frame_id = get_tf_prefix() + "base_link";
     odom_.pose.pose.position.x = 5;
 
     return {};

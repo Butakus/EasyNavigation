@@ -40,7 +40,7 @@ std::expected<void, std::string> DummyController::on_initialize()
 
   // Initialize the odometry message
   cmd_vel_.header.stamp = get_node()->now();
-  cmd_vel_.header.frame_id = get_tf_ns() + "base_link";
+  cmd_vel_.header.frame_id = get_tf_prefix() + "base_link";
   cmd_vel_.twist.linear.x = 0.0;
   cmd_vel_.twist.linear.y = 0.0;
   cmd_vel_.twist.linear.z = 0.0;

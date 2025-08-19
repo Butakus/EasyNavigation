@@ -83,7 +83,7 @@ SystemNode::SystemNode(const rclcpp::NodeOptions & options)
   vel_pub_stamped_ = create_publisher<geometry_msgs::msg::TwistStamped>("cmd_vel_stamped", 100);
   vel_pub_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 100);
 
-  declare_parameter<std::string>("tf_namespace", "");
+  declare_parameter<std::string>("tf_prefix", "");
 
   // get_logger().set_level(rclcpp::Logger::Level::Debug);
 }
@@ -108,15 +108,15 @@ SystemNode::on_configure(const rclcpp_lifecycle::State & state)
 {
   (void)state;
 
-  std::string tf_namespace;
-  get_parameter("tf_namespace", tf_namespace);
-  if (tf_namespace != "") {
-    tf_namespace = tf_namespace + "/";
+  std::string tf_prefix;
+  get_parameter("tf_prefix", tf_prefix);
+  if (tf_prefix != "") {
+    tf_prefix = tf_prefix + "/";
   }
 
   for (auto & system_node : get_system_nodes()) {
-    system_node.second.node_ptr->declare_parameter<std::string>("tf_namespace", "");
-    system_node.second.node_ptr->set_parameter({"tf_namespace", tf_namespace});
+    system_node.second.node_ptr->declare_parameter<std::string>("tf_prefix", "");
+    system_node.second.node_ptr->set_parameter({"tf_prefix", tf_prefix});
 
     RCLCPP_INFO(get_logger(), "Configuring [%s]", system_node.first.c_str());
     system_node.second.node_ptr->trigger_transition(

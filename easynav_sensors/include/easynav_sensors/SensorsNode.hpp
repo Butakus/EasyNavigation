@@ -138,7 +138,7 @@ private:
   std::string perception_default_frame_;
 
   /// @brief TF Namespace
-  std::string tf_namespace_;
+  std::string tf_prefix_;
 
   std::shared_ptr<NavState> nav_state_;
 
