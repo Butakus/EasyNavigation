@@ -77,6 +77,9 @@ MapsManagerNode::on_configure(const rclcpp_lifecycle::State & state)
   declare_parameter("map_types", map_types);
   get_parameter("map_types", map_types);
 
+  std::string tf_prefix;
+  get_parameter("tf_prefix", tf_prefix);
+
   for (const auto & map_type : map_types) {
     std::string plugin;
     declare_parameter(map_type + std::string(".plugin"), plugin);
@@ -89,7 +92,7 @@ MapsManagerNode::on_configure(const rclcpp_lifecycle::State & state)
       std::shared_ptr<MapsManagerBase> instance;
       instance = maps_manager_loader_->createSharedInstance(plugin);
 
-      auto result = instance->initialize(shared_from_this(), map_type);
+      auto result = instance->initialize(shared_from_this(), map_type, tf_prefix);
 
       if (!result) {
         RCLCPP_ERROR(get_logger(),
