@@ -80,10 +80,8 @@ SystemNode::SystemNode(const rclcpp::NodeOptions & options)
   planner_node_ = PlannerNode::make_shared();
   sensors_node_ = SensorsNode::make_shared();
 
-  vel_pub_stamped_ = create_publisher<geometry_msgs::msg::TwistStamped>("cmd_vel_stamped", 100);
-  vel_pub_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 100);
-
   declare_parameter<std::string>("tf_prefix", "");
+  declare_parameter<bool>("use_cmd_vel_stamped", use_cmd_vel_stamped_);
 
   // get_logger().set_level(rclcpp::Logger::Level::Debug);
 }
@@ -108,6 +106,8 @@ SystemNode::on_configure(const rclcpp_lifecycle::State & state)
 {
   (void)state;
 
+  get_parameter<bool>("use_cmd_vel_stamped", use_cmd_vel_stamped_);
+
   std::string tf_prefix;
   get_parameter("tf_prefix", tf_prefix);
   if (tf_prefix != "") {
@@ -131,6 +131,12 @@ SystemNode::on_configure(const rclcpp_lifecycle::State & state)
   }
 
   goal_manager_ = GoalManager::make_shared(*nav_state_, shared_from_this());
+
+  if (use_cmd_vel_stamped_) {
+    vel_pub_stamped_ = create_publisher<geometry_msgs::msg::TwistStamped>("cmd_vel_stamped", 100);
+  } else {
+    vel_pub_ = create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 100);
+  }
 
   return CallbackReturnT::SUCCESS;
 }
@@ -231,10 +237,10 @@ SystemNode::system_cycle_rt()
     current_cmd_vel = nav_state_->get<geometry_msgs::msg::TwistStamped>("cmd_vel");
 
     if (trigger_controller) {
-      if (vel_pub_stamped_->get_subscription_count()) {
+      if (use_cmd_vel_stamped_ && vel_pub_stamped_->get_subscription_count()) {
         vel_pub_stamped_->publish(current_cmd_vel);
       }
-      if (vel_pub_->get_subscription_count()) {
+      if (!use_cmd_vel_stamped_ && vel_pub_->get_subscription_count()) {
         vel_pub_->publish(current_cmd_vel.twist);
       }
     }

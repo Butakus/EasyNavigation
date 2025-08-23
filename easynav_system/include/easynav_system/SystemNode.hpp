@@ -165,6 +165,9 @@ private:
   /// @brief Goal manager.
   GoalManager::SharedPtr goal_manager_;
 
+  /// @brief Wheter publish stamped or unstamped speed
+  bool use_cmd_vel_stamped_ {false};
+
   /// @brief Publisher for velocity command (stamped).
   rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr vel_pub_stamped_;
 
