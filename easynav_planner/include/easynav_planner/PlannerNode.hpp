@@ -110,7 +110,16 @@ public:
    */
   void cycle(std::shared_ptr<NavState> nav_state, bool trigger = false);
 
+  /**
+   * @brief Get the timestamp of the last real-time execution.
+   * @return Timestamp of the last RT execution.
+   */
   const rclcpp::Time get_last_rt_execution_ts() const;
+
+  /**
+   * @brief Get the timestamp of the last non-RT execution.
+   * @return Timestamp of the last execution.
+   */
   const rclcpp::Time get_last_execution_ts() const;
 
 private:

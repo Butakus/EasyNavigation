@@ -113,10 +113,38 @@ public:
    */
   bool isTime2Run();
 
+  /**
+   * @brief Mark that the real-time update has just run.
+   *
+   * Records the current time as the last RT execution timestamp. Call this right after
+   * completing a successful RT iteration.
+   *
+   * @post @ref get_last_rt_execution_ts() reflects the time of this call.
+   */
   void setRunRT();
+
+  /**
+   * @brief Mark that the normal (non-RT) update has just run.
+   *
+   * Records the current time as the last non-RT execution timestamp. Call this right after
+   * completing a successful non-RT iteration.
+   *
+   * @post @ref get_last_execution_ts() reflects the time of this call.
+   */
   void setRun();
 
+  /**
+   * @brief Get the timestamp of the last real-time execution.
+   * @return Reference to the last RT execution time as recorded by @ref setRunRT().
+   * @note If no RT run has been recorded yet, this value may be zero-initialized.
+   */
   const rclcpp::Time & get_last_rt_execution_ts() const {return rt_last_ts_;}
+
+  /**
+   * @brief Get the timestamp of the last non-RT execution.
+   * @return Reference to the last non-RT execution time as recorded by @ref setRun().
+   * @note If no non-RT run has been recorded yet, this value may be zero-initialized.
+   */
   const rclcpp::Time & get_last_execution_ts() const {return last_ts_;}
 
 private:
@@ -129,7 +157,10 @@ private:
   /// @brief TF Namespace.
   std::string tf_prefix_;
 
+  /// @brief Desired real-time and non-RT loop frequencies in Hz.
   float rt_frequency_, frequency_;
+
+  /// @brief Timestamps of the last executions.
   rclcpp::Time rt_last_ts_, last_ts_;
 };
 
