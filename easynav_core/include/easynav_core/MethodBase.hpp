@@ -113,6 +113,12 @@ public:
    */
   bool isTime2Run();
 
+  void setRunRT();
+  void setRun();
+
+  const rclcpp::Time & get_last_rt_execution_ts() const {return rt_last_ts_;}
+  const rclcpp::Time & get_last_execution_ts() const {return last_ts_;}
+
 private:
   /// @brief Shared pointer to the parent lifecycle node.
   std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node_ {nullptr};

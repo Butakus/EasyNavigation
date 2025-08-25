@@ -54,6 +54,13 @@ public:
    */
   void internal_update(NavState & nav_state);
 
+  /**
+   * @brief Helper to run the planner update independently if it is time.
+   *
+   * @param nav_state The current state of the navigation system.
+   */
+  void force_update(NavState & nav_state);
+
 protected:
   /**
    * @brief Run the path planning algorithm and update the route.

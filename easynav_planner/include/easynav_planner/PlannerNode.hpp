@@ -106,8 +106,12 @@ public:
   /**
    * @brief Execute a non-real-time cycle.
    * @param nav_state Shared pointer to the navigation state structure.
+   * @param trigger If tru, a cycle is executed independently of the frequency set
    */
-  void cycle(std::shared_ptr<NavState> nav_state);
+  void cycle(std::shared_ptr<NavState> nav_state, bool trigger = false);
+
+  const rclcpp::Time get_last_rt_execution_ts() const;
+  const rclcpp::Time get_last_execution_ts() const;
 
 private:
   /// @brief Plugin loader for planner methods.

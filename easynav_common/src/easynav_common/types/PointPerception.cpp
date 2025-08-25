@@ -79,7 +79,6 @@ PointPerceptionHandler::create_subscription(
       [target](const sensor_msgs::msg::LaserScan::SharedPtr msg)
       {
         EASYNAV_TRACE_NAMED_EVENT("Lambda::LaserScan");
-
         auto typed_target = std::dynamic_pointer_cast<PointPerception>(target);
 
         convert(*msg, typed_target->data);
