@@ -258,7 +258,11 @@ SystemNode::system_cycle()
   localizer_node_->cycle(nav_state_);
   maps_manager_node_->cycle(nav_state_);
   goal_manager_->update(*nav_state_);
-  planner_node_->cycle(nav_state_);
+
+  rclcpp::Time goals_ts(goal_manager_->get_goals().header.stamp);
+  rclcpp::Time planner_ts = planner_node_->get_last_execution_ts();
+
+  planner_node_->cycle(nav_state_, planner_ts < goals_ts);
 }
 
 std::map<std::string, SystemNodeInfo>

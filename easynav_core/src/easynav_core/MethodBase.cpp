@@ -95,4 +95,16 @@ MethodBase::isTime2Run()
   }
 }
 
+void
+MethodBase::setRunRT()
+{
+  rt_last_ts_ = parent_node_->now();
+}
+
+void
+MethodBase::setRun()
+{
+  last_ts_ = parent_node_->now();
+}
+
 }  // namespace easynav

@@ -41,4 +41,11 @@ PlannerMethodBase::internal_update(NavState & nav_state)
   }
 }
 
+void
+PlannerMethodBase::force_update(NavState & nav_state)
+{
+  setRun();
+  update(nav_state);
+}
+
 }  // namespace easynav

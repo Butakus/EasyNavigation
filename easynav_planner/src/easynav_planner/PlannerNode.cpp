@@ -154,11 +154,32 @@ PlannerNode::on_error(const rclcpp_lifecycle::State & state)
 }
 
 void
-PlannerNode::cycle(std::shared_ptr<NavState> nav_state)
+PlannerNode::cycle(std::shared_ptr<NavState> nav_state, bool trigger)
 {
   if (planner_method_ == nullptr) {return;}
 
-  planner_method_->internal_update(*nav_state);
+  if (trigger) {
+    planner_method_->force_update(*nav_state);
+  } else {
+    planner_method_->internal_update(*nav_state);
+  }
 }
+
+const rclcpp::Time
+PlannerNode::get_last_rt_execution_ts() const
+{
+  if (planner_method_ == nullptr) {return {};}
+
+  return planner_method_->get_last_rt_execution_ts();
+}
+
+const rclcpp::Time
+PlannerNode::get_last_execution_ts() const
+{
+  if (planner_method_ == nullptr) {return {};}
+
+  return planner_method_->get_last_execution_ts();
+}
+
 
 }  // namespace easynav
