@@ -88,6 +88,11 @@ target_link_libraries(system_main PUBLIC
   ${PROJECT_NAME}
 )
 
+add_executable(goalmanager_test_main src/goalmanager_test_main.cpp)
+target_link_libraries(goalmanager_test_main PUBLIC
+  ${PROJECT_NAME}
+)
+
 install(
   DIRECTORY include/
   DESTINATION include/${PROJECT_NAME}
@@ -96,6 +101,7 @@ install(
 install(TARGETS
   ${PROJECT_NAME}
   system_main
+  goalmanager_test_main
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
