@@ -1,198 +1,241 @@
 # Copyright 2025 Intelligent Robotics Lab
-# GPL-3.0-or-later
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
 from __future__ import annotations
 
-import threading
-from enum import Enum, auto
-from typing import Optional
+from enum import Enum
 
-import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile
 
-from geometry_msgs.msg import PoseStamped
-from builtin_interfaces.msg import Time
-
-# These message types are provided by your workspace.
-# They must exist for the integration to work.
+# Interfaces
 from easynav_interfaces.msg import NavigationControl
-from nav_msgs.msg import Goals  # NOTE: Your workspace must provide this message type
+from geometry_msgs.msg import PoseStamped
+from nav_msgs.msg import Goals
+
 
 class ClientState(Enum):
-    IDLE = auto()
-    WAITING = auto()
-    ACTIVE = auto()
+    IDLE = 0
+    SENT_GOAL = 1
+    SENT_PREEMPT = 2
+    ACCEPTED_AND_NAVIGATING = 3
+    NAVIGATION_FINISHED = 4
+    NAVIGATION_REJECTED = 5
+    NAVIGATION_FAILED = 6
+    NAVIGATION_CANCELLED = 7
+    ERROR = 8
+
 
 class GoalManagerClient:
-    """A Python client compatible with the C++ GoalManager.
-
-    It exchanges NavigationControl messages on the `easynav_control` topic and publishes the
-    commanded goal pose on `goal_pose` (PoseStamped), mirroring the C++ behaviour.
-
-    The client filters inbound control messages so it only reacts to messages where
-    `nav_current_user_id == self.id` (and ignores its own outbound messages).
-
-    Attributes:
-        node: rclpy Node used to create pubs/subs and timers.
-        id: String identifier for this client. Defaults to f"{node.get_name()}_goal_manager_client".
-        state: A light client-side state machine (IDLE/WAITING/ACTIVE).
-        last_control: The last NavigationControl message that matched this client.
-        last_feedback: The last FEEDBACK-type NavigationControl message that matched this client.
-    """
+    """Python client compatible with C++ GoalManagerClient."""
 
     def __init__(
         self,
-        node: Node,
-        control_topic: str = 'easynav_control',
-        goal_topic: str = 'goal_pose',
-        client_id: Optional[str] = None,
-        qos_depth: int = 100,
+        node: Node
     ) -> None:
         self.node = node
-        self.control_topic = control_topic
-        self.goal_topic = goal_topic
-        self.id = client_id or (self.node.get_name() + '_goal_manager_client')
+
+        self.id = self.node.get_name() + '_goal_manager_client'
+        self.id = self.node.get_name() + '_goal_manager_client'
+
+        self.control_topic = 'easynav_control'
+        self.goal_topic = 'goal_pose'
+
         self.state = ClientState.IDLE
 
-        self._lock = threading.Lock()
-        self.last_control: Optional[NavigationControl] = None
-        self.last_feedback: Optional[NavigationControl] = None
+        self.last_control = NavigationControl()
+        self.last_feedback = NavigationControl()
+        self.last_result = NavigationControl()
 
-        qos = QoSProfile(depth=qos_depth)
+        qos = QoSProfile(depth=100)
         self._control_pub = self.node.create_publisher(NavigationControl, self.control_topic, qos)
         self._goal_pub = self.node.create_publisher(PoseStamped, self.goal_topic, qos)
         self._control_sub = self.node.create_subscription(
             NavigationControl, self.control_topic, self._on_control, qos
         )
 
-    # ----------------------- Public API -----------------------
-
     def send_goal(self, goal: PoseStamped) -> None:
-        """Send a single goal pose as a navigation REQUEST.
+        """Send a single goal to the GoalManager."""
+        self.node.get_logger().info('Sending navigation goal')
 
-        The method also publishes the PoseStamped to `goal_pose` for parity with the C++ stack.
-        """
-        req = NavigationControl()
-        # Header + sequence are typically filled by the server on responses; we set minimal fields.
-        req.type = NavigationControl.REQUEST
-        req.user_id = self.id
         goals = Goals()
         goals.header = goal.header
-        goals.goals.append(goal)  # type: ignore[attr-defined]
-        req.goals = goals
+        goals.goals.append(goal)
 
-        with self._lock:
-            self.state = ClientState.WAITING
-            self.last_control = None
+        self.send_goals(goals)
 
-        # Publish the explicit goal pose as well (GoalManager also listens to this topic)
-        self._goal_pub.publish(goal)
-        # Publish the control request
-        self._control_pub.publish(req)
+    def send_goals(self, goals: Goals) -> None:
+        """Send a list of goals to the GoalManager."""
+        if len(goals.goals) == 0:
+            self.node.get_logger().error('Trying to command empty goals')
+            return
+
+        msg = NavigationControl()
+
+        match self.state:
+            case ClientState.IDLE:
+                self.state = ClientState.SENT_GOAL
+                msg.type = NavigationControl.REQUEST
+            case ClientState.ACCEPTED_AND_NAVIGATING:
+                self.state = ClientState.SENT_PREEMPT
+                msg.type = NavigationControl.REQUEST
+            case _:
+                self.node.get_logger().error(
+                    f'Trying to send new goals in state {self.state.name}. Ignoring')
+                return
+
+        msg.header = goals.header
+        msg.user_id = self.id
+        msg.seq = self.last_control.seq + 1
+        msg.goals = goals
+
+        self._control_pub.publish(msg)
 
     def cancel(self) -> None:
-        """Request cancellation for the current navigation."""
+        """Cancel the current goal."""
+        self.node.get_logger().info('Sending nevigation cancelation')
+
+        if self.state != ClientState.ACCEPTED_AND_NAVIGATING:
+            self.node.get_logger().error(
+                f'Triying to cancel a non-active navigation (state {self.state.name})')
+            return
+
         msg = NavigationControl()
         msg.type = NavigationControl.CANCEL
+        msg.header = self.last_control.header
         msg.user_id = self.id
+        msg.seq = self.last_control.seq + 1
+
+        self.node.get_logger().debug('Navigation cancelation sent')
+
         self._control_pub.publish(msg)
 
     def reset(self) -> None:
-        """Reset the client-side state machine and cached messages."""
-        with self._lock:
+        """Reset internal client state."""
+        if (
+            self.state == ClientState.NAVIGATION_FINISHED or
+            self.state == ClientState.NAVIGATION_REJECTED or
+            self.state == ClientState.NAVIGATION_FAILED or
+            self.state == ClientState.NAVIGATION_CANCELLED or
+            self.state == ClientState.ERROR
+        ):
             self.state = ClientState.IDLE
-            self.last_control = None
-            self.last_feedback = None
+        else:
+            self.node.get_logger().error(
+                f'Triying to reset navigation in a a non-finished navigation state {self.state.name}')
 
-    # ----------------------- Helpers -----------------------
+    def get_state(self) -> ClientState:
+        """Get the current internal state."""
+        return self.state
 
-    def wait_for(
-        self,
-        predicate,
-        timeout_sec: float = 2.0,
-        spin: bool = True,
-        spin_period_sec: float = 0.01,
-    ) -> bool:
-        """Utility: wait until predicate() returns True or a timeout is reached.
 
-        If `spin` is True, rclpy.spin_once(node, timeout_sec=spin_period_sec) is used
-        to service callbacks while waiting.
-        """
-        import time
-        start = time.monotonic()
-        while time.monotonic() - start < timeout_sec:
-            if predicate():
-                return True
-            if spin:
-                rclpy.spin_once(self.node, timeout_sec=spin_period_sec)
-        return predicate()
+    def get_last_control(self) -> NavigationControl:
+        """Get the last control message sent or received."""
+        return self.last_control
 
-    # ----------------------- Callbacks -----------------------
+
+    def get_feedback(self) -> NavigationControl:
+        """Get the most recent feedback received."""
+        return self.last_feedback
+
+
+    def get_result(self) -> NavigationControl:
+        """Get the last result message received."""
+        return self.last_result
+
+    # ---------------- Callbacks ----------------
 
     def _on_control(self, msg: NavigationControl) -> None:
-        # Ignore our own outbound messages
-        if msg.user_id == self.id:
+        if msg.user_id == self.id:  #  Avoid self messages
             return
-        # Only accept messages whose 'nav_current_user_id' matches our client id, if present
-        if getattr(msg, 'nav_current_user_id', None) not in (None, '', self.id):
+        if msg.nav_current_user_id != self.id:  # Avoid messages to others
             return
 
-        with self._lock:
-            self.last_control = msg
-            if msg.type == NavigationControl.FEEDBACK:
-                self.last_feedback = msg
-                # Do not mutate state on feedback
-            elif msg.type in (
-                getattr(NavigationControl, 'ACCEPT', None),
-            ):
-                self.state = ClientState.ACTIVE
-            elif msg.type in (
-                getattr(NavigationControl, 'FINISHED', None),
-                getattr(NavigationControl, 'FAILED', None),
-                getattr(NavigationControl, 'CANCELLED', None),
-                getattr(NavigationControl, 'REJECT', None),
-                getattr(NavigationControl, 'ERROR', None),
-            ):
-                # Any terminal response => back to IDLE
-                self.state = ClientState.IDLE
+        self.node.get_logger().debug(
+            f'Received a navigation {msg.type} msg with user_id {msg.user_id}')
 
-# -------- Optional demo CLI --------
+        if (
+            self.state != ClientState.IDLE and
+            self.state != ClientState.NAVIGATION_FINISHED and
+            self.state != ClientState.NAVIGATION_FAILED and
+            self.state != ClientState.NAVIGATION_CANCELLED and
+            self.state != ClientState.ERROR
+        ):
+            match self.state:
+                case ClientState.SENT_GOAL:
+                    match msg.type:
+                        case NavigationControl.ACCEPT:
+                            self.node.get_logger().debug('Goal accepted. Navigating')
+                            self.state = ClientState.ACCEPTED_AND_NAVIGATING
+                        case NavigationControl.REJECT:
+                            self.node.get_logger().error('Rejected navigation goal')
+                            self.state = ClientState.NAVIGATION_FAILED
+                        case NavigationControl.ERROR:
+                            self.node.get_logger().error('Error in navigation')
+                            self.state = ClientState.ERROR
+                        case _:
+                            self.node.get_logger().error(
+                                 'State SENT_PREEMPT; Unexpected message: "%d": "%s"' %
+                                msg.type, msg.status_message)
+                            self.state = ClientState.ERROR
+                case ClientState.SENT_PREEMPT:
+                    match msg.type:
+                        case NavigationControl.FEEDBACK:
+                            self.node.get_logger().debug('Getting navigation feedback')
+                            self.last_feedback = msg
+                        case NavigationControl.ACCEPT:
+                            self.node.get_logger().debug('Goal preemption accepted. Navigating')
+                            self.state = ClientState.ACCEPTED_AND_NAVIGATING
+                        case NavigationControl.REJECT:
+                            self.node.get_logger().error('Rejected navigation preempt goal')
+                            self.state = ClientState.ACCEPTED_AND_NAVIGATING
+                        case NavigationControl.ERROR:
+                            self.node.get_logger().error('Error in preempting navigation')
+                            self.state = ClientState.ERROR
+                        case _:
+                            self.node.get_logger().error(
+                                'State SENT_PREEMPT; Unexpected message: "%d": "%s"' %
+                                msg.type, msg.status_message)
+                            self.state = ClientState.ERROR
+                case ClientState.ACCEPTED_AND_NAVIGATING:
+                    match msg.type:
+                        case NavigationControl.FEEDBACK:
+                            self.node.get_logger().debug('Getting navigation feedback')
+                            self.last_feedback = msg
+                        case NavigationControl.FINISHED:
+                            self.node.get_logger().info('Navigation succesfully finished')
+                            self.last_result = msg
+                            self.state = ClientState.NAVIGATION_FINISHED
+                        case NavigationControl.FAILED:
+                            self.node.get_logger().error(
+                                'Navigation with error finished: %s"' % msg.status_message)
+                            self.last_result = msg
+                            self.state = ClientState.NAVIGATION_FAILED
+                        case NavigationControl.CANCELLED:
+                            self.node.get_logger().error('Navigation cancelled')
+                            self.last_result = msg
+                            self.state = ClientState.NAVIGATION_CANCELLED
+                        case _:
+                            self.node.get_logger().error(
+                                'State ACCEPTED_AND_NAVIGATING; Unexpected message: "%d": "%s"' %
+                                msg.type, msg.status_message)
+                            self.last_result = msg
+                            self.state = ClientState.ERROR
+                case _:
+                    self.node.get_logger().error(f'State not managed: {self.state.name}')
+                    self.state = ClientState.ERROR
 
-def _make_demo_goal(node: Node) -> PoseStamped:
-    import math
-    from rclpy.time import Time as RclTime
-    goal = PoseStamped()
-    goal.header.frame_id = 'map'
-    goal.header.stamp = node.get_clock().now().to_msg()
-    goal.pose.position.x = 1.0
-    goal.pose.position.y = 0.0
-    goal.pose.orientation.w = 1.0
-    return goal
-
-def main(args=None):
-    rclpy.init(args=args)
-    node = Node('goalmanager_py_demo')
-    client = GoalManagerClient(node)
-
-    goal = _make_demo_goal(node)
-    client.send_goal(goal)
-
-    # Wait briefly for ACCEPT or REJECT
-    client.wait_for(lambda: client.last_control is not None, timeout_sec=3.0)
-
-    if client.last_control is not None:
-        node.get_logger().info(f'Result type: {client.last_control.type} '
-                               f'from user {client.last_control.user_id} '
-                               f'msg: {getattr(client.last_control, "status_message", "")}')
-    else:
-        node.get_logger().warn('No response received')
-
-    # Request cancel (useful if the system does not move during the demo)
-    client.cancel()
-    client.wait_for(lambda: client.last_control and client.last_control.type == NavigationControl.CANCELLED,
-                    timeout_sec=3.0)
-
-    rclpy.shutdown()
-
-if __name__ == '__main__':
-    main()
+        self.last_control = msg
