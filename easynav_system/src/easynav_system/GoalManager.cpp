@@ -273,8 +273,9 @@ GoalManager::update(NavState & nav_state)
     return;
   }
 
+  auto robot_pose = nav_state.get<nav_msgs::msg::Odometry>("robot_pose").pose.pose;
   check_goals(
-    nav_state.get<nav_msgs::msg::Odometry>("robot_pose").pose.pose,
+    robot_pose,
     position_tolerance_, angle_tolerance_);
 
   if (!nav_state.has("goals") || nav_state.get<nav_msgs::msg::Goals>("goals") != goals_) {
@@ -303,6 +304,9 @@ GoalManager::update(NavState & nav_state)
   feedback.current_pose.pose = odom.pose.pose;
   feedback.navigation_time = parent_node_->now() - nav_start_time_;
 
+  const auto & first_goal = goals_.goals.front().pose;
+  feedback.distance_to_goal = calculate_distance(robot_pose, first_goal);
+
   // ToDo[@fmrico]: Complete feedback info
 
   RCLCPP_DEBUG(parent_node_->get_logger(), "Sending navigation feedback");
@@ -319,24 +323,44 @@ GoalManager::check_goals(
 
   const auto & first_goal = goals_.goals.front().pose;
 
-  double dx = current_pose.position.x - first_goal.position.x;
-  double dy = current_pose.position.y - first_goal.position.y;
-  double dz = current_pose.position.z - first_goal.position.z;
-  double distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+  double distance = calculate_distance(current_pose, first_goal);
 
   if (distance > position_tolerance) {
     return;
   }
 
-  tf2::Quaternion q_current, q_goal;
-  tf2::fromMsg(current_pose.orientation, q_current);
-  tf2::fromMsg(first_goal.orientation, q_goal);
-
-  double angle_diff = q_current.angleShortestPath(q_goal);
+  double angle_diff = calculate_angle(current_pose, first_goal);
 
   if (angle_diff <= angle_tolerance) {
     goals_.goals.erase(goals_.goals.begin());
   }
+}
+
+double
+GoalManager::calculate_distance(
+  const geometry_msgs::msg::Pose & pose1,
+  const geometry_msgs::msg::Pose & pose2)
+{
+  double dx = pose1.position.x - pose2.position.x;
+  double dy = pose1.position.y - pose2.position.y;
+  double dz = pose1.position.z - pose2.position.z;
+  double distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+
+  return distance;
+}
+
+double
+GoalManager::calculate_angle(
+  const geometry_msgs::msg::Pose & pose1,
+  const geometry_msgs::msg::Pose & pose2)
+{
+  tf2::Quaternion q_current, q_goal;
+  tf2::fromMsg(pose1.orientation, q_current);
+  tf2::fromMsg(pose2.orientation, q_goal);
+
+  double angle_diff = q_current.angleShortestPath(q_goal);
+
+  return angle_diff;
 }
 
 }  // namespace easynav

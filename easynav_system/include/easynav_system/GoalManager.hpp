@@ -117,6 +117,26 @@ public:
     const geometry_msgs::msg::Pose & current_pose,
     double position_tolerance, double angle_tolerance);
 
+  /**
+   * @brief Get Distance between two poses
+   *
+   * @param pose1 First pose
+   * @param pose2 Second pose
+   */
+  double calculate_distance(
+    const geometry_msgs::msg::Pose & pose1,
+    const geometry_msgs::msg::Pose & pose2);
+
+  /**
+   * @brief Get Distance between two poses
+   *
+   * @param pose1 First pose
+   * @param pose2 Second pose
+   */
+  double calculate_angle(
+    const geometry_msgs::msg::Pose & pose1,
+    const geometry_msgs::msg::Pose & pose2);
+
 private:
   /// @brief Lifecycle node.
   rclcpp_lifecycle::LifecycleNode::SharedPtr parent_node_;

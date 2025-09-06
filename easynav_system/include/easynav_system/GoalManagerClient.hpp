@@ -137,9 +137,6 @@ private:
   /// @brief My ID.
   std::string id_;
 
-  /// @brief ID of the client sending goals.
-  std::string current_client_id_;
-
   /// @brief Internal state of the client.
   State state_;
 
