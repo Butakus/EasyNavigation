@@ -16,8 +16,8 @@
 import time
 import unittest
 
+from easynav_goalmanager_py.goal_manager_client import ClientState, GoalManagerClient
 from easynav_interfaces.msg import NavigationControl
-from easynav_goalmanager_py.goal_manager_client import GoalManagerClient, ClientState
 
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Goals
@@ -121,12 +121,12 @@ class TestGoalManagerClientUnit(unittest.TestCase):
         ok = self._publish_and_wait(
             self._srv_msg(NavigationControl.REJECT, 'invalid'),
             lambda: self.client.get_state() in (ClientState.NAVIGATION_REJECTED,
-            ClientState.NAVIGATION_FAILED))
+                                                ClientState.NAVIGATION_FAILED))
 
         self.assertTrue(ok)
         # Prefer REJECTED; allow FAILED to expose divergence
-        self.assertIn(self.client.get_state(),
-            (ClientState.NAVIGATION_REJECTED, ClientState.NAVIGATION_FAILED))
+        self.assertIn(self.client.get_state(), (ClientState.NAVIGATION_REJECTED,
+                                                ClientState.NAVIGATION_FAILED))
         self.client.reset()
         self.assertEqual(self.client.get_state(), ClientState.IDLE)
 
@@ -138,7 +138,7 @@ class TestGoalManagerClientUnit(unittest.TestCase):
         ok = self._publish_and_wait(
             self._srv_msg(NavigationControl.FAILED, 'collision'),
             lambda: self.client.get_state() == ClientState.NAVIGATION_FAILED, timeout=2.0)
-        self.assertTrue(ok, "Expected NAVIGATION_FAILED after FAILED")
+        self.assertTrue(ok, 'Expected NAVIGATION_FAILED after FAILED')
 
     def test_preempt_local(self):
         self.client.send_goals(self.goals)

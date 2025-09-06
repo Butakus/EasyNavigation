@@ -18,13 +18,13 @@ from __future__ import annotations
 
 from enum import Enum
 
-from rclpy.node import Node
-from rclpy.qos import QoSProfile
-
 # Interfaces
 from easynav_interfaces.msg import NavigationControl
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Goals
+
+from rclpy.node import Node
+from rclpy.qos import QoSProfile
 
 
 class ClientState(Enum):
@@ -135,31 +135,26 @@ class GoalManagerClient:
             self.state = ClientState.IDLE
         else:
             self.node.get_logger().error(
-                f'Triying to reset navigation in a a non-finished navigation state {self.state.name}')
+                f'Triying to reset navigation in a a non-finished nav state {self.state.name}')
 
     def get_state(self) -> ClientState:
         """Get the current internal state."""
         return self.state
 
-
     def get_last_control(self) -> NavigationControl:
         """Get the last control message sent or received."""
         return self.last_control
-
 
     def get_feedback(self) -> NavigationControl:
         """Get the most recent feedback received."""
         return self.last_feedback
 
-
     def get_result(self) -> NavigationControl:
         """Get the last result message received."""
         return self.last_result
 
-    # ---------------- Callbacks ----------------
-
     def _on_control(self, msg: NavigationControl) -> None:
-        if msg.user_id == self.id:  #  Avoid self messages
+        if msg.user_id == self.id:  # Avoid self messages
             return
         if msg.nav_current_user_id != self.id:  # Avoid messages to others
             return
@@ -188,7 +183,7 @@ class GoalManagerClient:
                             self.state = ClientState.ERROR
                         case _:
                             self.node.get_logger().error(
-                                 'State SENT_PREEMPT; Unexpected message: "%d": "%s"' %
+                                'State SENT_PREEMPT; Unexpected message: "%d": "%s"' %
                                 msg.type, msg.status_message)
                             self.state = ClientState.ERROR
                 case ClientState.SENT_PREEMPT:
