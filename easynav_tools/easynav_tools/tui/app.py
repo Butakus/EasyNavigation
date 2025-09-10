@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import atexit
 import math
+import os
+import re
 import rclpy
 from rclpy.executors import ExternalShutdownException
 
@@ -35,8 +37,26 @@ NC_TYPE_MAP: dict[int, tuple[str, str]] = {
 GM_STATUS_MAP: dict[int, tuple[str, str]] = {
     0: ("IDLE",   "yellow"),
     1: ("ACTIVE", "green"),
-    # add other states here if your message defines them
 }
+
+# -------- Running stats (Welford) --------
+class RunningStats:
+    def __init__(self) -> None:
+        self.n = 0
+        self.mean = 0.0
+        self.M2 = 0.0
+
+    def update(self, x: float) -> None:
+        self.n += 1
+        delta = x - self.mean
+        self.mean += delta / self.n
+        delta2 = x - self.mean
+        self.M2 += delta * delta2
+
+    def as_tuple(self) -> tuple[float, float]:
+        if self.n < 2:
+            return (self.mean, 0.0)
+        return (self.mean, (self.M2 / (self.n - 1)) ** 0.5)
 
 
 class EasyNavTabbedApp(App):
@@ -136,6 +156,10 @@ class EasyNavTabbedApp(App):
         ("2", "show_commanding", "Tab Commanding"),
     ]
 
+    # ---------- Time stats config ----------
+    _LOG_PATH = "/tmp/easynav.log"
+    _LOG_RE = re.compile(r"^(?P<name>\S+)\s+(?P<start>\d+)\s+(?P<end>\d+)\s*$")
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -159,9 +183,9 @@ class EasyNavTabbedApp(App):
         self.page_commanding: Static | None = None
 
         # Sub-boxes inside "Navigation Status"
-        self.box_nav_control: Static | None = None   # Navigation Control
-        self.box_goal_info: Static | None = None     # Goal Info  (NEW)
-        self.box_twist: Static | None = None         # Twist
+        self.box_nav_control: Static | None = None
+        self.box_goal_info: Static | None = None
+        self.box_twist: Static | None = None
 
         # Switch state and buffers
         self.navstate_enabled = True
@@ -172,6 +196,14 @@ class EasyNavTabbedApp(App):
         # Cached last twist texts
         self._last_twist_text = "—"
         self._last_twiststamped_text = "—"
+
+        # ---- Time stats state (tailing the log) ----
+        self._log_fh = None
+        self._log_inode = None
+        self._log_pos = 0
+        # per-function accumulators
+        # func -> { 'exec': RunningStats, 'elapsed': RunningStats, 'freq': RunningStats, 'last_start': int|None }
+        self._ts_stats: dict[str, dict] = {}
 
     def compose(self) -> ComposeResult:
         yield Tabs(
@@ -196,7 +228,7 @@ class EasyNavTabbedApp(App):
                                         "Esperando NavigationControl…", classes="box navstatus_item"
                                     )
                                     yield self.box_nav_control
-                                # 2) Goal Info (NEW) — placed between Navigation Control and Twist
+                                # 2) Goal Info
                                 with Vertical(classes="titled"):
                                     yield Label("Goal Info", classes="title")
                                     self.box_goal_info = Static(
@@ -230,10 +262,8 @@ class EasyNavTabbedApp(App):
                                     yield Label("Time stats", classes="title")
                                     yield Static("", classes="spacer")
                                     yield Switch(value=True, id="sw_timestats")
-                                initial_table = self._render_time_stats_table([
-                                    ("update_rt",                   (210.5, 15.2), (12.3, 2.1), (81.3, 4.7)),
-                                    ("correct_localizer_particles", (845.7,110.8), (37.9, 6.3), (26.4, 3.1)),
-                                ])
+                                # start with placeholder; will be replaced by log data
+                                initial_table = self._render_time_stats_table([])
                                 self._last_timestats_text = initial_table
                                 self.st_timestats = Static(initial_table)
                                 yield self.st_timestats
@@ -249,11 +279,13 @@ class EasyNavTabbedApp(App):
 
     def on_mount(self) -> None:
         self._show_page("status")
+        # ROS polling
         self.set_interval(0.05, self._ros_spin_once)
-
+        # create NavState sub if switch is ON
         if self.query_one("#sw_navstate", Switch).value:
             self.subs["navstate"] = NavStateSubscriber(self.node, self.navstate_callback)
-
+        # Time stats: poll the log periodically (10 Hz is overkill; use ~2 Hz)
+        self.set_interval(0.5, self._poll_time_stats_log)
 
     # ---------- Tabs <-> Pages ----------
     def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
@@ -293,11 +325,13 @@ class EasyNavTabbedApp(App):
                 # OFF: clear UI and destroy subscriber to free resources
                 if self.st_navstate:
                     self.st_navstate.update("")
-                
-                self.subs['navstate'].destroy()
+                # try to destroy wrapper and remove
                 sub = self.subs.pop("navstate", None)
-                if sub is None:
-                    return
+                if sub is not None and hasattr(sub, "destroy"):
+                    try:
+                        sub.destroy()
+                    except Exception:
+                        pass
 
         elif event.switch.id == "sw_timestats":
             self.timestats_enabled = event.value
@@ -317,7 +351,6 @@ class EasyNavTabbedApp(App):
     # ---------- Formatting helpers ----------
     @staticmethod
     def _fmt_duration(dur) -> str:
-        """Format a builtin_interfaces/Duration-like object as seconds."""
         try:
             sec = dur.sec
             nsec = dur.nanosec
@@ -327,7 +360,6 @@ class EasyNavTabbedApp(App):
 
     @staticmethod
     def _fmt_pose(pose) -> str:
-        """Format Pose or PoseStamped (uses .pose when available)."""
         try:
             p = pose.pose if hasattr(pose, "pose") else pose
             px, py, pz = p.position.x, p.position.y, p.position.z
@@ -343,22 +375,22 @@ class EasyNavTabbedApp(App):
     def _render_time_stats_table(rows) -> Text:
         headers = [
             "function name",
-            "execution time (μs)",
-            "elapsed time (ms)",
+            "execution time (ms)",
+            "elapsed (ms)",
             "frequency (Hz)",
         ]
         data = []
         for name, exec_t, elapsed, freq in rows:
-            e_mean, e_std = exec_t
-            l_mean, l_std = elapsed
-            f_mean, f_std = freq
+            e_mean, e_std = exec_t      # ms
+            l_mean, l_std = elapsed     # ms
+            f_mean, f_std = freq        # Hz
             data.append([
                 f"{name}",
-                f"{e_mean:.2f} ± {e_std:.2f}",
-                f"{l_mean:.2f} ± {l_std:.2f}",
+                f"{e_mean:.3f} ± {e_std:.3f}",
+                f"{l_mean:.3f} ± {l_std:.3f}",
                 f"{f_mean:.2f} ± {f_std:.2f}",
             ])
-        cols = list(zip(*([headers] + data)))
+        cols = list(zip(*([headers] + data))) if data else [headers]
         widths = [max(len(str(x)) for x in col) for col in cols]
         def fmt_row(cells):
             return " | ".join(str(c).ljust(w) for c, w in zip(cells, widths))
@@ -368,17 +400,15 @@ class EasyNavTabbedApp(App):
             lines.append(fmt_row(row))
         table_str = "\n".join(lines)
         return Text(table_str, no_wrap=True)
+
     @staticmethod
     def _quat_to_yaw(q) -> float:
-        """Return yaw (rad) from a quaternion with fields x,y,z,w."""
         x, y, z, w = q.x, q.y, q.z, q.w
-        # yaw (Z) from quaternion
         siny_cosp = 2.0 * (w * z + x * y)
         cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
         return math.atan2(siny_cosp, cosy_cosp)
 
     def set_navstate_text(self, text: str) -> None:
-        """Replace NavState content, honoring the switch state."""
         self._last_navstate_text = text
         if self.st_navstate is not None:
             if self.navstate_enabled:
@@ -387,7 +417,6 @@ class EasyNavTabbedApp(App):
                 self.st_navstate.update("")
 
     def set_time_stats_rows(self, rows) -> None:
-        """Replace Time stats content from rows, honoring the switch state."""
         table = self._render_time_stats_table(rows)
         self._last_timestats_text = table
         if self.st_timestats is not None:
@@ -398,7 +427,6 @@ class EasyNavTabbedApp(App):
 
     # ---------- ROS callbacks ----------
     def control_callback(self, msg) -> None:
-        """Render NavigationControl in 'Navigation Control' sub-box."""
         if self.box_nav_control is None:
             return
 
@@ -424,20 +452,16 @@ class EasyNavTabbedApp(App):
         self.box_nav_control.update(text)
 
     def goal_info_callback(self, msg) -> None:
-        """Render GoalManagerInfo in 'Goal Info' sub-box with conditional coloring."""
         if self.box_goal_info is None:
             return
-    
-        # Status color: IDLE->yellow, ACTIVE->green (fall back to white)
+
         s_val: int = msg.status
         s_label, s_color = GM_STATUS_MAP.get(s_val, (str(s_val), "white"))
         status_line = f"Status: [{s_color}]{s_label}[/{s_color}]"
-    
-        # Distances (position / angle) with tolerance-dependent coloring:
-        # - Angle line turns green ONLY if position line is green AND angle is within tolerance.
+
         pos_ok = (msg.position_distance <= msg.position_tolerance)
         ang_ok = (msg.angle_distance <= msg.angle_tolerance)
-    
+
         if pos_ok:
             pos_line = (
                 f"[green]Position: distance={msg.position_distance:.3f} m "
@@ -448,7 +472,7 @@ class EasyNavTabbedApp(App):
                 f"Position: distance={msg.position_distance:.3f} m "
                 f"/ tol={msg.position_tolerance:.3f} m"
             )
-    
+
         if pos_ok and ang_ok:
             ang_line = (
                 f"[green]Angle: distance={msg.angle_distance:.3f} rad "
@@ -459,13 +483,10 @@ class EasyNavTabbedApp(App):
                 f"Angle: distance={msg.angle_distance:.3f} rad "
                 f"/ tol={msg.angle_tolerance:.3f} rad"
             )
-    
-        # Goals info: count + first goal (x,y,z,yaw)
-        # Assumes msg.goals is a sequence of Pose or PoseStamped-like items
+
         goals_count = len(msg.goals.goals)
-        
         goals_line = f"Goals remaining: {goals_count}"
-    
+
         if goals_count > 0:
             g0 = msg.goals.goals[0]
             pose0 = g0.pose if hasattr(g0, "pose") else g0
@@ -476,11 +497,10 @@ class EasyNavTabbedApp(App):
             first_goal_line = f"First goal: x={x:.3f}, y={y:.3f}, z={z:.3f}, yaw={yaw:.3f} rad"
         else:
             first_goal_line = "First goal: —"
-    
+
         self.box_goal_info.update("\n".join([status_line, pos_line, ang_line, goals_line, first_goal_line]))
 
     def twist_callback(self, msg) -> None:
-        """Update Twist sub-box with latest Twist."""
         self._last_twist_text = (
             "Twist:\n"
             f"  linear : x={msg.linear.x:.3f}, y={msg.linear.y:.3f}, z={msg.linear.z:.3f}\n"
@@ -489,7 +509,6 @@ class EasyNavTabbedApp(App):
         self._update_twist_box()
 
     def twist_stamped_callback(self, msg) -> None:
-        """Update Commanding page and Twist sub-box with latest TwistStamped."""
         tw = msg.twist
         self._last_twiststamped_text = (
             "TwistStamped:\n"
@@ -503,13 +522,12 @@ class EasyNavTabbedApp(App):
         self._update_twist_box()
 
     def navstate_callback(self, msg) -> None:
-        """Update NavState"""
-        self._last_navstate_text = msg.data
+        text = msg.data if hasattr(msg, "data") else str(msg)
+        self._last_navstate_text = text
         if self.navstate_enabled and self.st_navstate is not None:
-            self.st_navstate.update(self._last_navstate_text)
+            self.st_navstate.update(text)
 
     def _update_twist_box(self) -> None:
-        """Render both Twist and TwistStamped (if available) in the Twist sub-box."""
         if self.box_twist is None:
             return
         parts = []
@@ -519,8 +537,124 @@ class EasyNavTabbedApp(App):
             parts.append(self._last_twiststamped_text)
         self.box_twist.update("\n\n".join(parts) if parts else "Esperando Twist/TwistStamped…")
 
+    # ---------- Time stats: log tail + aggregation ----------
+    def _open_log_if_needed(self) -> None:
+        """Open the log file if available, preserving position; handle rotation/truncation."""
+        try:
+            st = os.stat(self._LOG_PATH)
+        except FileNotFoundError:
+            # file missing: close if we had it
+            if self._log_fh:
+                try:
+                    self._log_fh.close()
+                except Exception:
+                    pass
+            self._log_fh = None
+            self._log_inode = None
+            self._log_pos = 0
+            return
+
+        if self._log_fh is None:
+            # first open: read from start to accumulate history
+            self._log_fh = open(self._LOG_PATH, "r", encoding="utf-8", errors="ignore")
+            self._log_inode = st.st_ino
+            self._log_pos = 0
+            return
+
+        # if inode changed or file shrank: reopen and start from 0
+        try:
+            same_inode = (self._log_inode == st.st_ino)
+            curr_size = st.st_size
+            if (not same_inode) or (curr_size < self._log_pos):
+                try:
+                    self._log_fh.close()
+                except Exception:
+                    pass
+                self._log_fh = open(self._LOG_PATH, "r", encoding="utf-8", errors="ignore")
+                self._log_inode = st.st_ino
+                self._log_pos = 0
+        except Exception:
+            pass
+
+    @staticmethod
+    def _shorten_name(full: str) -> str:
+        # drop 'easynav::' prefix if present
+        if full.startswith("easynav::"):
+            return full[len("easynav::"):]
+        return full
+
+    @staticmethod
+    def _sort_key_suffix(full: str) -> tuple[str, str]:
+        # sort by suffix after last '::', then by full short name
+        short = EasyNavTabbedApp._shorten_name(full)
+        parts = short.split("::")
+        suffix = parts[-1] if parts else short
+        return (suffix, short)
+
+    def _accum_sample(self, name: str, start_ns: int, end_ns: int) -> None:
+        d = self._ts_stats.get(name)
+        if d is None:
+            d = {
+                "exec": RunningStats(),    # ms
+                "elapsed": RunningStats(), # ms
+                "freq": RunningStats(),    # Hz
+                "last_start": None,        # ns
+            }
+            self._ts_stats[name] = d
+
+        # Execution time in ms (ns -> ms)
+        exec_ns = max(0, end_ns - start_ns)
+        exec_ms = exec_ns / 1_000_000.0
+        d["exec"].update(exec_ms)
+
+        last_start = d["last_start"]
+        d["last_start"] = start_ns
+
+        # Elapsed between consecutive starts (period) in ms; frequency in Hz
+        if last_start is not None:
+            elapsed_ns = max(0, start_ns - last_start)
+            elapsed_ms = elapsed_ns / 1_000_000.0
+            d["elapsed"].update(elapsed_ms)
+            if elapsed_ns > 0:
+                freq_hz = 1_000_000_000.0 / elapsed_ns
+                d["freq"].update(freq_hz)
+
+    def _poll_time_stats_log(self) -> None:
+        """Read new lines from the log and update the Time stats table."""
+        self._open_log_if_needed()
+        if self._log_fh is None:
+            # No file; render empty (or keep previous). Here we keep previous.
+            return
+
+        # seek to last known position and read what’s new
+        try:
+            self._log_fh.seek(self._log_pos)
+            for line in self._log_fh:
+                m = self._LOG_RE.match(line)
+                if not m:
+                    continue
+                name = m.group("name")
+                start_ns = int(m.group("start"))
+                end_ns = int(m.group("end"))
+                self._accum_sample(name, start_ns, end_ns)
+            self._log_pos = self._log_fh.tell()
+        except Exception:
+            # On any IO/parsing error, do not crash the UI
+            return
+
+        # Build rows from accumulators
+        rows = []
+        for full_name, d in sorted(self._ts_stats.items(), key=lambda kv: self._sort_key_suffix(kv[0])):
+            short = self._shorten_name(full_name)
+            exec_mean, exec_std = d["exec"].as_tuple()            # μs
+            elap_mean, elap_std = d["elapsed"].as_tuple()         # ms
+            freq_mean, freq_std = d["freq"].as_tuple()            # Hz
+            rows.append((short, (exec_mean, exec_std), (elap_mean, elap_std), (freq_mean, freq_std)))
+
+        # Push to UI
+        self.set_time_stats_rows(rows)
+
     def _ros_shutdown(self) -> None:
-        """Destroy node and shutdown ROS on exit."""
         if rclpy.ok():
             try:
                 self.node.destroy_node()
