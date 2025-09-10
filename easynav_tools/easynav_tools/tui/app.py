@@ -14,7 +14,8 @@ from ..controller.ros_controllers import (
     TwistSubscriber,
     TwistStampedSubscriber,
     EasyNavControlSubscriber,
-    GoalManagerInfoSubscriber,   # <-- ensure this exists in your module
+    GoalManagerInfoSubscriber,
+    NavStateSubscriber
 )
 
 # Mapping of NavigationControl.type (uint8) to (label, color)
@@ -250,8 +251,9 @@ class EasyNavTabbedApp(App):
         self._show_page("status")
         self.set_interval(0.05, self._ros_spin_once)
 
-        demo = "\n".join(f"state_line_{i}: value_{i}" for i in range(1, 25))
-        self.set_navstate_text(demo)
+        if self.query_one("#sw_navstate", Switch).value:
+            self.subs["navstate"] = NavStateSubscriber(self.node, self.navstate_callback)
+
 
     # ---------- Tabs <-> Pages ----------
     def on_tabs_tab_activated(self, event: Tabs.TabActivated) -> None:
@@ -282,10 +284,21 @@ class EasyNavTabbedApp(App):
     def on_switch_changed(self, event: Switch.Changed) -> None:
         if event.switch.id == "sw_navstate":
             self.navstate_enabled = event.value
-            if not event.value and self.st_navstate:
-                self.st_navstate.update("")
-            elif event.value and self.st_navstate:
-                self.st_navstate.update(self._last_navstate_text)
+            if event.value:
+                # ON: (re)create subscriber and restore last content
+                self.subs["navstate"] = NavStateSubscriber(self.node, self.navstate_callback)
+                if self.st_navstate:
+                    self.st_navstate.update(self._last_navstate_text)
+            else:
+                # OFF: clear UI and destroy subscriber to free resources
+                if self.st_navstate:
+                    self.st_navstate.update("")
+                
+                self.subs['navstate'].destroy()
+                sub = self.subs.pop("navstate", None)
+                if sub is None:
+                    return
+
         elif event.switch.id == "sw_timestats":
             self.timestats_enabled = event.value
             if not event.value and self.st_timestats:
@@ -488,6 +501,12 @@ class EasyNavTabbedApp(App):
                 f"{self._last_twiststamped_text}\n\nSalir: 'q' o 'Ctrl+C'."
             )
         self._update_twist_box()
+
+    def navstate_callback(self, msg) -> None:
+        """Update NavState"""
+        self._last_navstate_text = msg.data
+        if self.navstate_enabled and self.st_navstate is not None:
+            self.st_navstate.update(self._last_navstate_text)
 
     def _update_twist_box(self) -> None:
         """Render both Twist and TwistStamped (if available) in the Twist sub-box."""
