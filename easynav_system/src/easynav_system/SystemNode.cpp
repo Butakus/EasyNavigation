@@ -132,6 +132,9 @@ SystemNode::on_configure(const rclcpp_lifecycle::State & state)
 
   goal_manager_ = GoalManager::make_shared(*nav_state_, shared_from_this());
 
+  navstate_pub_ = create_publisher<std_msgs::msg::String>(
+    "easynav_navstate", 100);
+
   if (use_cmd_vel_stamped_) {
     vel_pub_stamped_ = create_publisher<geometry_msgs::msg::TwistStamped>("cmd_vel_stamped", 100);
   } else {
@@ -263,6 +266,12 @@ SystemNode::system_cycle()
   rclcpp::Time planner_ts = planner_node_->get_last_execution_ts();
 
   planner_node_->cycle(nav_state_, planner_ts < goals_ts);
+
+  if (navstate_pub_->get_subscription_count() > 0) {
+    std_msgs::msg::String msg;
+    msg.data = nav_state_->debug_string();
+    navstate_pub_->publish(msg);
+  }
 }
 
 std::map<std::string, SystemNodeInfo>

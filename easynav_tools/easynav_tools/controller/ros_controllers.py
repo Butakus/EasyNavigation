@@ -1,6 +1,6 @@
 
 from geometry_msgs.msg import Twist, TwistStamped
-from easynav_interfaces.msg import NavigationControl
+from easynav_interfaces.msg import NavigationControl, GoalManagerInfo
 
 class TwistSubscriber():
     def __init__(self, node, callback):
@@ -31,3 +31,13 @@ class EasyNavControlSubscriber():
             10)
 
         self.control_sub
+
+class GoalManagerInfoSubscriber():
+    def __init__(self, node, callback):
+        self.gm_info_sub = node.create_subscription(
+            GoalManagerInfo,
+            'easynav_manager_info',
+            callback,
+            10)
+
+        self.gm_info_sub

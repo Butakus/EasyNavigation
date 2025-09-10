@@ -29,6 +29,7 @@
 
 #include "geometry_msgs/msg/twist.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
+#include "std_msgs/msg/string.hpp"
 
 #include "easynav_common/types/NavState.hpp"
 #include "easynav_controller/ControllerNode.hpp"
@@ -167,6 +168,9 @@ private:
 
   /// @brief Wheter publish stamped or unstamped speed
   bool use_cmd_vel_stamped_ {false};
+
+  /// @brief Publisher for nav_state as string.
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr navstate_pub_;
 
   /// @brief Publisher for velocity command (stamped).
   rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr vel_pub_stamped_;

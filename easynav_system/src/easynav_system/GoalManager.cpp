@@ -55,6 +55,9 @@ GoalManager::GoalManager(
   control_pub_ = parent_node_->create_publisher<easynav_interfaces::msg::NavigationControl>(
     "easynav_control", 100);
 
+  info_pub_ = parent_node_->create_publisher<easynav_interfaces::msg::GoalManagerInfo>(
+    "easynav_manager_info", 100);
+
   id_ = "easynav_system";
   last_control_ = std::make_unique<easynav_interfaces::msg::NavigationControl>();
 
@@ -274,21 +277,6 @@ GoalManager::update(NavState & nav_state)
   }
 
   auto robot_pose = nav_state.get<nav_msgs::msg::Odometry>("robot_pose").pose.pose;
-  check_goals(
-    robot_pose,
-    position_tolerance_, angle_tolerance_);
-
-  if (!nav_state.has("goals") || nav_state.get<nav_msgs::msg::Goals>("goals") != goals_) {
-    nav_state.set("goals", goals_);
-  }
-
-  if (goals_.goals.empty()) {
-    set_finished();
-  }
-
-  if (nav_state.get<State>("navigation_state") != state_) {
-    nav_state.set("navigation_state", state_);
-  }
 
   easynav_interfaces::msg::NavigationControl feedback;
   feedback.type = easynav_interfaces::msg::NavigationControl::FEEDBACK;
@@ -310,8 +298,36 @@ GoalManager::update(NavState & nav_state)
   // ToDo[@fmrico]: Complete feedback info
 
   RCLCPP_DEBUG(parent_node_->get_logger(), "Sending navigation feedback");
+  
   control_pub_->publish(feedback);
   *last_control_ = feedback;
+
+  check_goals(
+    robot_pose,
+    position_tolerance_, angle_tolerance_);
+
+  if (!nav_state.has("goals") || nav_state.get<nav_msgs::msg::Goals>("goals") != goals_) {
+    nav_state.set("goals", goals_);
+  }
+
+  if (goals_.goals.empty()) {
+    set_finished();
+  }
+
+  if (nav_state.get<State>("navigation_state") != state_) {
+    nav_state.set("navigation_state", state_);
+  }
+
+  if (info_pub_->get_subscription_count() > 0) {
+    easynav_interfaces::msg::GoalManagerInfo msg;
+    msg.status = static_cast<int>(get_state());
+    msg.goals = get_goals();
+    msg.position_tolerance = position_tolerance_;
+    msg.angle_tolerance = angle_tolerance_;
+    msg.position_distance = feedback.distance_to_goal;
+    msg.angle_distance = calculate_angle(robot_pose, first_goal);
+    info_pub_->publish(msg);
+  }
 }
 
 void
