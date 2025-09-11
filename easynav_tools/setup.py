@@ -13,11 +13,11 @@ setup(
         ('share/ament_index/resource_index/packages', [f'resource/{package_name}']),
         ('share/' + package_name, ['package.xml', 'README.md']),
     ],
-    install_requires=['setuptools','rich>=13.3.0','pydantic>=2.0.0'],
+    install_requires=['setuptools', 'rich>=13.3.0', 'pydantic>=2.0.0'],
     zip_safe=True,
     maintainer='Francisco Martín Rico',
     maintainer_email='fmrico@gmail.com',
-    description='ROS 2 Navigation tools: TUI (Textual legacy compatible) + ros2cli commands for EasyNav.',
+    description='ROS 2 Navigation tools: TUI (Textual) + ros2cli commands for EasyNav.',
     license='GPL-3.0-or-later',
     tests_require=['pytest'],
     entry_points={
@@ -33,9 +33,11 @@ setup(
             'easynav.verb = ros2cli.verb:VerbExtension',
         ],
         'easynav.verb': [
-            'echo = easynav_tools.cli.echo:EchoVerb',
-            'metrics = easynav_tools.cli.metrics:MetricsVerb',
-            'tui = easynav_tools.cli.tui:TUI',
+            'navigation_control = easynav_tools.cli.navigation_control:NavigationControlVerb',
+            'goal_info = easynav_tools.cli.goal_info:GoalInfoVerb',
+            'twist = easynav_tools.cli.twist:TwistVerb',
+            'nav_state = easynav_tools.cli.nav_state:NavStateVerb',
+            'timestats = easynav_tools.cli.timetats:TimeStatsVerb'
         ],
     },
 )
