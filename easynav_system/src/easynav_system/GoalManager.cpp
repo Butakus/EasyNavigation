@@ -298,7 +298,7 @@ GoalManager::update(NavState & nav_state)
   // ToDo[@fmrico]: Complete feedback info
 
   RCLCPP_DEBUG(parent_node_->get_logger(), "Sending navigation feedback");
-  
+
   control_pub_->publish(feedback);
   *last_control_ = feedback;
 
