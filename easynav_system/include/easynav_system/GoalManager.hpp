@@ -31,6 +31,7 @@
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
 #include "easynav_interfaces/msg/navigation_control.hpp"
+#include "easynav_interfaces/msg/goal_manager_info.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav_msgs/msg/goals.hpp"
 
@@ -158,6 +159,9 @@ private:
 
   /// @brief Subscription to pose-stamped goals (GUI or RViz).
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr comanded_pose_sub_;
+
+  /// @brief Publisher for publishing internal info.
+  rclcpp::Publisher<easynav_interfaces::msg::GoalManagerInfo>::SharedPtr info_pub_;
 
   /// @brief Last received navigation control message.
   easynav_interfaces::msg::NavigationControl::UniquePtr last_control_;
