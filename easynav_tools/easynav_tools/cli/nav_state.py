@@ -40,7 +40,7 @@ class NavStateVerb(VerbExtension):
         enable_color = sys.stdout.isatty() and not os.environ.get('NO_COLOR')
         text = bbcode_to_ansi(raw_text, enable_color)
 
-        sys.stdout.write('\033[2;1H\033[J')
+        sys.stdout.write('\033[1;1H\033[J')
         sys.stdout.write('EasyNav NavState:\n\n')
         sys.stdout.write(text)
 

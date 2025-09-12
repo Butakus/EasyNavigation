@@ -38,7 +38,7 @@ class TimeStatsVerb(VerbExtension):
             t_end = time.time() + args.duration
             while time.time() < t_end:
                 rows = log_reader.poll_time_stats_log()
-                sys.stdout.write('\033[2;1H\033[J')
+                sys.stdout.write('\033[1;1H\033[J')
                 sys.stdout.write('EasyNav Navigation Control Info:\n\n')
                 sys.stdout.write(LogReader.rows2text(rows))
                 sys.stdout.flush()
