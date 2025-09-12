@@ -1,19 +1,9 @@
 
-# easynav_tools (legacy Textual compatible)
+# easynav_tools
 
-Herramientas ROS 2 para EasyNav:
-- **TUI** (Textual antiguo): `ros2 run easynav_tools tui`
-- **CLI ros2cli**: `ros2 easynav echo|metrics`
-
-## Build
-
-```bash
-cd ~/ros2_ws/src
-# descomprime aquí
-cd ..
-colcon build --packages-select easynav_tools --symlink-install
-source install/setup.bash
-```
+ROS 2 tools for EasyNav:
+- **TUI**: `ros2 run easynav_tools tui`
+- **CLI ros2cli**: `ros2 easynav goal_info|nav_state|twist|navigation_control|timestat`
 
 ## Run
 ```bash
