@@ -217,6 +217,16 @@ public:
   /// \return New fused PointPerceptionsOpsView.
   std::shared_ptr<PointPerceptionsOpsView> fuse(const std::string & target_frame) const;
 
+  /// \brief Add a new Perception from points
+  /// \param points new points to include.
+  /// \param frame Frame ID of the points to add.
+  /// \param stamp Time stamp of the points to add.
+  /// \return New PointPerceptionsOpsView.
+  std::shared_ptr<PointPerceptionsOpsView> add(
+    const pcl::PointCloud<pcl::PointXYZ> points,
+    const std::string & frame,
+    rclcpp::Time stamp) const;
+
   /// \brief Gets a reference to the underlying perceptions container.
   /// \return Constant reference to PointPerceptions.
   const PointPerceptions & get_perceptions() const {return perceptions_;}
