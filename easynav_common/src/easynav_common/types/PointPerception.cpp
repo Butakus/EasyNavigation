@@ -329,6 +329,25 @@ PointPerceptionsOpsView::fuse(const std::string & target_frame) const
   return std::make_shared<PointPerceptionsOpsView>(std::move(result));
 }
 
+std::shared_ptr<PointPerceptionsOpsView>
+PointPerceptionsOpsView::add(
+  const pcl::PointCloud<pcl::PointXYZ> points,
+  const std::string & frame,
+  rclcpp::Time stamp) const
+{
+  auto new_perception = std::make_shared<PointPerception>();
+  new_perception->valid = true;
+  new_perception->frame_id = frame;
+  new_perception->data = points;
+  new_perception->stamp = stamp;
+
+  PointPerceptions new_perceptions = perceptions_;
+  new_perceptions.push_back(new_perception);
+  auto new_perception_view = std::make_shared<PointPerceptionsOpsView>(std::move(new_perceptions));
+
+  return new_perception_view;
+}
+
 PointPerceptions get_point_perceptions(std::vector<PerceptionPtr> & perceptionptr)
 {
   PointPerceptions ret;
