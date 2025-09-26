@@ -86,7 +86,7 @@ ament_export_libraries(${PROJECT_NAME} dummy_maps_manager)
 ament_export_targets(export_${PROJECT_NAME})
 
 # Register the planning pluging
-pluginlib_export_plugin_description_file(easynav_core easynav_maps_manager_plugins.xml)
+pluginlib_export_plugin_description_file(easynav_mapsmanager easynav_maps_manager_plugins.xml)
 
 ament_export_dependencies(
   rclcpp
