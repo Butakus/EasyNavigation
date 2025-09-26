@@ -1,0 +1,41 @@
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Changelog for package easynav_localizer
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Forthcoming
+-----------
+* Reformating package.xml
+* Update authors and mantainers
+* New CLI verb to list the plugins
+* Change plugins names
+* Multi-robot support by namespacing TFs
+* Use tf_prefix instead of tf_namespace
+* [WIP] Blackboard for NavSate
+* Redesign with NavState
+* Improving concurrency with atomic actions
+* Yaets traces
+* Initialize and default dummy cycle times to zero
+* Fix CMake targets. Update package dependencies
+* Install bins in corect place
+* Fix ament_target_dependencies_deprecation
+* Complete Dummey Controllers
+* Updated Doxygen description headers
+* [WIP] System Execution
+* Fix CI
+* Merge branch 'rolling' into goal_system
+* Load controllers
+* RTTFBuffer. Dictionary maps.
+* WIP task synchronizations
+* [WIP] Changes to load plugins
+* Changes to load plugins
+* NavState refs in update
+* Base interfaces for module algorithms
+* Add destructor and rt/nort cycle methods
+* Group common method functionality
+* Add dummy plugins for core modules
+* Rename namespaces to easynav
+* Fix typo in copyright messages
+* Execute and activate nodes
+* Execute and activate nodes
+* Refactoring to nodes
+* Contributors: Francisco Martín Rico, Francisco Miguel Moreno Olivo, Juan Carlos Manzanares Serrano
