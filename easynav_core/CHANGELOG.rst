@@ -2,8 +2,8 @@
 Changelog for package easynav_core
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-0.1.1 (2025-09-26)
-------------------
+Forthcoming
+-----------
 * Trigger planner if new goals appear
 * Multi-robot support by namespacing TFs
 * Use tf_prefix instead of tf_namespace

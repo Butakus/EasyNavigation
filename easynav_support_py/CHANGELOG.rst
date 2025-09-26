@@ -2,8 +2,8 @@
 Changelog for package easynav_support_py
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-0.1.1 (2025-09-26)
-------------------
+Forthcoming
+-----------
 * Fix Python packages
 * Reformating package.xml
 * Update authors and mantainers
