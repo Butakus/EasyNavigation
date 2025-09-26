@@ -78,7 +78,7 @@ ament_export_libraries(
 ament_export_targets(export_${PROJECT_NAME})
 
 # Register the control plugins
-pluginlib_export_plugin_description_file(easynav_controller easynav_controller_plugins.xml)
+pluginlib_export_plugin_description_file(easynav_core easynav_controller_plugins.xml)
 
 ament_export_dependencies(
   rclcpp

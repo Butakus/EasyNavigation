@@ -77,7 +77,7 @@ ament_export_libraries(
 ament_export_targets(export_${PROJECT_NAME})
 
 # Register the planning plugins
-pluginlib_export_plugin_description_file(easynav_planner easynav_planner_plugins.xml)
+pluginlib_export_plugin_description_file(easynav_core easynav_planner_plugins.xml)
 
 ament_export_dependencies(
   rclcpp

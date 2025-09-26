@@ -37,7 +37,8 @@ setup(
             'goal_info = easynav_tools.cli.goal_info:GoalInfoVerb',
             'twist = easynav_tools.cli.twist:TwistVerb',
             'nav_state = easynav_tools.cli.nav_state:NavStateVerb',
-            'timestats = easynav_tools.cli.timetats:TimeStatsVerb'
+            'timestats = easynav_tools.cli.timetats:TimeStatsVerb',
+            'plugins = easynav_tools.cli.plugins:PluginsVerb',
         ],
     },
 )
