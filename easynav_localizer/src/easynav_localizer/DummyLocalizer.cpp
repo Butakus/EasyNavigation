@@ -54,7 +54,7 @@ void DummyLocalizer::update_rt([[maybe_unused]] NavState & nav_state)
   tf_msg.child_frame_id = get_tf_prefix() + "odom";
 
   RTTFBuffer::getInstance()->setTransform(tf_msg, "easynav", false);
-  tf_broadcaster_->sendTransform(tf_msg);
+  // tf_broadcaster_->sendTransform(tf_msg);
 
   nav_state.set("robot_pose", robot_pose_);
 }
@@ -64,13 +64,14 @@ void DummyLocalizer::update([[maybe_unused]] NavState & nav_state)
   auto start = get_node()->now();
   while ((get_node()->now() - start).seconds() < cycle_time_nort_) {}
 
+
   geometry_msgs::msg::TransformStamped tf_msg;
   tf_msg.header.stamp = get_node()->now();
   tf_msg.header.frame_id = get_tf_prefix() + "map";
   tf_msg.child_frame_id = get_tf_prefix() + "odom";
 
   RTTFBuffer::getInstance()->setTransform(tf_msg, "easynav", false);
-  tf_broadcaster_->sendTransform(tf_msg);
+  // tf_broadcaster_->sendTransform(tf_msg);
 
   nav_state.set("robot_pose", robot_pose_);
 }
