@@ -2,8 +2,8 @@
 Changelog for package easynav_sensors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-0.1.0 (2025-09-26)
-------------------
+Forthcoming
+-----------
 * Multi-robot support by namespacing TFs
 * Use tf_prefix instead of tf_namespace
 * [WIP] Blackboard for NavSate

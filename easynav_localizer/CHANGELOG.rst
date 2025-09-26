@@ -2,8 +2,8 @@
 Changelog for package easynav_localizer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-0.1.0 (2025-09-26)
-------------------
+Forthcoming
+-----------
 * Reformating package.xml
 * Update authors and mantainers
 * New CLI verb to list the plugins

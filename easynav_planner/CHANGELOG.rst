@@ -2,8 +2,8 @@
 Changelog for package easynav_planner
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-0.1.0 (2025-09-26)
-------------------
+Forthcoming
+-----------
 * Change plugins names
 * Trigger planner if new goals appear
 * Use tf_prefix instead of tf_namespace
