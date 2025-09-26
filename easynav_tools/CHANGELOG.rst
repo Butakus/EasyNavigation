@@ -2,8 +2,8 @@
 Changelog for package easynav_tools
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.1.0 (2025-09-26)
+------------------
 * Update authors and mantainers
 * New CLI verb to list the plugins
 * Update mininmal Readme

@@ -2,8 +2,8 @@
 Changelog for package easynav_common
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.1.0 (2025-09-26)
+------------------
 * Remove some yaets traces
 * Add operation to include new points in the PointPerceptionView pipeline
 * Trigger planner if new goals appear

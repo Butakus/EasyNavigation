@@ -3,7 +3,7 @@ from setuptools import setup
 package_name = 'easynav_tools'
 setup(
     name=package_name,
-    version='0.1.3',
+    version='0.1.0',
     packages=[package_name,
               # f'{package_name}.model',
               f'{package_name}.controller',
