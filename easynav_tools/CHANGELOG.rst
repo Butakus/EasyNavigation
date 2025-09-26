@@ -2,8 +2,8 @@
 Changelog for package easynav_tools
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.1.1 (2025-09-26)
+------------------
 * Fix Python packages
 * Contributors: Francisco Martín Rico
 * Update authors and mantainers

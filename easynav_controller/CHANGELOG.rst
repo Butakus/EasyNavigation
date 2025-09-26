@@ -2,8 +2,8 @@
 Changelog for package easynav_controller
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.1.1 (2025-09-26)
+------------------
 * Remove some yaets traces
 * New CLI verb to list the plugins
 * Change plugins names

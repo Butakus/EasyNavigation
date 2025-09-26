@@ -2,8 +2,8 @@
 Changelog for package easynav_maps_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.1.1 (2025-09-26)
+------------------
 * New CLI verb to list the plugins
 * Change plugins names
 * Use tf_prefix instead of tf_namespace

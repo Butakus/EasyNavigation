@@ -2,8 +2,8 @@
 Changelog for package easynav_interfaces
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.1.1 (2025-09-26)
+------------------
 * Reformating package.xml
 * Update authors and mantainers
 * Added GoalManagerInfo publishing. Navigation Control in TUI completed
