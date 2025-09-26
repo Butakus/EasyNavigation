@@ -5,6 +5,14 @@
   <description>Support utilities for EasyNav in Python: GoalManagerClient and tests.</description>
 
   <maintainer email="fmrico@gmail.com">Francisco Martín Rico</maintainer>
+  <maintainer email="franciscom.moreno@urjc.es">Francisco Miguel Moreno Olivo</maintainer>
+  <maintainer email="esther.aguado@urjc.es">Esther Aguado González</maintainer>
+  <maintainer email="juan.cely@urjc.es">Juan Sebastián Cely Gutiérrez</maintainer>
+  <maintainer email="josemiguel.guerrero@urjc.es">José Miguel Guerrero Hernández</maintainer>
+
+  <author email="fmrico@gmail.com">Francisco Martín Rico</author>
+  <author email="franciscom.moreno@urjc.es">Francisco Miguel Moreno Olivo</author>
+
   <license>GPL-3.0-or-later</license>
 
   <buildtool_depend>ament_python</buildtool_depend>
