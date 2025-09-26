@@ -171,8 +171,6 @@ SensorsNode::get_real_time_cbg()
 bool
 SensorsNode::cycle_rt(std::shared_ptr<NavState> nav_state, bool trigger)
 {
-  EASYNAV_TRACE_EVENT;
-
   (void)trigger;
 
   bool trigger_perceptions = false;
@@ -191,8 +189,6 @@ SensorsNode::cycle_rt(std::shared_ptr<NavState> nav_state, bool trigger)
 void
 SensorsNode::cycle(std::shared_ptr<NavState> nav_state)
 {
-  EASYNAV_TRACE_EVENT;
-
   for (auto & group_perceptions : perceptions_) {
     for (auto & p : group_perceptions.second) {
       if (p.perception->valid && (now() - p.perception->stamp).seconds() > forget_time_) {

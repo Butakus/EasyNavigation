@@ -175,8 +175,6 @@ ControllerNode::get_real_time_cbg()
 bool
 ControllerNode::cycle_rt(std::shared_ptr<NavState> nav_state, bool trigger)
 {
-  EASYNAV_TRACE_EVENT;
-
   if (controller_method_ == nullptr) {return false;}
 
   return controller_method_->internal_update_rt(*nav_state, trigger);
