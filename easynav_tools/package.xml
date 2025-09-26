@@ -16,7 +16,7 @@
   <author>Francisco Martín Rico</author>
   <author>Francisco Miguel Moreno Olivo</author>
 
-  <buildtool_depend>ament_python</buildtool_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>rclpy</depend>
   <depend>rosidl_runtime_py</depend>
@@ -26,8 +26,7 @@
   <exec_depend>ros2cli</exec_depend>
 
   <!-- Test and launch deps -->
-  <test_depend>ament_pytest</test_depend>
-  <test_depend>pytest</test_depend>
+  <test_depend>ament_cmake_pytest</test_depend>
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
