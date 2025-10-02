@@ -23,6 +23,7 @@
 #include <tuple>
 #include <string_view>
 #include <vector>
+#include <unordered_map>
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/macros.hpp"
@@ -50,6 +51,10 @@ using Registry = std::tuple<
   easynav::PointPerception
 >;
 
+namespace {
+static std::unordered_map<std::string, std::string> g_group_alias;
+}
+
 inline std::string resolve_group_from_msg(std::string_view msg_type, std::true_type)
 {
   return {};
@@ -76,10 +81,17 @@ bool set_by_group(
   ::easynav::NavState & ns)
 {
   if constexpr (I == std::tuple_size_v<Registry>) {
-    return false; // no hay coincidencia
+    return false;
   } else {
     using P = std::tuple_element_t<I, Registry>;
-    if (group == P::kGroup) {
+
+    const bool match_direct = (group == P::kGroup);
+    const bool match_alias =
+      (!match_direct) &&
+      (g_group_alias.find(group) != g_group_alias.end()) &&
+      (g_group_alias[group] == P::kGroup);
+
+    if (match_direct || match_alias) {
       ns.set(group, get_perceptions<P>(src));
       return true;
     }
@@ -168,6 +180,8 @@ SensorsNode::on_configure(const rclcpp_lifecycle::State & state)
 {
   (void)state;
 
+  g_group_alias.clear();
+
   std::vector<std::string> sensors;
   get_parameter("sensors", sensors);
   get_parameter("forget_time", forget_time_);
@@ -197,6 +211,21 @@ SensorsNode::on_configure(const rclcpp_lifecycle::State & state)
     get_parameter(sensor_id + ".group", group);
 
     auto handler_it = handlers_.find(group);
+    if (handler_it == handlers_.end()) {
+      const std::string canonical = resolve_group_from_msg(msg_type);
+      if (!canonical.empty()) {
+        auto hit2 = handlers_.find(canonical);
+        if (hit2 != handlers_.end()) {
+          handlers_[group] = hit2->second;
+          g_group_alias[group] = canonical;
+          handler_it = handlers_.find(group);
+          RCLCPP_INFO(get_logger(),
+                      "Aliased group '%s' -> '%s' for type '%s'",
+                      group.c_str(), canonical.c_str(), msg_type.c_str());
+        }
+      }
+    }
+
     if (handler_it == handlers_.end()) {
       RCLCPP_WARN(get_logger(), "No handler for group [%s]", group.c_str());
       continue;
