@@ -51,7 +51,8 @@ using Registry = std::tuple<
   easynav::PointPerception
 >;
 
-namespace {
+namespace
+{
 static std::unordered_map<std::string, std::string> g_group_alias;
 }
 
