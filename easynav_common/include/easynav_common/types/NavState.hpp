@@ -20,7 +20,7 @@
 /// \file
 /// \brief A blackboard-like structure to hold the current state of the navigation system.
 ///
-/// This file defines the NavState class, which provides a lock-free key-value store
+/// This file defines the NavState class, which provides a thread-safe key-value store
 /// where values can be of any type and stored/retrieved via smart pointers.
 /// It is designed for concurrent, type-safe access in robotics applications.
 
@@ -38,26 +38,51 @@
 #include <functional>
 #include <execinfo.h>
 #include <typeinfo>
+#include <cxxabi.h>
+#include <execinfo.h>
 
 namespace easynav
 {
 
+/// \brief Demangles a C++ RTTI type name if possible.
+/// \param name Mangled type name (from \c typeid(T).name()).
+/// \return Readable (demangled) type name if available; otherwise returns \p name.
+inline std::string demangle(const char * name)
+{
+  int status = 0;
+  char * p = abi::__cxa_demangle(name, nullptr, nullptr, &status);
+  std::string out = (status == 0 && p) ? p : name;
+  std::free(p);
+  return out;
+}
+
+/// \brief Captures a C/C++ stack trace as a string.
+/// \param skip Number of initial frames to skip (e.g., the \c stacktrace frame itself).
+/// \param max_frames Maximum number of frames to capture.
+/// \return A multi-line string with one frame per line.
+inline std::string stacktrace(std::size_t skip = 1, std::size_t max_frames = 64)
+{
+  void * buf[128];
+  const int n = backtrace(buf, static_cast<int>(std::min<std::size_t>(max_frames, 128)));
+  char ** syms = backtrace_symbols(buf, n);
+  std::ostringstream oss;
+  for (int i = static_cast<int>(skip); i < n; ++i) {
+    oss << "#" << (i - static_cast<int>(skip)) << " " << syms[i] << "\n";
+  }
+  std::free(syms);
+  return oss.str();
+}
 
 /// \class NavState
-/// \brief A generic, type-safe, lock-free blackboard to hold runtime state.
+/// \brief A generic, type-safe, thread-safe blackboard to hold runtime state.
 ///
 /// NavState provides:
-/// - Type-erased storage using `std::shared_ptr<void>`.
-/// - Runtime type verification and safe casting via `typeid`.
-/// - Support for raw, shared, and copy-based insertion.
+/// - Type-erased storage using \c std::shared_ptr<void>.
+/// - Runtime type verification and safe casting via \c typeid.
+/// - Support for value-based and shared-pointer-based insertion.
 /// - Debug utilities including stack trace and introspection.
 ///
-/// Example usage:
-/// ```cpp
-/// NavState state;
-/// state.set("goal_reached", false);
-/// bool reached = state.get<bool>("goal_reached");
-/// ```
+/// \note Thread-safety is enforced with an internal \c std::mutex.
 class NavState
 {
 public:
@@ -70,17 +95,15 @@ public:
   /// \brief Destructor.
   virtual ~NavState() = default;
 
-  /// \brief Stores a value of type T associated with the given key.
+  /// \brief Stores a value of type \p T associated with \p key (by copy).
   ///
-  /// If the key does not exist, a new shared_ptr<T> is created and stored.
-  /// If the key already exists, the stored value is updated in-place.
+  /// If \p key does not exist, a new \c std::shared_ptr<T> is created and stored.
+  /// If \p key exists, the stored value is overwritten in place.
   ///
-  /// The value is internally managed through a shared_ptr<T>.
-  ///
-  /// \tparam T The type of the value to store. Must be copy-assignable.
-  /// \param key The key associated with the value.
-  /// \param value The value to store.
-  /// \throws std::runtime_error if there is a type mismatch with an existing key.
+  /// \tparam T Value type. Must be copy-assignable.
+  /// \param key Key associated with the value.
+  /// \param value Value to store (copied into internal storage).
+  /// \throws std::runtime_error If \p key exists with a different stored type; includes a stack trace.
   template<typename T>
   void set(const std::string & key, const T & value)
   {
@@ -92,7 +115,12 @@ public:
       types_[key] = typeid(T).hash_code();
     } else {
       if (types_[key] != typeid(T).hash_code()) {
-        throw std::runtime_error("Type mismatch in set for key: " + key);
+        std::ostringstream oss;
+        oss << "Type mismatch in set(\"" << key << "\")\n"
+            << "  expected(hash): " << types_[key] << "\n"
+            << "  provided     : " << demangle(typeid(T).name()) << "\n"
+            << "Backtrace:\n" << stacktrace(1);
+        throw std::runtime_error(oss.str());
       }
 
       auto ptr = std::static_pointer_cast<T>(it->second);
@@ -100,16 +128,47 @@ public:
     }
   }
 
-  /// \brief Retrieves a const reference to the value of type T associated with the given key.
+  /// \brief Stores a value of type \p T associated with \p key (by shared pointer).
   ///
-  /// The reference points to the value managed internally through a shared_ptr<T>.
-  /// This avoids unnecessary copies, but care must be taken not to hold the reference
-  /// beyond the lifetime of the NavState instance.
+  /// If \p key does not exist, \p value_ptr is stored directly.
+  /// If \p key exists, the stored \c std::shared_ptr<T> is replaced by \p value_ptr.
   ///
-  /// \tparam T The expected type of the stored value.
-  /// \param key The key of the value to retrieve.
-  /// \return const T& A const reference to the stored value.
-  /// \throws std::runtime_error if the key is not found or there is a type mismatch.
+  /// \tparam T Value type.
+  /// \param key Key associated with the value.
+  /// \param value_ptr Shared pointer to the value to store.
+  /// \throws std::runtime_error If \p key exists with a different stored type; includes a stack trace.
+  template<typename T>
+  void set(const std::string & key, const std::shared_ptr<T> value_ptr)
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = values_.find(key);
+
+    if (it == values_.end()) {
+      values_[key] = std::shared_ptr<T>(value_ptr);
+      types_[key] = typeid(T).hash_code();
+    } else {
+      if (types_[key] != typeid(T).hash_code()) {
+        std::ostringstream oss;
+        oss << "Type mismatch in set(\"" << key << "\")\n"
+            << "  expected(hash): " << types_[key] << "\n"
+            << "  provided     : " << demangle(typeid(T).name()) << "\n"
+            << "Backtrace:\n" << stacktrace(1);
+        throw std::runtime_error(oss.str());
+      }
+
+      auto ptr = std::static_pointer_cast<T>(it->second);
+      ptr = std::shared_ptr<T>(value_ptr);
+    }
+  }
+
+  /// \brief Retrieves a const reference to the stored value of type \p T for \p key.
+  ///
+  /// The reference refers to the object managed by the internal \c std::shared_ptr<T>.
+  ///
+  /// \tparam T Expected stored type.
+  /// \param key Key to retrieve.
+  /// \return Const reference to the stored \p T.
+  /// \throws std::runtime_error If \p key is missing or the stored type does not match \p T.
   template<typename T>
   const T & get(const std::string & key) const
   {
@@ -128,26 +187,24 @@ public:
     return *ptr;
   }
 
-  /// \brief Checks whether a key exists in the NavState.
-  /// \param key Lookup key.
-  /// \return True if the key is registered.
+  /// \brief Checks whether \p key exists in the state.
+  /// \param key Key to query.
+  /// \return \c true if present, otherwise \c false.
   bool has(const std::string & key) const
   {
     return values_.find(key) != values_.end();
   }
 
-  /// \brief Type alias for a generic printer function.
+  /// \brief Type alias for a generic printer functor used by \ref debug_string().
   ///
-  /// Used to print debug output for stored values.
+  /// The functor receives the stored value as a \c std::shared_ptr<void>
+  /// and returns a string representation.
   using AnyPrinter = std::function<std::string(std::shared_ptr<void>)>;
 
-  /// \brief Registers a printer for a given type.
-  ///
-  /// The function will be used to convert values of this type into strings
-  /// for use in `debug_string()`.
+  /// \brief Registers a pretty-printer for type \p T used by \ref debug_string().
   ///
   /// \tparam T Type to register.
-  /// \param printer Function that converts a const reference to string.
+  /// \param printer Functor that renders \c const T& to a string.
   template<typename T>
   static void register_printer(std::function<std::string(const T &)> printer)
   {
@@ -158,12 +215,11 @@ public:
     type_printers_[typeid(T).hash_code()] = wrapper;
   }
 
-  /// \brief Dumps all keys and their values to a formatted string.
+  /// \brief Generates a human-readable dump of all stored keys and values.
   ///
-  /// If a printer is registered for a given type, it is used;
-  /// otherwise, the raw pointer address and hash are shown.
-  ///
-  /// \return String representation of current state.
+  /// For types with registered printers, their printer is used; otherwise, the raw pointer
+  /// address and type hash are shown.
+  /// \return Multi-line string with one entry per key.
   std::string debug_string() const
   {
     std::stringstream ss;
@@ -190,9 +246,8 @@ public:
     return ss.str();
   }
 
-  /// \brief Prints the current C++ stack trace to standard error.
-  ///
-  /// Used to assist debugging in exception contexts.
+  /// \brief Prints the current C++ stack trace to \c std::cerr.
+  /// \note Intended for debugging in exception contexts.
   static void print_stacktrace()
   {
     void *array[50];
@@ -206,8 +261,9 @@ public:
     free(strings);
   }
 
-  /// \brief Registers default string printers for basic types:
-  /// `int`, `float`, `double`, `std::string`, `bool`, `char`.
+  /// \brief Registers default printers for common scalar types.
+  ///
+  /// Registers printers for: \c int, \c float, \c double, \c std::string, \c bool, \c char.
   static void register_basic_printers()
   {
     register_printer<int>([](const int & v) {return std::to_string(v);});
@@ -219,15 +275,15 @@ public:
   }
 
 private:
-  mutable std::mutex mutex_;
+  mutable std::mutex mutex_;  ///< Guards access to \ref values_ and \ref types_.
 
-  /// \brief Internal storage of values as shared void pointers.
+  /// \brief Internal storage of values as type-erased shared pointers.
   mutable std::unordered_map<std::string, std::shared_ptr<void>> values_;
 
-  /// \brief Stores typeid hashes for each key.
+  /// \brief Stored type hash (from \c typeid(T).hash_code()) per key.
   mutable std::unordered_map<std::string, size_t> types_;
 
-  /// \brief Maps typeid hashes to printable string renderers.
+  /// \brief Registry of type-hash → printer functors used by \ref debug_string().
   static inline std::unordered_map<size_t, AnyPrinter> type_printers_;
 };
 
