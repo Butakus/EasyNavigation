@@ -20,6 +20,10 @@
 /// \file
 /// \brief Implementation of the SensorsNode class.
 
+#include <tuple>
+#include <string_view>
+#include <vector>
+
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/macros.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
@@ -35,9 +39,53 @@
 
 #include "easynav_common/types/ImagePerception.hpp"
 #include "easynav_common/types/PointPerception.hpp"
+#include "easynav_common/types/IMUPerception.hpp"
 
 namespace easynav
 {
+
+using Registry = std::tuple<
+  easynav::ImagePerception,
+  easynav::IMUPerception,
+  easynav::PointPerception
+>;
+
+inline std::string resolve_group_from_msg(std::string_view msg_type, std::true_type)
+{
+  return {};
+}
+
+template<std::size_t I = 0>
+std::string resolve_group_from_msg(std::string_view msg_type)
+{
+  if constexpr (I == std::tuple_size_v<Registry>) {
+    return {};
+  } else {
+    using P = std::tuple_element_t<I, Registry>;
+    if (P::supports_msg_type(msg_type)) {
+      return std::string(P::kGroup);
+    }
+    return resolve_group_from_msg<I + 1>(msg_type);
+  }
+}
+
+template<std::size_t I = 0>
+bool set_by_group(
+  const std::string & group,
+  const std::vector<easynav::PerceptionPtr> & src,
+  ::easynav::NavState & ns)
+{
+  if constexpr (I == std::tuple_size_v<Registry>) {
+    return false; // no hay coincidencia
+  } else {
+    using P = std::tuple_element_t<I, Registry>;
+    if (group == P::kGroup) {
+      ns.set(group, get_perceptions<P>(src));
+      return true;
+    }
+    return set_by_group<I + 1>(group, src, ns);
+  }
+}
 
 using namespace std::chrono_literals;
 
@@ -62,8 +110,48 @@ SensorsNode::SensorsNode(const rclcpp::NodeOptions & options)
     declare_parameter("perception_default_frame", perception_default_frame_);
   }
 
+  ::easynav::NavState::register_printer<easynav::PointPerceptions>(
+    [](const easynav::PointPerceptions & perceptions) {
+      std::ostringstream ret;
+      ret << "PointPerception " << perceptions.size() << " with:\n";
+      for (const auto & perception : perceptions) {
+        ret   << "\t[" << static_cast<const void *>(perception.get()) << "] --> "
+              << perception->data.size() << " points in frame [" << perception->frame_id
+              << "] with ts " << perception->stamp.seconds() << "\n";
+      }
+      return ret.str();
+      });
+
+  ::easynav::NavState::register_printer<easynav::ImagePerceptions>(
+    [](const easynav::ImagePerceptions & perceptions) {
+      std::ostringstream ret;
+      ret << "ImagePerceptions " << perceptions.size() << " with:\n";
+      for (const auto & perception : perceptions) {
+        ret   << "\t[" << static_cast<const void *>(perception.get()) << "] --> "
+              << "Image (" << perception->data.cols << " x  " << perception->data.rows << ")"
+              << "] with ts " << perception->stamp.seconds() << "\n";
+      }
+      return ret.str();
+      });
+
+  ::easynav::NavState::register_printer<easynav::IMUPerceptions>(
+    [](const easynav::IMUPerceptions & perceptions) {
+      std::ostringstream ret;
+      ret << "IMUPerceptions " << perceptions.size() << " with:\n";
+      for (const auto & perception : perceptions) {
+        ret   << "\t[" << static_cast<const void *>(perception.get()) << "] --> "
+              << "IMUPerception linear acc = (" <<
+          perception->data.linear_acceleration.x << ", " <<
+          perception->data.linear_acceleration.y << ", " <<
+          perception->data.linear_acceleration.z << ")\n";
+      }
+      return ret.str();
+      });
+
+
   register_handler(std::make_shared<PointPerceptionHandler>());
   register_handler(std::make_shared<ImagePerceptionHandler>());
+  register_handler(std::make_shared<IMUPerceptionHandler>());
 }
 
 SensorsNode::~SensorsNode()
@@ -96,12 +184,16 @@ SensorsNode::on_configure(const rclcpp_lifecycle::State & state)
     if (!has_parameter(sensor_id + ".type")) {
       declare_parameter(sensor_id + ".type", msg_type);
     }
+
+    get_parameter(sensor_id + ".topic", topic);
+    get_parameter(sensor_id + ".type", msg_type);
+
+    group = resolve_group_from_msg(msg_type);
+
     if (!has_parameter(sensor_id + ".group")) {
       declare_parameter(sensor_id + ".group", group);
     }
 
-    get_parameter(sensor_id + ".topic", topic);
-    get_parameter(sensor_id + ".type", msg_type);
     get_parameter(sensor_id + ".group", group);
 
     auto handler_it = handlers_.find(group);
@@ -180,7 +272,11 @@ SensorsNode::cycle_rt(std::shared_ptr<NavState> nav_state, bool trigger)
       trigger_perceptions = trigger_perceptions || p.perception->new_data;
       p.perception->new_data = false;
     }
-    nav_state->set(group_perceptions.first, get_point_perceptions(group_perceptions.second));
+
+    if (!set_by_group(group_perceptions.first, group_perceptions.second, *nav_state)) {
+      RCLCPP_WARN(get_logger(), "No perception handler for group [%s]",
+        group_perceptions.first.c_str());
+    }
   }
 
   return trigger_perceptions;
@@ -195,7 +291,10 @@ SensorsNode::cycle(std::shared_ptr<NavState> nav_state)
         p.perception->valid = false;
       }
     }
-    nav_state->set(group_perceptions.first, get_point_perceptions(group_perceptions.second));
+    if (!set_by_group(group_perceptions.first, group_perceptions.second, *nav_state)) {
+      RCLCPP_WARN(get_logger(), "No perception handler for group [%s]",
+              group_perceptions.first.c_str());
+    }
   }
 
   if (percept_pub_->get_subscription_count() > 0) {
