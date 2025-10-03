@@ -83,7 +83,7 @@ class PointPerception : public PerceptionBase
 {
 public:
   /// \brief Group identifier for point perceptions.
-  static constexpr std::string_view kGroup = "points";
+  static constexpr std::string_view default_group_ = "points";
 
   /// \brief Checks if a ROS message type is supported by this perception.
   /// \param t Fully-qualified ROS 2 message type name (e.g., \c "sensor_msgs/msg/PointCloud2").

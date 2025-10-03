@@ -49,7 +49,7 @@ class IMUPerception : public PerceptionBase
 {
 public:
   /// \brief Group identifier for IMU perceptions.
-  static constexpr std::string_view kGroup = "imu";
+  static constexpr std::string_view default_group_ = "imu";
 
   /// \brief Returns whether the given ROS 2 type name is supported by this perception.
   /// \param t Fully qualified message type name (e.g., "sensor_msgs/msg/Imu").

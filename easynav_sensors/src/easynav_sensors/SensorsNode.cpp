@@ -69,7 +69,7 @@ std::string resolve_group_from_msg(std::string_view msg_type)
   } else {
     using P = std::tuple_element_t<I, Registry>;
     if (P::supports_msg_type(msg_type)) {
-      return std::string(P::kGroup);
+      return std::string(P::default_group_);
     }
     return resolve_group_from_msg<I + 1>(msg_type);
   }
@@ -81,16 +81,16 @@ bool set_by_group(
   const std::vector<easynav::PerceptionPtr> & src,
   ::easynav::NavState & ns)
 {
-  if constexpr (I == std::tuple_size_v<Registry>) {
+  if constexpr (I >= std::tuple_size_v<Registry>) {
     return false;
   } else {
     using P = std::tuple_element_t<I, Registry>;
 
-    const bool match_direct = (group == P::kGroup);
+    const bool match_direct = (group == P::default_group_);
     const bool match_alias =
       (!match_direct) &&
       (g_group_alias.find(group) != g_group_alias.end()) &&
-      (g_group_alias[group] == P::kGroup);
+      (g_group_alias[group] == P::default_group_);
 
     if (match_direct || match_alias) {
       ns.set(group, get_perceptions<P>(src));
