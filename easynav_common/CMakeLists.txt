@@ -27,6 +27,7 @@ find_package(tf2_geometry_msgs REQUIRED)
 add_library(${PROJECT_NAME} SHARED
   src/easynav_common/types/ImagePerception.cpp
   src/easynav_common/types/PointPerception.cpp
+  src/easynav_common/types/IMUPerception.cpp
 )
 target_include_directories(${PROJECT_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

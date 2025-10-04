@@ -45,40 +45,58 @@ namespace easynav
 /// \class ImagePerception
 /// \brief Represents a single image perception from a sensor.
 ///
-/// Inherits from PerceptionBase and stores an OpenCV image (`cv::Mat`) along with metadata such as timestamp and frame_id.
+/// Inherits from PerceptionBase and stores an OpenCV image (cv::Mat) along with metadata such as timestamp and frame_id.
 class ImagePerception : public PerceptionBase
 {
 public:
+  /// \brief Group identifier for image perceptions.
+  static constexpr std::string_view default_group_ = "image";
+
+  /// \brief Returns whether the given ROS 2 type name is supported by this perception.
+  /// \param t Fully qualified message type name (e.g., "sensor_msgs/msg/Image").
+  /// \return true if \p t equals "sensor_msgs/msg/Image", otherwise false.
+  static inline bool supports_msg_type(std::string_view t)
+  {
+    return t == "sensor_msgs/msg/Image";
+  }
+
   /// \brief Image data received from the sensor.
+  ///
+  /// The matrix layout follows OpenCV conventions. The encoding and channel depth depend on upstream conversion
+  /// (typically via cv_bridge).
   cv::Mat data;
 };
 
 /// \class ImagePerceptionHandler
 /// \brief Handles the creation and updating of ImagePerception instances from sensor_msgs::msg::Image messages.
 ///
-/// This class provides methods to register subscriptions to image topics, decode the messages into OpenCV images,
-/// and populate ImagePerception objects using shared pointers.
+/// This class provides methods to register subscriptions to image topics, decode incoming messages into cv::Mat
+/// using cv_bridge, and update target ImagePerception instances.
 class ImagePerceptionHandler : public PerceptionHandler
 {
 public:
-  /// \brief Returns the group name this handler manages ("image").
-  /// \return The group identifier: "image".
+  /// \brief Returns the group managed by this handler.
+  /// \return The string literal "image".
   std::string group() const override {return "image";}
 
   /// \brief Creates a new empty ImagePerception instance.
-  /// \param sensor_id Name or ID of the sensor (unused here, but available for future extensions).
-  /// \return Shared pointer to the new ImagePerception.
+  /// \param sensor_id Name or identifier of the sensor. Currently unused, reserved for future extensions.
+  /// \return Shared pointer to a newly created ImagePerception.
   std::shared_ptr<PerceptionBase> create(const std::string &) override
   {
     return std::make_shared<ImagePerception>();
   }
 
-  /// \brief Creates a subscription to an image topic that updates an perception.
-  /// \param node Reference to the lifecycle node used for subscription creation.
+  /// \brief Creates a subscription to an image topic that updates a target ImagePerception.
+  ///
+  /// The subscription receives sensor_msgs::msg::Image messages on \p topic, converts them to cv::Mat,
+  /// fills ImagePerception::data, and updates inherited metadata (stamp, frame_id).
+  ///
+  /// \param node Lifecycle node used to create the subscription.
   /// \param topic Topic name to subscribe to.
-  /// \param type ROS message type as a string (must be "sensor_msgs/msg/Image").
-  /// \param target Atomic pointer to store the resulting ImagePerception.
-  /// \param cb_group Callback group to assign the subscription to.
+  /// \param type ROS message type name. It must be "sensor_msgs/msg/Image".
+  /// \param target Shared pointer to the ImagePerception to be updated.
+  /// \param cb_group Callback group for executor-level concurrency control.
   /// \return Shared pointer to the created subscription.
   rclcpp::SubscriptionBase::SharedPtr create_subscription(
     rclcpp_lifecycle::LifecycleNode & node,
@@ -91,6 +109,8 @@ public:
 /**
  * @typedef ImagePerceptions
  * @brief Alias for a vector of shared pointers to ImagePerception objects.
+ *
+ * The container can represent a time-ordered or batched collection, depending on producer logic.
  */
 using ImagePerceptions =
   std::vector<std::shared_ptr<ImagePerception>>;
