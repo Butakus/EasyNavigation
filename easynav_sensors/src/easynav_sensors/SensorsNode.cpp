@@ -56,7 +56,8 @@ namespace
 static std::unordered_map<std::string, std::string> g_group_alias;
 }
 
-inline std::string resolve_group_from_msg(std::string_view msg_type, std::true_type)
+inline std::string
+resolve_group_from_msg([[maybe_unused]] std::string_view msg_type, std::true_type)
 {
   return {};
 }

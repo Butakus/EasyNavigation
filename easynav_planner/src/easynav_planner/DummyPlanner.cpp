@@ -45,7 +45,7 @@ std::expected<void, std::string> DummyPlanner::on_initialize()
   return {};
 }
 
-void DummyPlanner::update(NavState & nav_state)
+void DummyPlanner::update([[maybe_unused]] NavState & nav_state)
 {
   auto start = get_node()->now();
   while ((get_node()->now() - start).seconds() < cycle_time_nort_) {}
