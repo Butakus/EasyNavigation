@@ -168,7 +168,7 @@ PlannerNode::cycle(std::shared_ptr<NavState> nav_state, bool trigger)
 const rclcpp::Time
 PlannerNode::get_last_rt_execution_ts() const
 {
-  if (planner_method_ == nullptr) {return {};}
+  if (planner_method_ == nullptr) {return rclcpp::Time();}
 
   return planner_method_->get_last_rt_execution_ts();
 }
@@ -176,7 +176,7 @@ PlannerNode::get_last_rt_execution_ts() const
 const rclcpp::Time
 PlannerNode::get_last_execution_ts() const
 {
-  if (planner_method_ == nullptr) {return {};}
+  if (planner_method_ == nullptr) {return rclcpp::Time();}
 
   return planner_method_->get_last_execution_ts();
 }

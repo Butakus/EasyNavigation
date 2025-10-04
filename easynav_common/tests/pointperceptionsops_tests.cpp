@@ -23,8 +23,8 @@
 #include <vector>
 #include <cmath>
 
-#include "tf2_ros/buffer.h"
-#include "tf2_ros/transform_listener.h"
+#include "tf2_ros/buffer.hpp"
+#include "tf2_ros/transform_listener.hpp"
 
 #include "easynav_common/types/PointPerception.hpp"
 #include "easynav_common/RTTFBuffer.hpp"

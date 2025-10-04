@@ -51,7 +51,7 @@ std::expected<void, std::string> DummyController::on_initialize()
   return {};
 }
 
-void DummyController::update_rt(NavState & nav_state)
+void DummyController::update_rt([[maybe_unused]] NavState & nav_state)
 {
   auto start = get_node()->now();
   while ((get_node()->now() - start).seconds() < cycle_time_rt_) {}
