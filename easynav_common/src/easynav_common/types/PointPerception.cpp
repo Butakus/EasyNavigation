@@ -152,6 +152,17 @@ PointPerceptionsOpsView::PointPerceptionsOpsView(const PointPerceptions & percep
   }
 }
 
+PointPerceptionsOpsView::PointPerceptionsOpsView(const PointPerception & perception)
+: owned_(std::in_place),
+  perceptions_(*owned_),
+  indices_(1)
+{
+  owned_->push_back(std::make_shared<PointPerception>(perception));
+
+  indices_[0].indices.resize(perceptions_[0]->data.size());
+  std::iota(indices_[0].indices.begin(), indices_[0].indices.end(), 0);
+}
+
 PointPerceptionsOpsView::PointPerceptionsOpsView(PointPerceptions && perceptions)
 : owned_(std::move(perceptions)), perceptions_(*owned_), indices_(perceptions_.size())
 {

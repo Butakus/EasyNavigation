@@ -180,8 +180,18 @@ public:
   /// \param perceptions Container of perceptions to view.
   explicit PointPerceptionsOpsView(const PointPerceptions & perceptions);
 
-  /// \brief Constructor that takes ownership of the container.
-  /// \param perceptions Rvalue container of perceptions.
+
+  /// \brief Constructs a view from a single PointPerception instance.
+  ///
+  /// Creates an internal container owning the given perception and
+  /// initializes the index set for all its points.
+  ///
+  /// \param perception The PointPerception to wrap in the view.
+  explicit PointPerceptionsOpsView(const PointPerception & perception);
+
+
+  /// \brief Constructs a view taking ownership of the container.
+  /// \param perceptions Rvalue container of perceptions to be owned by the view.
   explicit PointPerceptionsOpsView(PointPerceptions && perceptions);
 
   /// \brief Filters all point clouds by spatial bounds.

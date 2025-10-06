@@ -128,9 +128,34 @@ public:
     return *ptr;
   }
 
-  /// \brief Checks whether a key exists in the NavState.
-  /// \param key Lookup key.
-  /// \return True if the key is registered.
+  /// \brief Retrieves the shared_ptr to the stored value of type \p T for \p key.
+  ///
+  /// The pointer refers to the object managed by the internal \c std::shared_ptr<T>.
+  ///
+  /// \tparam T Expected stored type.
+  /// \param key Key to retrieve.
+  /// \return shared_ptr to the stored \p T.
+  /// \throws std::runtime_error If \p key is missing or the stored type does not match \p T.
+  template<typename T>
+  const std::shared_ptr<T> get_ptr(const std::string & key) const
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = values_.find(key);
+
+    if (it == values_.end()) {
+      throw std::runtime_error("Key not found in get: " + key);
+    }
+
+    if (types_.at(key) != typeid(T).hash_code()) {
+      throw std::runtime_error("Type mismatch in get for key: " + key);
+    }
+
+    return std::static_pointer_cast<T>(it->second);
+  }
+
+  /// \brief Checks whether \p key exists in the state.
+  /// \param key Key to query.
+  /// \return \c true if present, otherwise \c false.
   bool has(const std::string & key) const
   {
     return values_.find(key) != values_.end();

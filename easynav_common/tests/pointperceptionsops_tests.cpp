@@ -208,3 +208,167 @@ TEST_F(PerceptionsOpsTest, FuseOperation)
   EXPECT_FLOAT_EQ(fused[1].y, 2.0f);
   EXPECT_FLOAT_EQ(fused[1].z, 3.0f);
 }
+
+
+TEST(PerceptionsOpsViewCtor, FromSinglePerception_Basic)
+{
+  easynav::PointPerception p;
+  p.valid = true;
+  p.frame_id = "sensor";
+  p.stamp = rclcpp::Time(123, 456);
+
+  // Populate a simple cloud of test points
+  for (int i = -5; i <= 5; ++i) {
+    p.data.emplace_back(static_cast<float>(i) * 0.1f, 1.0f, 2.0f);
+  }
+
+  easynav::PointPerceptionsOpsView view(p);
+  pcl::PointCloud<pcl::PointXYZ> out = view.as_points();
+
+  ASSERT_EQ(out.size(), p.data.size());
+  for (std::size_t i = 0; i < out.size(); ++i) {
+    EXPECT_FLOAT_EQ(out[i].x, p.data[i].x);
+    EXPECT_FLOAT_EQ(out[i].y, p.data[i].y);
+    EXPECT_FLOAT_EQ(out[i].z, p.data[i].z);
+  }
+}
+
+TEST(PerceptionsOpsViewCtor, FromSinglePerception_EmptyOrInvalid)
+{
+  // Empty but valid
+  {
+    easynav::PointPerception p;
+    p.valid = true;
+    easynav::PointPerceptionsOpsView view(p);
+    EXPECT_EQ(view.as_points().size(), 0u);
+  }
+
+  // With data but invalid
+  {
+    easynav::PointPerception p;
+    p.valid = false;
+    p.data.emplace_back(1.f, 2.f, 3.f);
+    easynav::PointPerceptionsOpsView view(p);
+    EXPECT_EQ(view.as_points().size(), 0u);
+  }
+}
+
+TEST(PerceptionsOpsViewCtor, FromSinglePerception_FilterDownsampleCollapse)
+{
+  easynav::PointPerception p;
+  p.valid = true;
+
+  // Fill with a 3x3x3 grid of points
+  for (int x = -1; x <= 1; ++x) {
+    for (int y = -1; y <= 1; ++y) {
+      for (int z = -1; z <= 1; ++z) {
+        p.data.emplace_back(static_cast<float>(x),
+                            static_cast<float>(y),
+                            static_cast<float>(z));
+      }
+    }
+}
+
+  easynav::PointPerceptionsOpsView view(p);
+
+  // Filter: keep points within [0, 1]
+  view.filter({0.0, 0.0, 0.0}, {1.0, 1.0, 1.0});
+  auto filtered = view.as_points();
+  ASSERT_EQ(filtered.size(), 8u);
+
+  // Downsample: coarse resolution, should not increase count
+  view.downsample(1.0);
+  auto down = view.as_points();
+  EXPECT_LE(down.size(), 8u);
+
+  // Collapse: force Z = 0.25
+  auto collapsed = easynav::PointPerceptionsOpsView(p)
+    .filter({0.0, 0.0, 0.0}, {1.0, 1.0, 1.0})
+    .collapse({NAN, NAN, 0.25})
+    ->as_points();
+  ASSERT_EQ(collapsed.size(), 8u);
+  for (const auto & pt : collapsed.points) {
+    EXPECT_FLOAT_EQ(pt.z, 0.25f);
+}
+}
+
+TEST(PerceptionsOpsViewCtor, FromOneOfManyPerceptions_UseOneAndOperate)
+{
+  easynav::PointPerceptions many;
+
+  auto selected = std::make_shared<easynav::PointPerception>();
+  selected->valid = true;
+  selected->frame_id = "sensor1";
+  selected->stamp = rclcpp::Time(2, 0);
+  selected->data.clear();
+  selected->data.emplace_back(0.f, 0.f, 0.f);
+  selected->data.emplace_back(0.5f, 0.5f, 0.5f);
+  selected->data.emplace_back(1.0f, 1.0f, 1.0f);
+  many.push_back(selected);
+
+  easynav::PointPerceptionsOpsView view(*selected);
+
+  // Must contain the same data
+  auto pts = view.as_points();
+  ASSERT_EQ(pts.size(), selected->data.size());
+  for (std::size_t i = 0; i < pts.size(); ++i) {
+    EXPECT_FLOAT_EQ(pts[i].x, selected->data[i].x);
+}
+
+  // Apply filter
+  view.filter({0.25, 0.25, 0.25}, {0.75, 0.75, 0.75});
+  pts = view.as_points();
+  ASSERT_EQ(pts.size(), 1u);
+  EXPECT_FLOAT_EQ(pts[0].x, 0.5f);
+
+  // Collapse test
+  auto collapsed = easynav::PointPerceptionsOpsView(*selected)
+    .filter({0.25, 0.25, 0.25}, {0.75, 0.75, 0.75})
+    .collapse({NAN, NAN, 0.1})
+    ->as_points();
+  ASSERT_EQ(collapsed.size(), 1u);
+  EXPECT_FLOAT_EQ(collapsed[0].z, 0.1f);
+}
+
+TEST_F(PerceptionsOpsTest, FromSinglePerception_AddAndFuseWithTF)
+{
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("test_ctor_add_fuse");
+  auto tf_buffer = easynav::RTTFBuffer::getInstance(node->get_clock());
+  tf2_ros::TransformListener tf_listener(*tf_buffer);
+  rclcpp::Time stamp = node->now();
+
+  easynav::PointPerception base;
+  base.valid = true;
+  base.frame_id = "sensorA";
+  base.stamp = stamp;
+  base.data.emplace_back(1.f, 2.f, 3.f);
+
+  easynav::PointPerceptionsOpsView view(base);
+
+  // Add a second perception
+  pcl::PointCloud<pcl::PointXYZ> other;
+  other.emplace_back(10.f, 20.f, 30.f);
+  auto view2 = view.add(other, "sensorB", stamp);
+
+  // Register TFs
+  geometry_msgs::msg::TransformStamped tA, tB;
+  tA.header.stamp = stamp;
+  tA.header.frame_id = "odom";
+  tA.child_frame_id = "sensorA";
+  tA.transform.translation.x = 1.0;
+  tA.transform.rotation.w = 1.0;
+  tf_buffer->setTransform(tA, "default_authority", false);
+
+  tB.header.stamp = stamp;
+  tB.header.frame_id = "odom";
+  tB.child_frame_id = "sensorB";
+  tB.transform.translation.x = -2.0;
+  tB.transform.rotation.w = 1.0;
+  tf_buffer->setTransform(tB, "default_authority", false);
+
+  // Fuse to "odom" and check both transformed points
+  auto fused_pts = view2->fuse("odom")->as_points();
+  ASSERT_EQ(fused_pts.size(), 2u);
+  EXPECT_FLOAT_EQ(fused_pts[0].x, 2.0f);
+  EXPECT_FLOAT_EQ(fused_pts[1].x, 8.0f);
+}
