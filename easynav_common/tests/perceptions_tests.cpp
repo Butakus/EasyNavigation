@@ -33,7 +33,7 @@
 #include "pcl_conversions/pcl_conversions.h"
 #include "pcl/point_types_conversion.h"
 #include "pcl/common/transforms.h"
-#include "tf2_ros/transform_broadcaster.h"
+#include "tf2_ros/transform_broadcaster.hpp"
 #include "tf2/transform_datatypes.hpp"
 
 #include "gtest/gtest.h"

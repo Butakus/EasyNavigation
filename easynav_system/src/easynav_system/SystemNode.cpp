@@ -228,9 +228,6 @@ SystemNode::system_cycle_rt()
   bool trigger_localization = localizer_node_->cycle_rt(nav_state_, trigger_perceptions);
 
   bool trigger_controller = false;
-  bool robot_idle_stop = true;
-
-  const auto navigation_state = nav_state_->get<GoalManager::State>("navigation_state");
 
   bool trigger = trigger_perceptions || trigger_localization;
   trigger_controller = controller_node_->cycle_rt(nav_state_, trigger);
