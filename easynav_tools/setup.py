@@ -1,20 +1,24 @@
 
-from setuptools import setup
+from setuptools import find_packages, setup
 package_name = 'easynav_tools'
 setup(
     name=package_name,
     version='0.1.1',
-    packages=[package_name,
-              # f'{package_name}.model',
-              f'{package_name}.controller',
-              f'{package_name}.tui',
-              f'{package_name}.cli'],
+    packages=find_packages(
+        include=[package_name, package_name + '.*'],
+        exclude=['test', 'scripts']
+    ),
+    include_package_data=True,
+    package_data={
+        # include everything under easynav_tools/vendor in the installed package
+        'easynav_tools': ['vendor/**'],
+    },
     data_files=[
         ('share/ament_index/resource_index/packages', [f'resource/{package_name}']),
         ('share/' + package_name, ['package.xml', 'README.md']),
     ],
     install_requires=['setuptools', 'rich>=13.3.0', 'pydantic>=2.0.0'],
-    zip_safe=True,
+    zip_safe=False,
     maintainer='Francisco Martín Rico',
     maintainer_email='fmrico@gmail.com',
     description='ROS 2 Navigation tools: TUI (Textual) + ros2cli commands for EasyNav.',
