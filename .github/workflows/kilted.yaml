@@ -1,12 +1,12 @@
-name: rolling
+name: kilted
 
 on:
   pull_request:
     branches:
-      - rolling
+      - kilted
   push:
     branches:
-      - rolling
+      - kilted
   schedule:
       - cron: '0 0 * * 6'     
 jobs:
@@ -21,12 +21,12 @@ jobs:
       - name: Setup ROS 2
         uses: ros-tooling/setup-ros@0.7.13
         with:
-          required-ros-distributions: rolling
+          required-ros-distributions: kilted
       - name: build and test
         uses: ros-tooling/action-ros-ci@0.4.3
         with:
           package-name: easynav_common easynav_controller easynav_localizer easynav_maps_manager easynav_planner easynav_sensors easynav_system easynav_tools
-          target-ros2-distro: rolling
+          target-ros2-distro: kilted
           vcs-repo-file-url: ${GITHUB_WORKSPACE}/.github/thirdparty.repos
           colcon-defaults: |
             {
