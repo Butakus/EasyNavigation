@@ -2,6 +2,12 @@
 Changelog for package easynav_localizer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* New Constructor for PointPerceptionsView with only one perception
+* Fix tf2_ros deprecation warnings
+* Contributors: Francisco Miguel Moreno Olivo, Francisco Martín Rico
+
 0.1.2 (2025-09-26)
 ------------------
 * Reformating package.xml

@@ -2,6 +2,13 @@
 Changelog for package easynav_planner
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* New Constructor for PointPerceptionsView with only one perception
+* Fix tf2_ros deprecation warnings and remove warnings from unused parameters
+* Remove unused variables and unused-parameter warnings
+* Contributors: Francisco Miguel Moreno Olivo, Francisco Martín Rico
+
 0.1.2 (2025-09-26)
 ------------------
 * Change plugins names
