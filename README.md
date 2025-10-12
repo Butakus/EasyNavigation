@@ -3,6 +3,7 @@
 [![rolling](https://github.com/EasyNavigation/EasyNavigation/actions/workflows/rolling.yaml/badge.svg)](https://github.com/EasyNavigation/EasyNavigation/actions/workflows/rolling.yaml)
 [![kilted](https://github.com/EasyNavigation/EasyNavigation/actions/workflows/kilted.yaml/badge.svg)](https://github.com/EasyNavigation/EasyNavigation/actions/workflows/kilted.yaml)
 
+Web: [https://easynavigation.github.io](https://easynavigation.github.io/)
 Doxygen documentation: [https://EasyNavigation.github.io/EasyNavigation/](https://EasyNavigation.github.io/EasyNavigation/)
 
 **EasyNavigation (EasyNav)** is an open-source navigation system for **ROS 2**, designed to be:
