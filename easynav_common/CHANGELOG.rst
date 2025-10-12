@@ -2,8 +2,8 @@
 Changelog for package easynav_common
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.1.3 (2025-10-12)
+------------------
 * New Constructor for PointPerceptionsView with only one perception
 * Fix tf2_ros deprecation warnings
 * Fix multiple perceptions

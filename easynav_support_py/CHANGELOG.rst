@@ -2,8 +2,8 @@
 Changelog for package easynav_support_py
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.1.3 (2025-10-12)
+------------------
 * New Constructor for PointPerceptionsView with only one perception
 * Fix multiple perceptions
 * Contributors: Francisco Martín Rico

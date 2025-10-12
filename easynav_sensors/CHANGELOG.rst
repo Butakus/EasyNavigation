@@ -2,8 +2,8 @@
 Changelog for package easynav_sensors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.1.3 (2025-10-12)
+------------------
 * New Constructor for PointPerceptionsView with only one perception
 * Fix tf2_ros deprecation warnings and remove warnings from unused parameters
 * Remove unused variables and unused-parameter warnings

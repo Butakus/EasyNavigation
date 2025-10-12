@@ -2,8 +2,8 @@
 Changelog for package easynav
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.1.3 (2025-10-12)
+------------------
 * Create EasyNav metapackage
 * Contributors: Francisco Martín Rico
 
