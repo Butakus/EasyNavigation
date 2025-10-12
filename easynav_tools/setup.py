@@ -1,12 +1,11 @@
-
 from setuptools import find_packages, setup
+
 package_name = 'easynav_tools'
 setup(
     name=package_name,
     version='0.1.1',
     packages=find_packages(
-        include=[package_name, package_name + '.*'],
-        exclude=['test', 'scripts']
+        include=[package_name, package_name + '.*'], exclude=['test', 'scripts']
     ),
     include_package_data=True,
     package_data={
