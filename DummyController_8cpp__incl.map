@@ -1,0 +1,15 @@
+<map id="easynav_controller/src/easynav_controller/DummyController.cpp" name="easynav_controller/src/easynav_controller/DummyController.cpp">
+<area shape="rect" id="Node000001" title="Implementation of the DummyController class." alt="" coords="183,5,338,61"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,205,79,231"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="195,64,156,85,120,111,84,152,58,193,53,190,79,148,116,107,153,80,192,59"/>
+<area shape="rect" id="Node000003" href="$DummyController_8hpp.html" title="Declaration of the DummyController method." alt="" coords="130,109,279,150"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="247,63,226,97,222,95,242,60"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="331,198,505,238"/>
+<area shape="poly" id="edge6_Node000001_Node000004" title=" " alt="" coords="279,60,308,103,344,148,383,186,380,189,340,151,304,106,275,63"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="354,109,482,150"/>
+<area shape="poly" id="edge7_Node000001_Node000006" title=" " alt="" coords="308,59,373,98,371,103,305,64"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="169,153,79,200,77,195,167,148"/>
+<area shape="poly" id="edge4_Node000003_Node000004" title=" " alt="" coords="254,148,356,189,354,194,252,153"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="103,198,306,238"/>
+<area shape="poly" id="edge5_Node000003_Node000005" title=" " alt="" coords="207,150,207,182,202,182,202,150"/>
+</map>
