@@ -95,7 +95,7 @@ int main(int argc, char ** argv)
         RCLCPP_INFO(system_node->get_logger(), "Selected NO Real-Time");
       }
 
-      tf2_ros::TransformListener tf_listener(*tf_buffer, *tf_node, true);
+      tf2_ros::TransformListener tf_listener(*tf_buffer, tf_node, true);
 
       rclcpp::Rate rate(100);
       while (rclcpp::ok()) {
