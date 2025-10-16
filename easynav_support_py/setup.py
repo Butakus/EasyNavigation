@@ -4,7 +4,7 @@ ros_pkg_name = 'easynav_support_py'
 py_modules_pkg = 'easynav_goalmanager_py'
 setup(
     name=ros_pkg_name,
-    version='0.1.1',
+    version='0.1.3',
     packages=[py_modules_pkg],
     data_files=[
         ('share/ament_index/resource_index/packages',

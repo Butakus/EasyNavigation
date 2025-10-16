@@ -2,6 +2,18 @@
 Changelog for package easynav_sensors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.1.3 (2025-10-12)
+------------------
+* New Constructor for PointPerceptionsView with only one perception
+* Fix tf2_ros deprecation warnings and remove warnings from unused parameters
+* Remove unused variables and unused-parameter warnings
+* Fix tf2_ros deprecation warnings
+* Fix multiple perceptions
+* Update defaul group var name
+* Support for multiple groups
+* Fix support for different perceptions types in blackboard
+* Contributors: Francisco Miguel Moreno Olivo, Francisco Martín Rico
+
 0.1.2 (2025-09-26)
 ------------------
 * Multi-robot support by namespacing TFs

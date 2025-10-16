@@ -2,6 +2,14 @@
 Changelog for package easynav_tools
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.1.3 (2025-10-12)
+------------------
+* Fix flake8 and pep errors
+* Add textual 6.2.1 dependency as vendored source
+* New Constructor for PointPerceptionsView with only one perception
+* Fix multiple perceptions
+* Contributors: Francisco Miguel Moreno Olivo, Francisco Martín Rico
+
 0.1.2 (2025-09-26)
 ------------------
 * Fix Python packages
