@@ -2,6 +2,9 @@
 Changelog for package easynav_maps_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.1.3 (2025-10-12)
+------------------
+
 0.1.2 (2025-09-26)
 ------------------
 * New CLI verb to list the plugins

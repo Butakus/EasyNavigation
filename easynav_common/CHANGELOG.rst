@@ -2,6 +2,16 @@
 Changelog for package easynav_common
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.1.3 (2025-10-12)
+------------------
+* New Constructor for PointPerceptionsView with only one perception
+* Fix tf2_ros deprecation warnings
+* Fix multiple perceptions
+* Update defaul group var name
+* Fix support for different perceptions types in blackboard
+* Verbose fail in set. Set wit std::shared_ptr
+* Contributors: Francisco Miguel Moreno Olivo, Francisco Martín Rico
+
 0.1.2 (2025-09-26)
 ------------------
 * Remove some yaets traces
