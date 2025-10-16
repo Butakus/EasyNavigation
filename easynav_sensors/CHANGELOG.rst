@@ -2,8 +2,8 @@
 Changelog for package easynav_sensors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.1.4 (2025-10-16)
+------------------
 * Fix compilation errors in jazzy
 * Merge kilted version bump into rolling
 * Merge kilted into rolling. Update version to 0.1.3
