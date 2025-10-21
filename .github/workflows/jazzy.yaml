@@ -1,12 +1,12 @@
-name: rolling
+name: jazzy
 
 on:
   pull_request:
     branches:
-      - rolling
+      - jazzy
   push:
     branches:
-      - rolling
+      - jazzy
   schedule:
       - cron: '0 0 * * 6'     
 jobs:
@@ -19,16 +19,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: rolling
+          ref: jazzy
       - name: Setup ROS 2
         uses: ros-tooling/setup-ros@0.7.15
         with:
-          required-ros-distributions: rolling
+          required-ros-distributions: jazzy
       - name: build and test
         uses: ros-tooling/action-ros-ci@0.4.5
         with:
           package-name: easynav_common easynav_controller easynav_localizer easynav_maps_manager easynav_planner easynav_sensors easynav_system easynav_support_py easynav_tools
-          target-ros2-distro: rolling
+          target-ros2-distro: jazzy
           vcs-repo-file-url: ${GITHUB_WORKSPACE}/.github/thirdparty.repos
           colcon-defaults: |
             {
