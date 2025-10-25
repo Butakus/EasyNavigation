@@ -91,9 +91,9 @@ int main(int argc, char ** argv)
 
     // Cooperative shutdown on SIGINT
     rclcpp::on_shutdown([&](){
-      stop.store(true, std::memory_order_relaxed);
-      exe_rt.cancel();
-      exe_nort.cancel();
+        stop.store(true, std::memory_order_relaxed);
+        exe_rt.cancel();
+        exe_nort.cancel();
     });
 
     // RT thread
@@ -116,7 +116,7 @@ int main(int argc, char ** argv)
         rclcpp::WallRate rate(100);
         while (!stop.load(std::memory_order_relaxed)) {
           if (system_node->get_current_state().id() ==
-              lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
+          lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
           {
             system_node->system_cycle_rt();
           }
@@ -144,7 +144,7 @@ int main(int argc, char ** argv)
     exe_rt.cancel();
     exe_nort.cancel();
   }
-  
+
 
   // Wait the RT thread to finish before shutting down ROS.
   if (rt_thread.joinable()) {
