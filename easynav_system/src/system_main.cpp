@@ -143,7 +143,7 @@ int main(int argc, char ** argv)
     stop.store(true, std::memory_order_relaxed);
     exe_rt.cancel();
     exe_nort.cancel();
-
+  }
   
 
   // Wait the RT thread to finish before shutting down ROS.
