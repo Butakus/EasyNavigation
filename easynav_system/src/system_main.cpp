@@ -69,13 +69,17 @@ int main(int argc, char ** argv)
 
     // Lifecycle: configure -> activate
     system_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
-    if (system_node->get_current_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE) {
+    if (system_node->get_current_state().id() !=
+      lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
+    {
       RCLCPP_ERROR(system_node->get_logger(), "Unable to configure EasyNav");
       rclcpp::shutdown();
       return 1;
     }
     system_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE);
-    if (system_node->get_current_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+    if (system_node->get_current_state().id() !=
+      lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
+    {
       RCLCPP_ERROR(system_node->get_logger(), "Unable to activate EasyNav");
       rclcpp::shutdown();
       return 1;
@@ -116,8 +120,8 @@ int main(int argc, char ** argv)
           {
             system_node->system_cycle_rt();
           }
-          exe_rt.spin_some(std::chrono::milliseconds(1));  // steady timeout
-          rate.sleep();                                    // steady clock
+          exe_rt.spin_some(std::chrono::milliseconds(1));
+          rate.sleep();
         }
       });
 
@@ -131,8 +135,8 @@ int main(int argc, char ** argv)
         system_node->system_cycle();
       }
 
-      exe_nort.spin_some(std::chrono::milliseconds(1));    // steady timeout
-      rate.sleep();                                        // steady clock
+      exe_nort.spin_some(std::chrono::milliseconds(1));
+      rate.sleep();
     }
 
     // Ensure stop flag visible and cancel executors (idempotent)
@@ -140,19 +144,13 @@ int main(int argc, char ** argv)
     exe_rt.cancel();
     exe_nort.cancel();
 
-    // Executors, nodes, and callback groups will be destroyed when leaving this scope,
-    // after rt_thread has been joined below.
-    // Do NOT call remove_* here; destruction order is handled by scope exit.
-    // Keep shared_ptrs (system_node, tf_node) alive until after rt_thread.join().
-    // They will be destroyed after we exit this block.
-  } // end executors scope (but we still must join the RT thread before rclcpp::shutdown)
+  
 
   // Wait the RT thread to finish before shutting down ROS.
   if (rt_thread.joinable()) {
     rt_thread.join();
   }
 
-  // Finally, shutdown the ROS context.
   rclcpp::shutdown();
   return 0;
 }

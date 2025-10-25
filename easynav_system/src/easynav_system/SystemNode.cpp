@@ -162,8 +162,6 @@ SystemNode::on_activate(const rclcpp_lifecycle::State & state)
     }
   }
 
-  // system_main_nort_timer_ = create_wall_timer(30ms, std::bind(&SystemNode::system_cycle, this));
-
   return CallbackReturnT::SUCCESS;
 }
 
@@ -184,8 +182,6 @@ SystemNode::on_deactivate(const rclcpp_lifecycle::State & state)
       return CallbackReturnT::FAILURE;
     }
   }
-
-  // system_main_nort_timer_->cancel();
 
   return CallbackReturnT::SUCCESS;
 }
