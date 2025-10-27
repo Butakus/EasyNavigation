@@ -51,9 +51,7 @@ int main(int argc, char ** argv)
     exe_rt.add_callback_group(system_node->get_real_time_cbg(),
                               system_node->get_node_base_interface());
 
-    // TF on steady/wall time, independent from /clock.
     auto tf_node = rclcpp::Node::make_shared("tf_node");
-    tf_node->set_parameter(rclcpp::Parameter("use_sim_time", false));
     exe_rt.add_node(tf_node);
 
     auto tf_clock = std::make_shared<rclcpp::Clock>(RCL_STEADY_TIME);
