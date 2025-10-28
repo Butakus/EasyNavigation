@@ -15,7 +15,7 @@ Doxygen documentation: [https://EasyNavigation.github.io/EasyNavigation/](https:
 🚀 **Lightweight and simple to deploy**, using a single binary and a parameter file for configuration.  
 🧪 **Simulation-ready**, thanks to a rich collection of PlayGrounds with different robots and environments.
 
-EasyNav is developed by the **[Intelligent Robotics Lab](https://intelligentroboticslab.gsyc.urjc.es/)** at **Universidad Rey Juan Carlos**, and aims to be a flexible, extensible, and practical alternative to existing ROS 2 navigation stacks such as **Nav2**.
+EasyNav is developed by the **[Intelligent Robotics Lab](https://intelligentroboticslab.gsyc.urjc.es/)** at **Universidad Rey Juan Carlos**, and aims to be a flexible, extensible, and practical alternative to existing ROS 2 navigation stacks such as **Nav2**. 
 
 ## 📦 Main Repositories
 
