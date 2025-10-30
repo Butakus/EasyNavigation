@@ -24,6 +24,8 @@
   <exec_depend>easynav_support_py</exec_depend>
   <exec_depend>ros2cli</exec_depend>
   <exec_depend>python3-rich</exec_depend>
+  <exec_depend>python3-typing-extensions</exec_depend>
+  <exec_depend>python3-platformdirs</exec_depend>
 
   <!-- Test and launch deps -->
   <test_depend>ament_cmake_pytest</test_depend>
