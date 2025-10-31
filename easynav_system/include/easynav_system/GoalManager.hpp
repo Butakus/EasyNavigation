@@ -62,6 +62,20 @@ public:
   };
 
   /**
+   * @struct GoalTolerance
+   * @brief A structure to represent the goal tolerances.
+   */
+  struct GoalTolerance
+  {
+    /// Positional tolerance for x/y in meters.
+    double position {0.03};
+    /// Positional tolerance for z axis in meters. Very big number as default.
+    double height {std::numeric_limits<double>::max()};
+    /// Angular tolerance in radians for the yaw angle.
+    double yaw {0.01};
+  };
+
+  /**
    * @brief Constructor.
    * @param nav_state Shared pointer to navigation state.
    * @param parent_node Lifecycle node for parameter and interface management.
@@ -111,42 +125,19 @@ public:
    * positional and angular tolerances.
    *
    * @param current_pose Current pose of the robot.
-   * @param position_tolerance Maximum allowed positional error (meters).
-   * @param angle_tolerance Maximum allowed angular error (radians).
+   * @param goal_tolerance Maximum allowed error for the goal position and orientation.
    */
   void check_goals(
     const geometry_msgs::msg::Pose & current_pose,
-    double position_tolerance, double angle_tolerance);
-
-  /**
-   * @brief Get Distance between two poses
-   *
-   * @param pose1 First pose
-   * @param pose2 Second pose
-   */
-  double calculate_distance(
-    const geometry_msgs::msg::Pose & pose1,
-    const geometry_msgs::msg::Pose & pose2);
-
-  /**
-   * @brief Get Distance between two poses
-   *
-   * @param pose1 First pose
-   * @param pose2 Second pose
-   */
-  double calculate_angle(
-    const geometry_msgs::msg::Pose & pose1,
-    const geometry_msgs::msg::Pose & pose2);
+    const GoalTolerance & goal_tolerance
+  );
 
 private:
   /// @brief Lifecycle node.
   rclcpp_lifecycle::LifecycleNode::SharedPtr parent_node_;
 
-  /// @brief Positional tolerance in meters.
-  double position_tolerance_ {0.03};
-
-  /// @brief Angular tolerance in radians.
-  double angle_tolerance_ {0.01};
+  /// @brief Goal tolerance (translation and rotation).
+  GoalTolerance goal_tolerance_ {};
 
   /// @brief Currently active goals.
   nav_msgs::msg::Goals goals_;
