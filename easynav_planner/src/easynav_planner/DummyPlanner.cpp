@@ -21,7 +21,6 @@
 /// \brief Implementation of the DummyPlanner class.
 
 #include <expected>
-
 #include "easynav_planner/DummyPlanner.hpp"
 
 namespace easynav

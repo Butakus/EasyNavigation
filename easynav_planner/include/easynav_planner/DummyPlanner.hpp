@@ -24,7 +24,6 @@
 #define EASYNAV_PLANNER__DUMMYPLANNER_HPP_
 
 #include <expected>
-
 #include "nav_msgs/msg/path.hpp"
 #include "easynav_core/PlannerMethodBase.hpp"
 

@@ -22,7 +22,6 @@
 
 #include <memory>
 #include <expected>
-
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
 #include "easynav_core/MethodBase.hpp"

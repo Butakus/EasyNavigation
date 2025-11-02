@@ -25,7 +25,6 @@
 
 #include <memory>
 #include <expected>
-
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
 namespace easynav

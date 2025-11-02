@@ -24,7 +24,6 @@
 #define EASYNAV_SYSTEM__GOALMANAGER_HPP_
 
 #include <expected>
-
 #include "rclcpp/subscription.hpp"
 #include "rclcpp/publisher.hpp"
 #include "rclcpp/macros.hpp"

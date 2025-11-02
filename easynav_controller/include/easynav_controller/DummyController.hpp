@@ -24,7 +24,6 @@
 #define EASYNAV_CONTROLLER__DUMMYCONTROLLER_HPP_
 
 #include <expected>
-
 #include "geometry_msgs/msg/twist_stamped.hpp"
 
 #include "easynav_core/ControllerMethodBase.hpp"

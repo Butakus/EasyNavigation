@@ -24,7 +24,6 @@
 #define EASYNAV_LOCALIZER__DUMMYLOCALIZER_HPP_
 
 #include <expected>
-
 #include "nav_msgs/msg/odometry.hpp"
 #include "easynav_core/LocalizerMethodBase.hpp"
 #include "tf2_ros/transform_broadcaster.hpp"
