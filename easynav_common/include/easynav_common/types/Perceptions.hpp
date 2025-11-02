@@ -96,8 +96,9 @@ template<typename T = PerceptionBase>
 inline std::vector<std::shared_ptr<T>>
 get_perceptions(const std::vector<PerceptionPtr> & src)
 {
-  static_assert(std::is_base_of_v<PerceptionBase, T>,
-                "T must inherit from PerceptionBase");
+  static_assert(
+    std::is_base_of_v<PerceptionBase, T>,
+    "T must inherit from PerceptionBase");
 
   std::vector<std::shared_ptr<T>> out;
   out.reserve(src.size());

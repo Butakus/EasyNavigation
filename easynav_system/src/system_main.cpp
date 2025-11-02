@@ -48,8 +48,9 @@ int main(int argc, char ** argv)
     auto system_node = easynav::SystemNode::make_shared();
 
     exe_nort.add_node(system_node->get_node_base_interface());
-    exe_rt.add_callback_group(system_node->get_real_time_cbg(),
-                              system_node->get_node_base_interface());
+    exe_rt.add_callback_group(
+      system_node->get_real_time_cbg(),
+      system_node->get_node_base_interface());
 
     auto tf_node = rclcpp::Node::make_shared("tf_node");
     exe_rt.add_node(tf_node);
@@ -60,8 +61,9 @@ int main(int argc, char ** argv)
     for (auto & node : system_node->get_system_nodes()) {
       exe_nort.add_node(node.second.node_ptr->get_node_base_interface());
       if (node.second.realtime_cbg != nullptr) {
-        exe_rt.add_callback_group(node.second.realtime_cbg,
-                                  node.second.node_ptr->get_node_base_interface());
+        exe_rt.add_callback_group(
+          node.second.realtime_cbg,
+          node.second.node_ptr->get_node_base_interface());
       }
     }
 
@@ -88,11 +90,12 @@ int main(int argc, char ** argv)
     system_node->get_parameter("use_real_time", use_real_time);
 
     // Cooperative shutdown on SIGINT
-    rclcpp::on_shutdown([&](){
+    rclcpp::on_shutdown(
+      [&]() {
         stop.store(true, std::memory_order_relaxed);
         exe_rt.cancel();
         exe_nort.cancel();
-    });
+      });
 
     // RT thread
     rt_thread = std::thread(
@@ -101,7 +104,8 @@ int main(int argc, char ** argv)
           RCLCPP_INFO(system_node->get_logger(), "Selected Real-Time");
           sched_param sch; sch.sched_priority = 80;
           if (sched_setscheduler(0, SCHED_FIFO, &sch) == -1) {
-            RCLCPP_WARN(system_node->get_logger(),
+            RCLCPP_WARN(
+              system_node->get_logger(),
               "Failed to set Real Time. Running with normal priority.");
           }
         } else {
@@ -109,7 +113,7 @@ int main(int argc, char ** argv)
         }
 
         // No dedicated spin thread; TF uses exe_rt.
-        tf2_ros::TransformListener tf_listener(*tf_buffer, tf_node, /*spin_thread=*/false);
+        tf2_ros::TransformListener tf_listener(*tf_buffer, tf_node, /*spin_thread=*/ false);
 
         rclcpp::WallRate rate(100);
         while (!stop.load(std::memory_order_relaxed)) {

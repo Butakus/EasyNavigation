@@ -54,7 +54,8 @@ GoalManagerClient::control_callback(easynav_interfaces::msg::NavigationControl::
   if (msg->user_id == id_) {return;}  // Avoid self messages
   if (msg->nav_current_user_id != id_) {return;}  // Avoid messages to others
 
-  RCLCPP_DEBUG(node_->get_logger(), "Received a navigation %d msg with user_id %s",
+  RCLCPP_DEBUG(
+    node_->get_logger(), "Received a navigation %d msg with user_id %s",
     msg->type, msg->user_id.c_str());
 
   switch (state_) {
@@ -195,7 +196,7 @@ GoalManagerClient::send_goals(const nav_msgs::msg::Goals & goals)
 
   easynav_interfaces::msg::NavigationControl msg;
 
-  switch(state_) {
+  switch (state_) {
     case State::IDLE:
       state_ = State::SENT_GOAL;
       msg.type = easynav_interfaces::msg::NavigationControl::REQUEST;
@@ -205,8 +206,9 @@ GoalManagerClient::send_goals(const nav_msgs::msg::Goals & goals)
       msg.type = easynav_interfaces::msg::NavigationControl::REQUEST;
       break;
     default:
-      RCLCPP_ERROR(node_->get_logger(), "Trying to send new goals in state %d. Ignoring",
-      static_cast<int>(state_));
+      RCLCPP_ERROR(
+        node_->get_logger(), "Trying to send new goals in state %d. Ignoring",
+        static_cast<int>(state_));
       return;
   }
 
@@ -227,7 +229,7 @@ GoalManagerClient::cancel()
     RCLCPP_ERROR(
       node_->get_logger(),
       "Triying to cancel a non-active navigation (state %d)",
-       static_cast<int>(state_));
+      static_cast<int>(state_));
     return;
   }
 
@@ -254,7 +256,7 @@ GoalManagerClient::reset()
     RCLCPP_ERROR(
       node_->get_logger(),
       "Triying to reset navigation in a a non-finished navigation state %d",
-       static_cast<int>(state_));
+      static_cast<int>(state_));
   }
 }
 

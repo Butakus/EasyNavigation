@@ -170,7 +170,8 @@ GoalManager::control_callback(easynav_interfaces::msg::NavigationControl::Unique
             }
             accept_request(*msg, response);
           } else {
-            RCLCPP_DEBUG(parent_node_->get_logger(),
+            RCLCPP_DEBUG(
+              parent_node_->get_logger(),
               "Rejected navigation request (unable to preempt)");
 
             response.status_message = "Goal rejected; unable to preemp current active goal";
@@ -190,7 +191,8 @@ GoalManager::control_callback(easynav_interfaces::msg::NavigationControl::Unique
         response.nav_current_user_id = msg->user_id;
       } else {
         if (state_ == State::IDLE) {
-          RCLCPP_DEBUG(parent_node_->get_logger(),
+          RCLCPP_DEBUG(
+            parent_node_->get_logger(),
             "Navigation cancelation rejected (not navigating)");
           response.status_message = "Nothing to cancel; easynav is idle";
           response.type = easynav_interfaces::msg::NavigationControl::ERROR;

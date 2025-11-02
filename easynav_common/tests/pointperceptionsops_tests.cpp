@@ -262,12 +262,13 @@ TEST(PerceptionsOpsViewCtor, FromSinglePerception_FilterDownsampleCollapse)
   for (int x = -1; x <= 1; ++x) {
     for (int y = -1; y <= 1; ++y) {
       for (int z = -1; z <= 1; ++z) {
-        p.data.emplace_back(static_cast<float>(x),
-                            static_cast<float>(y),
-                            static_cast<float>(z));
+        p.data.emplace_back(
+          static_cast<float>(x),
+          static_cast<float>(y),
+          static_cast<float>(z));
       }
     }
-}
+  }
 
   easynav::PointPerceptionsOpsView view(p);
 
@@ -289,7 +290,7 @@ TEST(PerceptionsOpsViewCtor, FromSinglePerception_FilterDownsampleCollapse)
   ASSERT_EQ(collapsed.size(), 8u);
   for (const auto & pt : collapsed.points) {
     EXPECT_FLOAT_EQ(pt.z, 0.25f);
-}
+  }
 }
 
 TEST(PerceptionsOpsViewCtor, FromOneOfManyPerceptions_UseOneAndOperate)
@@ -313,7 +314,7 @@ TEST(PerceptionsOpsViewCtor, FromOneOfManyPerceptions_UseOneAndOperate)
   ASSERT_EQ(pts.size(), selected->data.size());
   for (std::size_t i = 0; i < pts.size(); ++i) {
     EXPECT_FLOAT_EQ(pts[i].x, selected->data[i].x);
-}
+  }
 
   // Apply filter
   view.filter({0.25, 0.25, 0.25}, {0.75, 0.75, 0.75});

@@ -35,9 +35,10 @@ public:
   template<typename ... Args>
   static C * getInstance(Args &&... args)
   {
-    std::call_once(init_flag_, [&]() {
+    std::call_once(
+      init_flag_, [&]() {
         instance_ = std::make_unique<C>(std::forward<Args>(args)...);
-    });
+      });
     return instance_.get();
   }
 

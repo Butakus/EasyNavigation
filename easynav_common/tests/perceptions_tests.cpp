@@ -276,7 +276,8 @@ TEST_F(PerceptionsTestCase, PointPerceptionHandlerWorks)
     cb_group);
 
   rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr laser_pub =
-    node->create_publisher<sensor_msgs::msg::LaserScan>("/test_scan",
+    node->create_publisher<sensor_msgs::msg::LaserScan>(
+    "/test_scan",
     rclcpp::SensorDataQoS().reliable());
 
   rclcpp::executors::SingleThreadedExecutor exe;

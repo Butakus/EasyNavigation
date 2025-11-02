@@ -78,7 +78,8 @@ LocalizerNode::on_configure(const rclcpp_lifecycle::State & state)
   get_parameter("tf_prefix", tf_prefix);
 
   if (localizer_types.size() > 1) {
-    RCLCPP_ERROR(get_logger(),
+    RCLCPP_ERROR(
+      get_logger(),
       "You must instance one localizer.  [%lu] found", localizer_types.size());
     return CallbackReturnT::FAILURE;
   }
@@ -89,24 +90,29 @@ LocalizerNode::on_configure(const rclcpp_lifecycle::State & state)
     get_parameter(localizer_type + std::string(".plugin"), plugin);
 
     try {
-      RCLCPP_INFO(get_logger(),
+      RCLCPP_INFO(
+        get_logger(),
         "Loading LocalizerMethodBase %s [%s]", localizer_type.c_str(), plugin.c_str());
 
       localizer_method_ = localizer_loader_->createSharedInstance(plugin);
 
-      auto result = localizer_method_->initialize(shared_from_this(), localizer_type,
+      auto result = localizer_method_->initialize(
+        shared_from_this(), localizer_type,
         tf_prefix);
 
       if (!result) {
-        RCLCPP_ERROR(get_logger(),
+        RCLCPP_ERROR(
+          get_logger(),
           "Unable to initialize [%s]. Error: %s", plugin.c_str(), result.error().c_str());
         return CallbackReturnT::FAILURE;
       }
 
-      RCLCPP_INFO(get_logger(),
+      RCLCPP_INFO(
+        get_logger(),
         "Loaded LocalizerMethodBase %s [%s]", localizer_type.c_str(), plugin.c_str());
     } catch (pluginlib::PluginlibException & ex) {
-      RCLCPP_ERROR(get_logger(),
+      RCLCPP_ERROR(
+        get_logger(),
         "Unable to load plugin easynav::LocalizerMethodBase. Error: %s", ex.what());
       return CallbackReturnT::FAILURE;
     }

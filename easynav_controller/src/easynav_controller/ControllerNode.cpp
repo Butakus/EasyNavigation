@@ -92,7 +92,8 @@ ControllerNode::on_configure(const rclcpp_lifecycle::State & state)
   get_parameter("tf_prefix", tf_prefix);
 
   if (controller_types.size() > 1) {
-    RCLCPP_ERROR(get_logger(),
+    RCLCPP_ERROR(
+      get_logger(),
       "You must instance one controller.  [%lu] found", controller_types.size());
     return CallbackReturnT::FAILURE;
   }
@@ -103,24 +104,29 @@ ControllerNode::on_configure(const rclcpp_lifecycle::State & state)
     get_parameter(controller_type + std::string(".plugin"), plugin);
 
     try {
-      RCLCPP_INFO(get_logger(),
+      RCLCPP_INFO(
+        get_logger(),
         "Loading ControllerMethodBase %s [%s]", controller_type.c_str(), plugin.c_str());
 
       controller_method_ = controller_loader_->createSharedInstance(plugin);
 
-      auto result = controller_method_->initialize(shared_from_this(), controller_type,
+      auto result = controller_method_->initialize(
+        shared_from_this(), controller_type,
         tf_prefix);
 
       if (!result) {
-        RCLCPP_ERROR(get_logger(),
+        RCLCPP_ERROR(
+          get_logger(),
           "Unable to initialize [%s]. Error: %s", plugin.c_str(), result.error().c_str());
         return CallbackReturnT::FAILURE;
       }
 
-      RCLCPP_INFO(get_logger(),
+      RCLCPP_INFO(
+        get_logger(),
         "Loaded ControllerMethodBase %s [%s]", controller_type.c_str(), plugin.c_str());
     } catch (pluginlib::PluginlibException & ex) {
-      RCLCPP_ERROR(get_logger(),
+      RCLCPP_ERROR(
+        get_logger(),
         "Unable to load plugin easynav::ControllerMethodBase. Error: %s", ex.what());
       return CallbackReturnT::FAILURE;
     }

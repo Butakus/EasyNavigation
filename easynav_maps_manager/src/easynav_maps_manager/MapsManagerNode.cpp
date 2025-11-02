@@ -86,7 +86,8 @@ MapsManagerNode::on_configure(const rclcpp_lifecycle::State & state)
     get_parameter(map_type + std::string(".plugin"), plugin);
 
     try {
-      RCLCPP_INFO(get_logger(),
+      RCLCPP_INFO(
+        get_logger(),
         "Loading MapsManagerBase %s [%s]", map_type.c_str(), plugin.c_str());
 
       std::shared_ptr<MapsManagerBase> instance;
@@ -95,17 +96,20 @@ MapsManagerNode::on_configure(const rclcpp_lifecycle::State & state)
       auto result = instance->initialize(shared_from_this(), map_type, tf_prefix);
 
       if (!result) {
-        RCLCPP_ERROR(get_logger(),
+        RCLCPP_ERROR(
+          get_logger(),
           "Unable to initialize [%s]. Error: %s", plugin.c_str(), result.error().c_str());
         return CallbackReturnT::FAILURE;
       }
 
       maps_managers_.push_back(instance);
 
-      RCLCPP_INFO(get_logger(),
+      RCLCPP_INFO(
+        get_logger(),
         "Loaded MapsManagerBase %s [%s]", map_type.c_str(), plugin.c_str());
     } catch (pluginlib::PluginlibException & ex) {
-      RCLCPP_ERROR(get_logger(),
+      RCLCPP_ERROR(
+        get_logger(),
         "Unable to load plugin easynav::MapsManagerBase. Error: %s", ex.what());
       return CallbackReturnT::FAILURE;
     }

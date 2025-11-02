@@ -79,7 +79,8 @@ PlannerNode::on_configure(const rclcpp_lifecycle::State & state)
   get_parameter("tf_prefix", tf_prefix);
 
   if (planner_types.size() > 1) {
-    RCLCPP_ERROR(get_logger(),
+    RCLCPP_ERROR(
+      get_logger(),
       "You must instance one planner.  [%lu] found", planner_types.size());
     return CallbackReturnT::FAILURE;
   }
@@ -90,24 +91,29 @@ PlannerNode::on_configure(const rclcpp_lifecycle::State & state)
     get_parameter(planner_type + std::string(".plugin"), plugin);
 
     try {
-      RCLCPP_INFO(get_logger(),
+      RCLCPP_INFO(
+        get_logger(),
         "Loading PlannerMethodBase %s [%s]", planner_type.c_str(), plugin.c_str());
 
       planner_method_ = planner_loader_->createSharedInstance(plugin);
 
-      auto result = planner_method_->initialize(shared_from_this(), planner_type,
+      auto result = planner_method_->initialize(
+        shared_from_this(), planner_type,
         tf_prefix);
 
       if (!result) {
-        RCLCPP_ERROR(get_logger(),
+        RCLCPP_ERROR(
+          get_logger(),
           "Unable to initialize [%s]. Error: %s", plugin.c_str(), result.error().c_str());
         return CallbackReturnT::FAILURE;
       }
 
-      RCLCPP_INFO(get_logger(),
+      RCLCPP_INFO(
+        get_logger(),
         "Loaded PlannerMethodBase %s [%s]", planner_type.c_str(), plugin.c_str());
     } catch (pluginlib::PluginlibException & ex) {
-      RCLCPP_ERROR(get_logger(),
+      RCLCPP_ERROR(
+        get_logger(),
         "Unable to load plugin %s. Error: %s", plugin.c_str(), ex.what());
       return CallbackReturnT::FAILURE;
     }

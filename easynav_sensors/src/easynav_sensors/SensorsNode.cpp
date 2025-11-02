@@ -129,38 +129,38 @@ SensorsNode::SensorsNode(const rclcpp::NodeOptions & options)
       std::ostringstream ret;
       ret << "PointPerception " << perceptions.size() << " with:\n";
       for (const auto & perception : perceptions) {
-        ret   << "\t[" << static_cast<const void *>(perception.get()) << "] --> "
-              << perception->data.size() << " points in frame [" << perception->frame_id
-              << "] with ts " << perception->stamp.seconds() << "\n";
+        ret << "\t[" << static_cast<const void *>(perception.get()) << "] --> "
+            << perception->data.size() << " points in frame [" << perception->frame_id
+            << "] with ts " << perception->stamp.seconds() << "\n";
       }
       return ret.str();
-      });
+    });
 
   ::easynav::NavState::register_printer<easynav::ImagePerceptions>(
     [](const easynav::ImagePerceptions & perceptions) {
       std::ostringstream ret;
       ret << "ImagePerceptions " << perceptions.size() << " with:\n";
       for (const auto & perception : perceptions) {
-        ret   << "\t[" << static_cast<const void *>(perception.get()) << "] --> "
-              << "Image (" << perception->data.cols << " x  " << perception->data.rows << ")"
-              << "] with ts " << perception->stamp.seconds() << "\n";
+        ret << "\t[" << static_cast<const void *>(perception.get()) << "] --> "
+            << "Image (" << perception->data.cols << " x  " << perception->data.rows << ")"
+            << "] with ts " << perception->stamp.seconds() << "\n";
       }
       return ret.str();
-      });
+    });
 
   ::easynav::NavState::register_printer<easynav::IMUPerceptions>(
     [](const easynav::IMUPerceptions & perceptions) {
       std::ostringstream ret;
       ret << "IMUPerceptions " << perceptions.size() << " with:\n";
       for (const auto & perception : perceptions) {
-        ret   << "\t[" << static_cast<const void *>(perception.get()) << "] --> "
-              << "IMUPerception linear acc = (" <<
+        ret << "\t[" << static_cast<const void *>(perception.get()) << "] --> "
+            << "IMUPerception linear acc = (" <<
           perception->data.linear_acceleration.x << ", " <<
           perception->data.linear_acceleration.y << ", " <<
           perception->data.linear_acceleration.z << ")\n";
       }
       return ret.str();
-      });
+    });
 
 
   register_handler(std::make_shared<PointPerceptionHandler>());
@@ -221,9 +221,10 @@ SensorsNode::on_configure(const rclcpp_lifecycle::State & state)
           handlers_[group] = hit2->second;
           g_group_alias[group] = canonical;
           handler_it = handlers_.find(group);
-          RCLCPP_INFO(get_logger(),
-                      "Aliased group '%s' -> '%s' for type '%s'",
-                      group.c_str(), canonical.c_str(), msg_type.c_str());
+          RCLCPP_INFO(
+            get_logger(),
+            "Aliased group '%s' -> '%s' for type '%s'",
+            group.c_str(), canonical.c_str(), msg_type.c_str());
         }
       }
     }
@@ -234,7 +235,8 @@ SensorsNode::on_configure(const rclcpp_lifecycle::State & state)
     }
 
     auto ptr = handler_it->second->create(sensor_id);
-    auto sub = handler_it->second->create_subscription(*this, topic, msg_type, ptr,
+    auto sub = handler_it->second->create_subscription(
+      *this, topic, msg_type, ptr,
       realtime_cbg_);
 
     perceptions_[group].emplace_back(PerceptionPtr{ptr, sub});
@@ -305,7 +307,8 @@ SensorsNode::cycle_rt(std::shared_ptr<NavState> nav_state, bool trigger)
     }
 
     if (!set_by_group(group_perceptions.first, group_perceptions.second, *nav_state)) {
-      RCLCPP_WARN(get_logger(), "No perception handler for group [%s]",
+      RCLCPP_WARN(
+        get_logger(), "No perception handler for group [%s]",
         group_perceptions.first.c_str());
     }
   }
@@ -323,8 +326,9 @@ SensorsNode::cycle(std::shared_ptr<NavState> nav_state)
       }
     }
     if (!set_by_group(group_perceptions.first, group_perceptions.second, *nav_state)) {
-      RCLCPP_WARN(get_logger(), "No perception handler for group [%s]",
-              group_perceptions.first.c_str());
+      RCLCPP_WARN(
+        get_logger(), "No perception handler for group [%s]",
+        group_perceptions.first.c_str());
     }
   }
 
