@@ -12,9 +12,9 @@ Each item is numbered (`RD###`) for easier reference and tracking.
 
 - [ ] **RD001:** Display test coverage levels in all repositories and increase them to at least **90%**
 - [ ] **RD002:** Implement and validate a **GPS-based Localizer plugin**, tested in outdoor environments
-- [ ] **RD003:** Develop the **MCP Controller plugin** for **differential-drive robots**
-- [ ] **RD004:** Develop the **MCP Controller plugin** for **Ackermann-steered robots**
-- [ ] **RD005:** Develop the **MCP Controller plugin** for **omnidirectional robots**
+- [ ] **RD003:** Develop the **MPC Controller plugin** for **differential-drive robots**
+- [ ] **RD004:** Develop the **MPC Controller plugin** for **Ackermann-steered robots**
+- [ ] **RD005:** Develop the **MPC Controller plugin** for **omnidirectional robots**
 - [ ] **RD006:** Integrate **LLM-based analysis** for runtime execution review and improvement suggestions
 - [ ] **RD007:** Create **Test Case plugins** for **underwater robots**
 - [ ] **RD008:** Create **Test Case plugins** for **aerial robots**
