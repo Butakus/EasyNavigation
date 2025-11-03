@@ -9,7 +9,7 @@ Web: [https://easynavigation.github.io](https://easynavigation.github.io/)
 
 Doxygen documentation: [https://EasyNavigation.github.io/EasyNavigation/](https://EasyNavigation.github.io/EasyNavigation/)
 
-📋 [Roadmap Project]([https://github.com/orgs/EasyNavigation/projects/2](https://github.com/EasyNavigation/EasyNavigation/blob/rolling/ROADMAP.md))
+📋 Roadmap Project: [RoadMap](https://github.com/EasyNavigation/EasyNavigation/blob/rolling/ROADMAP.md)
 
 
 **EasyNavigation (EasyNav)** is an open-source navigation system for **ROS 2**, designed to be:
