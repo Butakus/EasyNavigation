@@ -24,6 +24,8 @@ Each item is numbered (`RD###`) for easier reference and tracking.
 - [ ] **RD012:** Perform release of **EasyNav**, **Yaets**, **easynav_plugins**, and **NavMap** for **ROS 2 Humble**
 - [ ] **RD013:** Perform release of **EasyNav**, **Yaets**, **easynav_plugins**, and **NavMap** for **ROS 2 Rolling**
 - [ ] **RD014:** Complete and consolidate documentation with **HowTos** and **API references**
+- [ ] **RD015:** Write the EasyNav reference paper
+- [ ] **RD016:** Write the NavMap reference paper
 
 ---
 
