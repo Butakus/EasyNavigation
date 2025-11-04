@@ -109,7 +109,7 @@ int main(int argc, char ** argv)
         }
 
         // No dedicated spin thread; TF uses exe_rt.
-        tf2_ros::TransformListener tf_listener(*tf_buffer, tf_node, /*spin_thread=*/false);
+        tf2_ros::TransformListener tf_listener(*tf_buffer, *tf_node, /*spin_thread=*/false);
 
         rclcpp::WallRate rate(100);
         while (!stop.load(std::memory_order_relaxed)) {
