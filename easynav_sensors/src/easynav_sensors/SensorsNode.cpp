@@ -41,6 +41,7 @@
 #include "easynav_common/types/ImagePerception.hpp"
 #include "easynav_common/types/PointPerception.hpp"
 #include "easynav_common/types/IMUPerception.hpp"
+#include "easynav_common/types/GNSSPerception.hpp"
 
 namespace easynav
 {
@@ -48,6 +49,7 @@ namespace easynav
 using Registry = std::tuple<
   easynav::ImagePerception,
   easynav::IMUPerception,
+  easynav::GNSSPerception,
   easynav::PointPerception
 >;
 
@@ -162,10 +164,28 @@ SensorsNode::SensorsNode(const rclcpp::NodeOptions & options)
       return ret.str();
       });
 
+  ::easynav::NavState::register_printer<easynav::GNSSPerceptions>(
+    [](const easynav::GNSSPerceptions & perceptions) {
+      std::ostringstream ret;
+      ret << "GNSSPerceptions " << perceptions.size() << " with:\n";
+      for (const auto & perception : perceptions) {
+        const auto & fix = perception->data;
+        ret << "\t[" << static_cast<const void *>(perception.get()) << "] --> "
+            << "GNSSPerception lat = " << fix.latitude
+            << ", lon = " << fix.longitude
+            << ", alt = " << fix.altitude
+            << " (status: " << static_cast<int>(fix.status.status)
+            << ", service: " << fix.status.service << ")"
+            << " in frame [" << perception->frame_id << "]"
+            << " with ts " << perception->stamp.seconds() << "\n";
+      }
+      return ret.str();
+    });
 
   register_handler(std::make_shared<PointPerceptionHandler>());
   register_handler(std::make_shared<ImagePerceptionHandler>());
   register_handler(std::make_shared<IMUPerceptionHandler>());
+  register_handler(std::make_shared<GNSSPerceptionHandler>());
 }
 
 SensorsNode::~SensorsNode()

@@ -28,6 +28,7 @@ add_library(${PROJECT_NAME} SHARED
   src/easynav_common/types/ImagePerception.cpp
   src/easynav_common/types/PointPerception.cpp
   src/easynav_common/types/IMUPerception.cpp
+  src/easynav_common/types/GNSSPerception.cpp
 )
 target_include_directories(${PROJECT_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
