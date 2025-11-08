@@ -29,6 +29,7 @@ jobs:
         with:
           package-name: easynav_common easynav_controller easynav_localizer easynav_maps_manager easynav_planner easynav_sensors easynav_system easynav_support_py easynav_tools
           target-ros2-distro: jazzy
+          ref: jazzy
           vcs-repo-file-url: ${GITHUB_WORKSPACE}/.github/thirdparty.repos
           colcon-defaults: |
             {
