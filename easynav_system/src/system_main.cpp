@@ -52,7 +52,6 @@ int main(int argc, char ** argv)
                               system_node->get_node_base_interface());
 
     auto tf_node = rclcpp::Node::make_shared("tf_node");
-    exe_rt.add_node(tf_node);
 
     auto tf_clock = std::make_shared<rclcpp::Clock>(RCL_STEADY_TIME);
     auto tf_buffer = easynav::RTTFBuffer::getInstance(tf_clock);
@@ -108,8 +107,7 @@ int main(int argc, char ** argv)
           RCLCPP_INFO(system_node->get_logger(), "Selected NO Real-Time");
         }
 
-        // No dedicated spin thread; TF uses exe_rt.
-        tf2_ros::TransformListener tf_listener(*tf_buffer, *tf_node, /*spin_thread=*/false);
+        tf2_ros::TransformListener tf_listener(*tf_buffer, *tf_node, true);
 
         rclcpp::WallRate rate(100);
         while (!stop.load(std::memory_order_relaxed)) {
