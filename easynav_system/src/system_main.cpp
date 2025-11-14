@@ -27,6 +27,7 @@
 
 #include "easynav_system/SystemNode.hpp"
 #include "easynav_common/RTTFBuffer.hpp"
+#include <easynav_common/YTSession.hpp>
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
@@ -86,6 +87,23 @@ int main(int argc, char ** argv)
     system_node->declare_parameter("use_real_time", use_real_time);
     system_node->get_parameter("use_real_time", use_real_time);
 
+    // Get spin duration timeout for both threads
+    double spin_time_rt = 0.001;
+    system_node->declare_parameter("spin_time_rt", spin_time_rt);
+    system_node->get_parameter("spin_time_rt", spin_time_rt);
+    double spin_time_nort = 0.001;
+    system_node->declare_parameter("spin_time_nort", spin_time_nort);
+    system_node->get_parameter("spin_time_nort", spin_time_nort);
+
+    // Convert spin timeouts from seconds to nanoseconds and cast to chrono type
+    const auto spin_duration_rt = std::chrono::duration_cast<std::chrono::nanoseconds>(
+      std::chrono::duration<double>(spin_time_rt)
+    );
+
+    const auto spin_duration_nort = std::chrono::duration_cast<std::chrono::nanoseconds>(
+      std::chrono::duration<double>(spin_time_nort)
+    );
+
     // Cooperative shutdown on SIGINT
     rclcpp::on_shutdown([&](){
         stop.store(true, std::memory_order_relaxed);
@@ -109,20 +127,23 @@ int main(int argc, char ** argv)
 
         tf2_ros::TransformListener tf_listener(*tf_buffer, *tf_node, true);
 
-        rclcpp::WallRate rate(100);
+        rclcpp::WallRate rate(200);
         while (!stop.load(std::memory_order_relaxed)) {
           if (system_node->get_current_state().id() ==
           lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
           {
             system_node->system_cycle_rt();
           }
-          exe_rt.spin_some(std::chrono::milliseconds(1));
+          {
+            EASYNAV_TRACE_NAMED_EVENT("easynav_system::spin_rt");
+            exe_rt.spin_all(spin_duration_rt);
+          }
           rate.sleep();
         }
       });
 
     // Non-RT loop
-    rclcpp::WallRate rate(100);
+    rclcpp::WallRate rate(200);
     while (!stop.load(std::memory_order_relaxed)) {
 
       if (system_node->get_current_state().id() ==
@@ -130,8 +151,10 @@ int main(int argc, char ** argv)
       {
         system_node->system_cycle();
       }
-
-      exe_nort.spin_some(std::chrono::milliseconds(1));
+      {
+        EASYNAV_TRACE_NAMED_EVENT("easynav_system::spin_nort");
+        exe_nort.spin_all(spin_duration_nort);
+      }
       rate.sleep();
     }
 
