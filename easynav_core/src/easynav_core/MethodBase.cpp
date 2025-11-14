@@ -76,8 +76,9 @@ MethodBase::get_tf_prefix() const
 bool
 MethodBase::isTime2RunRT()
 {
-  if ((parent_node_->now() - rt_last_ts_).seconds() > (1.0 / rt_frequency_)) {
-    rt_last_ts_ = parent_node_->now();
+  const auto now = parent_node_->now();
+  if ((now - rt_last_ts_).seconds() >= (1.0 / rt_frequency_)) {
+    rt_last_ts_ = now;
     return true;
   } else {
     return false;
@@ -87,8 +88,9 @@ MethodBase::isTime2RunRT()
 bool
 MethodBase::isTime2Run()
 {
-  if ((parent_node_->now() - last_ts_).seconds() > (1.0 / frequency_)) {
-    last_ts_ = parent_node_->now();
+  const auto now = parent_node_->now();
+  if ((now - last_ts_).seconds() > (1.0 / frequency_)) {
+    last_ts_ = now;
     return true;
   } else {
     return false;

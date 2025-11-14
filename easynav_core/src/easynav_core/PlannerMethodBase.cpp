@@ -37,6 +37,10 @@ PlannerMethodBase::internal_update(NavState & nav_state)
 {
   if (isTime2Run()) {
     EASYNAV_TRACE_EVENT;
+
+    // Save last execution time, even if triggered
+    setRun();
+
     update(nav_state);
   }
 }
