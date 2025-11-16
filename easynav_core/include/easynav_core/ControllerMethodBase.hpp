@@ -26,6 +26,9 @@
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 
+#include "pcl/point_cloud.h"
+#include "pcl/point_types.h"
+
 #include "easynav_common/types/NavState.hpp"
 #include "easynav_core/MethodBase.hpp"
 
@@ -77,7 +80,7 @@ protected:
 
 
   double robot_radius_{0.3};
-  double robot_height_{0.3};
+  double robot_height_{0.5};
 
   double brake_acc_{1.0};                   // m/s^2
   double safety_margin_{0.1};               // m
@@ -89,18 +92,18 @@ protected:
   double rot_safety_margin_{0.05};          // m
 
   double downsample_leaf_size_{0.1};
-  std::string motion_frame_{"base_link"};
+  std::string motion_frame_{"base_footprint"};
 
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr collision_marker_pub_;
 
   bool is_inminent_collision(NavState & nav_state);
   virtual void on_inminent_collision(NavState & nav_state);
 
-void publish_collision_zone_marker(
-  const geometry_msgs::msg::Pose & base_pose,
-  double vx, double vy, double wz,
-  double d_stop,
-  bool imminent_collision);
+  void publish_collision_zone_marker(
+    const std::vector<double> & min,
+    const std::vector<double> & max,
+    const pcl::PointCloud<pcl::PointXYZ> & cloud,
+    bool imminent_collision);
 
 };
 

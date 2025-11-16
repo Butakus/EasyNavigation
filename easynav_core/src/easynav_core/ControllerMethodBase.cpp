@@ -42,7 +42,11 @@ ControllerMethodBase::initialize(
   const std::string & plugin_name,
   const std::string & tf_prefix)
 {
-  parent_node->create_publisher<visualization_msgs::msg::MarkerArray>("collision_area", 10);
+  collision_marker_pub_ = parent_node->create_publisher<visualization_msgs::msg::MarkerArray>(
+    "collision_area", 10);
+
+
+
 
   return MethodBase::initialize(parent_node, plugin_name, tf_prefix);
 }
@@ -65,7 +69,6 @@ ControllerMethodBase::internal_update_rt(NavState & nav_state, bool trigger)
   }
 }
 
-
 void
 ControllerMethodBase::on_inminent_collision(NavState & nav_state)
 {
@@ -76,11 +79,13 @@ ControllerMethodBase::on_inminent_collision(NavState & nav_state)
   nav_state.set("cmd_vel", geometry_msgs::msg::TwistStamped());
 }
 
-
 bool
 ControllerMethodBase::is_inminent_collision(NavState & nav_state)
 {
   std::cerr << "[COLLISION] ========================================" << std::endl;
+
+  bool imminent = false;
+
   if (!nav_state.has("cmd_vel")) {
     std::cerr << "[COLLISION] No cmd_vel in NavState\n";
     return false;
@@ -110,7 +115,6 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
     return false;
   }
 
-
   const double a_brake = std::max(brake_acc_, 1e-3);
   const double d_stop = (v_norm * v_norm) / (2.0 * a_brake) + safety_margin_;
 
@@ -124,7 +128,7 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
     static_cast<double>(-robot_radius_ - safety_margin_),
     static_cast<double>(-robot_radius_ - safety_margin_),
     static_cast<double>(z_min_filter_)});
-   std::vector<double> max({
+  std::vector<double> max({
     static_cast<double>(robot_radius_ + safety_margin_ +
       std::max(0.0, v_norm * v_norm / (2.0 * std::max(brake_acc_, 1e-3)))),
     static_cast<double>(robot_radius_ + safety_margin_),
@@ -135,7 +139,7 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
 
   const auto & cloud = PointPerceptionsOpsView(perceptions)
     .downsample(downsample_leaf_size_)
-    .filter({-2.0, -2.0, -1.0}, {2.0, 2.0, 3.0})
+    .filter({-2.0, -2.0, z_min_filter_}, {2.0, 2.0, robot_height_})
     .fuse(motion_frame_)
     ->filter(min, max)
     .as_points();
@@ -143,50 +147,13 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
   std::cerr << "[COLLISION] Cloud size after fuse/filter: "
             << cloud.size() << "\n";
 
-  if (cloud.empty()) {return false;}
-
-  //
-  // Rotational branch
-  //
-  if (v_norm < linear_speed_min_threshold_ &&
-      std::fabs(wz) > angular_speed_min_threshold_) {
-
-    std::cerr << "[COLLISION] Entering rotation check: v_norm=" << v_norm
-              << " wz=" << wz << "\n";
-
-    const double r_max_rot = robot_radius_ + rot_safety_margin_;
-    const double r_max_rot_sq = r_max_rot * r_max_rot;
-
-    for (const auto & p : cloud.points) {
-      if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) {
-        std::cerr << "[COLLISION] Skipping invalid point (NaN/Inf) in ROT: ("
-                  << p.x << "," << p.y << "," << p.z << ")\n";
-        continue;
-      }
-
-      if (p.z < z_min_filter_ || p.z > robot_height_) {continue;}
-
-      const double r_sq = static_cast<double>(p.x) * p.x +
-                          static_cast<double>(p.y) * p.y;
-
-      if (r_sq <= r_max_rot_sq) {
-        std::cerr << "[COLLISION] ROT hit at point (" << p.x << ", " << p.y << ", " << p.z
-                  << ") r_sq=" << r_sq << " <= " << r_max_rot_sq << "\n";
-        return true;
-      }
-    }
-
-    std::cerr << "[COLLISION] Rotation: no collision.\n";
+  if (cloud.empty()) {
+    publish_collision_zone_marker(min, max, cloud, imminent);
     return false;
   }
 
-  //
-  // Translational branch
-  //
-  if (v_norm < linear_speed_min_threshold_) {
-    std::cerr << "[COLLISION] v_norm below threshold → no collision\n";
-    return false;
-  }
+  geometry_msgs::msg::Pose base_pose;
+  base_pose.orientation.w = 1.0;
 
   const double r = robot_radius_;
   const double dx = vx / v_norm;
@@ -196,6 +163,7 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
 
   std::cerr << "[COLLISION] Entering translation check dx=" << dx
             << " dy=" << dy
+            << " r_sq=" << r_sq
             << " x_max=" << x_max << "\n";
 
   for (const auto & p : cloud.points) {
@@ -204,13 +172,19 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
                 << p.x << "," << p.y << "," << p.z << ")\n";
       continue;
     }
-    if (p.z < z_min_filter_ || p.z > robot_height_) {continue;}
 
     const double px = p.x;
     const double py = p.y;
 
     const double x_prime =  dx * px + dy * py;
     const double y_prime = -dy * px + dx * py;
+
+
+   std::cerr << "[COLLISION] Point: ("
+                << p.x << "," << p.y << "," << p.z << ")\t"
+                << "x_prime = " << x_prime << "\t"
+                << "y_prime = " << y_prime << "\t"
+                << std::endl;
 
     if (x_prime <= 0.0 || x_prime > x_max) {continue;}
     if ((y_prime * y_prime) > r_sq) {continue;}
@@ -220,18 +194,23 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
               << ") x'=" << x_prime
               << " y'=" << y_prime
               << "\n";
-    return true;
+
+    imminent = true;
+    publish_collision_zone_marker(min, max, cloud, imminent);
+    return imminent;
   }
 
   std::cerr << "[COLLISION] Translation: no collision\n";
-  return false;
+  publish_collision_zone_marker(min, max, cloud, imminent);
+  return imminent;
 }
+
 
 void
 ControllerMethodBase::publish_collision_zone_marker(
-  const geometry_msgs::msg::Pose & base_pose,
-  double vx, double vy, double wz,
-  double d_stop,
+  const std::vector<double> & min,
+  const std::vector<double> & max,
+  const pcl::PointCloud<pcl::PointXYZ> & cloud,
   bool imminent_collision)
 {
   if (!collision_marker_pub_) {
@@ -240,7 +219,7 @@ ControllerMethodBase::publish_collision_zone_marker(
 
   visualization_msgs::msg::MarkerArray array;
 
-  // Borramos todo lo anterior de este namespace
+  // 0) Borrar todo lo anterior en este namespace
   {
     visualization_msgs::msg::Marker clear;
     clear.header.frame_id = motion_frame_;
@@ -253,127 +232,85 @@ ControllerMethodBase::publish_collision_zone_marker(
 
   const rclcpp::Time stamp = get_node()->now();
 
-  // Color según si hay colisión inminente
+  // Color según colisión inminente
   std_msgs::msg::ColorRGBA color;
   color.r = imminent_collision ? 1.0f : 0.0f;
   color.g = imminent_collision ? 0.0f : 1.0f;
   color.b = 0.0f;
-  color.a = 0.25f;  // semitransparente
+  color.a = 0.25f;
 
-  const double v_norm = std::sqrt(vx * vx + vy * vy);
+  // 1) CUBO que representa la caja [min, max] usada en el filtro
+  {
+    visualization_msgs::msg::Marker box;
+    box.header.frame_id = motion_frame_;
+    box.header.stamp = stamp;
+    box.ns = "collision_zone";
+    box.id = 1;
+    box.type = visualization_msgs::msg::Marker::CUBE;
+    box.action = visualization_msgs::msg::Marker::ADD;
 
-  // Altura exacta del volumen que usa is_inminent_collision
-  const double z_min = z_min_filter_;
-  const double z_max = robot_height_;
-  const double z_center = 0.5 * (z_min + z_max);
-  const double z_height = z_max - z_min;
+    // Centro y tamaño del cubo
+    const double cx = 0.5 * (min[0] + max[0]);
+    const double cy = 0.5 * (min[1] + max[1]);
+    const double cz = 0.5 * (min[2] + max[2]);
 
-  // ------------------------------------------------------------------
-  // 1) Volumen de ROTACIÓN: disco/cilindro alrededor del robot
-  // ------------------------------------------------------------------
-  if (v_norm < linear_speed_min_threshold_ &&
-      std::fabs(wz) > angular_speed_min_threshold_) {
+    const double sx = (max[0] - min[0]);
+    const double sy = (max[1] - min[1]);
+    const double sz = (max[2] - min[2]);
 
-    const double r_max_rot = robot_radius_ + rot_safety_margin_;
+    box.pose.position.x = cx;
+    box.pose.position.y = cy;
+    box.pose.position.z = cz;
+    box.pose.orientation.w = 1.0;
 
-    visualization_msgs::msg::Marker m_rot;
-    m_rot.header.frame_id = motion_frame_;
-    m_rot.header.stamp = stamp;
-    m_rot.ns = "collision_zone";
-    m_rot.id = 10;
-    m_rot.type = visualization_msgs::msg::Marker::CYLINDER;
-    m_rot.action = visualization_msgs::msg::Marker::ADD;
+    box.scale.x = sx;
+    box.scale.y = sy;
+    box.scale.z = sz;
 
-    m_rot.pose = base_pose;
-    m_rot.pose.position.z = z_center;  // centrado en la banda [z_min, z_max]
+    box.color = color;
+    box.lifetime = rclcpp::Duration(0, 200 * 1000000);  // 0.2s
 
-    // Sin rotación especial: el cilindro está alineado con z
-    // (la orientación de base_pose ya incluye el yaw del robot si quieres)
-    // m_rot.pose.orientation = base_pose.orientation;
-
-    m_rot.scale.x = 2.0 * r_max_rot;
-    m_rot.scale.y = 2.0 * r_max_rot;
-    m_rot.scale.z = z_height;
-
-    m_rot.color = color;
-    m_rot.lifetime = rclcpp::Duration(0, 200 * 1000000);  // 0.2 s
-
-    array.markers.push_back(m_rot);
+    array.markers.push_back(box);
   }
 
-  // ------------------------------------------------------------------
-  // 2) Volumen de TRASLACIÓN: cápsula alineada con la velocidad
-  // ------------------------------------------------------------------
-  if (v_norm >= linear_speed_min_threshold_) {
-    const double r = robot_radius_;
+  // 2) PUNTOS: la nube filtrada que realmente se usa en la detección
+  {
+    visualization_msgs::msg::Marker pts;
+    pts.header.frame_id = motion_frame_;
+    pts.header.stamp = stamp;
+    pts.ns = "collision_zone";
+    pts.id = 2;
+    pts.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+    pts.action = visualization_msgs::msg::Marker::ADD;
 
-    const double dx = vx / v_norm;
-    const double dy = vy / v_norm;
+    pts.pose.orientation.w = 1.0;  // sin transformación extra
 
-    // longitud del cilindro (parte "recta" de la cápsula)
-    const double length = d_stop;
+    // Tamaño de cada esfera/punto
+    const float point_scale = 0.03f;
+    pts.scale.x = point_scale;
+    pts.scale.y = point_scale;
+    pts.scale.z = point_scale;
 
-    // 2.1. Parte cilíndrica
-    {
-      visualization_msgs::msg::Marker m;
-      m.header.frame_id = motion_frame_;
-      m.header.stamp = stamp;
-      m.ns = "collision_zone";
-      m.id = 1;
-      m.type = visualization_msgs::msg::Marker::CYLINDER;
-      m.action = visualization_msgs::msg::Marker::ADD;
+    // Color igual que el cubo (verde/rojo según colisión)
+    pts.color = color;
+    pts.lifetime = rclcpp::Duration(0, 200 * 1000000);
 
-      m.pose = base_pose;
-      m.pose.position.x += dx * (length * 0.5);
-      m.pose.position.y += dy * (length * 0.5);
-      m.pose.position.z = z_center;
-
-      const double yaw = std::atan2(dy, dx);
-      tf2::Quaternion q;
-      q.setRPY(0.0, 0.0, yaw);
-      m.pose.orientation = tf2::toMsg(q);
-
-      m.scale.x = 2.0 * r;
-      m.scale.y = 2.0 * r;
-      m.scale.z = z_height;
-
-      m.color = color;
-      m.lifetime = rclcpp::Duration(0, 200 * 1000000);
-
-      array.markers.push_back(m);
+    pts.points.reserve(cloud.points.size());
+    for (const auto & p : cloud.points) {
+      if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) {
+        continue;
+      }
+      geometry_msgs::msg::Point gp;
+      gp.x = p.x;
+      gp.y = p.y;
+      gp.z = p.z;
+      pts.points.push_back(gp);
     }
 
-    // 2.2. Casquete delantero (semiesfera)
-    {
-      visualization_msgs::msg::Marker m;
-      m.header.frame_id = motion_frame_;
-      m.header.stamp = stamp;
-      m.ns = "collision_zone";
-      m.id = 2;
-      m.type = visualization_msgs::msg::Marker::SPHERE;
-      m.action = visualization_msgs::msg::Marker::ADD;
-
-      m.pose = base_pose;
-      m.pose.position.x += dx * length;
-      m.pose.position.y += dy * length;
-      m.pose.position.z = z_center;
-
-      m.scale.x = 2.0 * r;
-      m.scale.y = 2.0 * r;
-      m.scale.z = z_height;
-
-      m.color = color;
-      m.lifetime = rclcpp::Duration(0, 200 * 1000000);
-
-      array.markers.push_back(m);
-    }
-
-    // Nota: no dibujamos esfera trasera para que el volumen
-    // se parezca más a lo que realmente evalúa is_inminent_collision.
+    array.markers.push_back(pts);
   }
 
   collision_marker_pub_->publish(array);
 }
-
 
 }  // namespace easynav

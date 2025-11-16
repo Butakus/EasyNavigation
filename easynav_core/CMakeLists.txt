@@ -15,6 +15,7 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(PCL REQUIRED COMPONENTS common io)
 
 add_library(${PROJECT_NAME} SHARED
   src/easynav_core/ControllerMethodBase.cpp
@@ -26,6 +27,7 @@ add_library(${PROJECT_NAME} SHARED
 target_include_directories(${PROJECT_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+  ${PCL_INCLUDE_DIRS}
 )
 target_link_libraries(${PROJECT_NAME} PUBLIC
   easynav_common::easynav_common
@@ -33,6 +35,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   tf2_ros::tf2_ros
   tf2_geometry_msgs::tf2_geometry_msgs
   ${visualization_msgs_TARGETS}
+  ${PCL_LIBRARIES}
 )
 
 install(
@@ -68,5 +71,6 @@ ament_export_dependencies(
   rclcpp_lifecycle
   visualization_msgs
   tf2_ros
+  PCL
 )
 ament_package()
