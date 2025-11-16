@@ -24,6 +24,7 @@
 #define EASYNAV_CORE__CONTROLLERMETHODBASE_HPP_
 
 #include "geometry_msgs/msg/twist_stamped.hpp"
+#include "visualization_msgs/msg/marker_array.hpp"
 
 #include "easynav_common/types/NavState.hpp"
 #include "easynav_core/MethodBase.hpp"
@@ -47,6 +48,12 @@ public:
   /// @brief Virtual destructor.
   virtual ~ControllerMethodBase() = default;
 
+  virtual std::expected<void, std::string>
+  initialize(
+    const std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node,
+    const std::string & plugin_name,
+    const std::string & tf_prefix = "");
+
   /**
    * @brief Helper to run the real-time control method if appropriate.
    *
@@ -67,6 +74,34 @@ protected:
    * @param nav_state The current state of the navigation system.
    */
   virtual void update_rt([[maybe_unused]] NavState & nav_state) {}
+
+
+  double robot_radius_{0.3};
+  double robot_height_{0.3};
+
+  double brake_acc_{1.0};                   // m/s^2
+  double safety_margin_{0.1};               // m
+  double linear_speed_min_threshold_{0.05};  // m/s
+  double angular_speed_min_threshold_{0.2};  // rad/s
+
+  double angular_brake_acc_{1.0};           // rad/s^2 (si lo quieres usar)
+  double z_min_filter_{0.0};                // m
+  double rot_safety_margin_{0.05};          // m
+
+  double downsample_leaf_size_{0.1};
+  std::string motion_frame_{"base_link"};
+
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr collision_marker_pub_;
+
+  bool is_inminent_collision(NavState & nav_state);
+  virtual void on_inminent_collision(NavState & nav_state);
+
+void publish_collision_zone_marker(
+  const geometry_msgs::msg::Pose & base_pose,
+  double vx, double vy, double wz,
+  double d_stop,
+  bool imminent_collision);
+
 };
 
 }  // namespace easynav

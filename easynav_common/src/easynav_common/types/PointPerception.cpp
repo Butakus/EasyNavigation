@@ -272,6 +272,19 @@ PointPerceptionsOpsView::as_points() const
 {
   pcl::PointCloud<pcl::PointXYZ> output;
 
+  // Estimate total number of points to reserve memory once
+  std::size_t total_points = 0;
+  for (std::size_t i = 0; i < perceptions_.size(); ++i) {
+    auto perception = perceptions_[i];
+
+    if (!perception || !perception->valid || perception->data.empty()) {continue;}
+
+    const auto & index_list = indices_[i].indices;
+    total_points += index_list.size();
+  }
+
+  output.points.reserve(total_points);
+
   for (std::size_t i = 0; i < perceptions_.size(); ++i) {
     auto perception = perceptions_[i];
 
@@ -286,6 +299,10 @@ PointPerceptionsOpsView::as_points() const
       }
     }
   }
+
+  output.width = static_cast<uint32_t>(output.points.size());
+  output.height = 1;
+  output.is_dense = false;
 
   return output;
 }
