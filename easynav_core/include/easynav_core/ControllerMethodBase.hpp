@@ -51,6 +51,17 @@ public:
   /// @brief Virtual destructor.
   virtual ~ControllerMethodBase() = default;
 
+  /**
+   * @brief Initialize the controller method.
+   *
+   * Creates required publishers, reads configuration parameters and forwards
+   * initialization to MethodBase.
+   *
+   * @param parent_node Reference to the parent lifecycle node.
+   * @param plugin_name Plugin identifier used for namespacing parameters.
+   * @param tf_prefix Optional TF prefix for frame resolution.
+   * @return An empty value on success, or an error message otherwise.
+   */
   virtual std::expected<void, std::string>
   initialize(
     const std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node,
@@ -78,33 +89,74 @@ protected:
    */
   virtual void update_rt([[maybe_unused]] NavState & nav_state) {}
 
+  /// @brief Enable or disable visualization markers for debugging.
+  bool debug_markers_{false};
 
-  double robot_radius_{0.3};
+  /// @brief Enable or disable collision checking.
+  bool collision_checker_active_{true};
+
+  /// @brief Robot radius used for safety calculations (m).
+  double robot_radius_{0.35};
+
+  /// @brief Vertical extent of the robot used for filtering (m).
   double robot_height_{0.5};
 
-  double brake_acc_{1.0};                   // m/s^2
-  double safety_margin_{0.1};               // m
-  double linear_speed_min_threshold_{0.05};  // m/s
-  double angular_speed_min_threshold_{0.2};  // rad/s
+  /// @brief Minimum Z considered when filtering point clouds (m).
+  double z_min_filter_{0.0};
 
-  double angular_brake_acc_{1.0};           // rad/s^2 (si lo quieres usar)
-  double z_min_filter_{0.0};                // m
-  double rot_safety_margin_{0.05};          // m
+  /// @brief Maximum braking deceleration (m/s²).
+  double brake_acc_{0.5};
 
+  /// @brief Safety margin added to the braking distance (m).
+  double safety_margin_{0.1};
+
+  /// @brief Leaf size used to downsample point clouds (m).
   double downsample_leaf_size_{0.1};
+
+  /// @brief Frame in which motion and collision checks are evaluated.
   std::string motion_frame_{"base_footprint"};
 
+  /// @brief Publisher for collision visualization markers.
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr collision_marker_pub_;
 
+  /**
+   * @brief Detect whether an imminent collision is present.
+   *
+   * The check uses the robot velocity, braking distance, safety margins
+   * and a filtered point cloud in the motion frame. It returns true if any
+   * point lies within the collision prediction region.
+   *
+   * @param nav_state Current navigation state containing velocity and perceptions.
+   * @return True if a collision is predicted, false otherwise.
+   */
   bool is_inminent_collision(NavState & nav_state);
+
+  /**
+   * @brief Callback executed when a collision is detected.
+   *
+   * The default implementation stops the robot by setting a zero Twist.
+   *
+   * @param nav_state Reference to the navigation state to modify.
+   */
   virtual void on_inminent_collision(NavState & nav_state);
 
+  /**
+   * @brief Publish visualization markers for the collision checking region.
+   *
+   * Publishes a CUBE representing the bounding box [min, max] used for
+   * point cloud filtering, and a SPHERE_LIST containing the filtered points
+   * used during the collision evaluation.
+   *
+   * @param min Lower bound of the collision check region [x, y, z].
+   * @param max Upper bound of the collision check region [x, y, z].
+   * @param cloud Filtered point cloud used during collision evaluation.
+   * @param imminent_collision Whether the region is currently considered in collision.
+   */
   void publish_collision_zone_marker(
     const std::vector<double> & min,
     const std::vector<double> & max,
     const pcl::PointCloud<pcl::PointXYZ> & cloud,
     bool imminent_collision);
-
 };
 
 }  // namespace easynav

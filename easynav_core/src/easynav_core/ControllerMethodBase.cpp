@@ -42,12 +42,33 @@ ControllerMethodBase::initialize(
   const std::string & plugin_name,
   const std::string & tf_prefix)
 {
-  collision_marker_pub_ = parent_node->create_publisher<visualization_msgs::msg::MarkerArray>(
+  auto node = parent_node;
+  const auto & ns = plugin_name;
+
+  collision_marker_pub_ = node->create_publisher<visualization_msgs::msg::MarkerArray>(
     "collision_area", 10);
 
+  node->declare_parameter(ns + ".colision_checker.active", collision_checker_active_);
+  node->declare_parameter(ns + ".colision_checker.debug_markers", debug_markers_);
+  node->declare_parameter(ns + ".colision_checker.robot_radius", robot_radius_);
+  node->declare_parameter(ns + ".colision_checker.robot_height", robot_height_);
+  node->declare_parameter(ns + ".colision_checker.brake_acc", brake_acc_);
+  node->declare_parameter(ns + ".colision_checker.safety_margin", safety_margin_);
+  node->declare_parameter(ns + ".colision_checker.z_min_filter", z_min_filter_);
+  node->declare_parameter(ns + ".colision_checker.downsample_leaf_size", downsample_leaf_size_);
+  node->declare_parameter(ns + ".colision_checker.motion_frame", motion_frame_);
 
+  node->get_parameter(ns + ".colision_checker.active", collision_checker_active_);
+  node->get_parameter(ns + ".colision_checker.debug_markers", debug_markers_);
+  node->get_parameter(ns + ".colision_checker.robot_radius", robot_radius_);
+  node->get_parameter(ns + ".colision_checker.robot_height", robot_height_);
+  node->get_parameter(ns + ".colision_checker.brake_acc", brake_acc_);
+  node->get_parameter(ns + ".colision_checker.safety_margin", safety_margin_);
+  node->get_parameter(ns + ".colision_checker.z_min_filter", z_min_filter_);
+  node->get_parameter(ns + ".colision_checker.downsample_leaf_size", downsample_leaf_size_);
+  node->get_parameter(ns + ".colision_checker.motion_frame", motion_frame_);
 
-
+  return MethodBase::initialize(parent_node, plugin_name, tf_prefix);
   return MethodBase::initialize(parent_node, plugin_name, tf_prefix);
 }
 
@@ -60,7 +81,7 @@ ControllerMethodBase::internal_update_rt(NavState & nav_state, bool trigger)
     update_rt(nav_state);
 
     if (is_inminent_collision(nav_state)) {
-       on_inminent_collision(nav_state);
+      on_inminent_collision(nav_state);
     }
 
     return true;
@@ -82,60 +103,33 @@ ControllerMethodBase::on_inminent_collision(NavState & nav_state)
 bool
 ControllerMethodBase::is_inminent_collision(NavState & nav_state)
 {
-  std::cerr << "[COLLISION] ========================================" << std::endl;
-
   bool imminent = false;
 
-  if (!nav_state.has("cmd_vel")) {
-    std::cerr << "[COLLISION] No cmd_vel in NavState\n";
-    return false;
-  }
-  if (!nav_state.has("points")) {
-    std::cerr << "[COLLISION] No point perceptions in NavState\n";
-    return false;
-  }
+  if (!nav_state.has("cmd_vel")) {return false;}
+  if (!nav_state.has("points")) {return false;}
 
   const auto twist = nav_state.get<geometry_msgs::msg::TwistStamped>("cmd_vel");
   const auto & perceptions = nav_state.get<PointPerceptions>("points");
 
-  if (perceptions.empty()) {
-    std::cerr << "[COLLISION] Perceptions empty\n";
-    return false;
-  }
+  if (perceptions.empty()) {return false;}
 
   const double vx = twist.twist.linear.x;
   const double vy = twist.twist.linear.y;
   const double wz = twist.twist.angular.z;
   const double v_norm = std::sqrt(vx * vx + vy * vy);
 
-  // Early-out solo si el robot está prácticamente estático (sin avanzar ni girar)
-  if (v_norm < linear_speed_min_threshold_ &&
-      std::fabs(wz) < angular_speed_min_threshold_) {
-    std::cerr << "[COLLISION] Robot almost static (v≈0, w≈0) → no collision\n";
-    return false;
-  }
-
   const double a_brake = std::max(brake_acc_, 1e-3);
   const double d_stop = (v_norm * v_norm) / (2.0 * a_brake) + safety_margin_;
 
-  std::cerr << "[COLLISION] vx=" << vx
-            << " vy=" << vy
-            << " wz=" << wz
-            << " |v|=" << v_norm
-            << " d_stop=" << d_stop << "\n";
-
   std::vector<double> min({
-    static_cast<double>(-robot_radius_ - safety_margin_),
-    static_cast<double>(-robot_radius_ - safety_margin_),
-    static_cast<double>(z_min_filter_)});
+      static_cast<double>(-robot_radius_ - safety_margin_),
+      static_cast<double>(-robot_radius_ - safety_margin_),
+      static_cast<double>(z_min_filter_)});
   std::vector<double> max({
-    static_cast<double>(robot_radius_ + safety_margin_ +
+      static_cast<double>(robot_radius_ + safety_margin_ +
       std::max(0.0, v_norm * v_norm / (2.0 * std::max(brake_acc_, 1e-3)))),
-    static_cast<double>(robot_radius_ + safety_margin_),
-    static_cast<double>(robot_height_)});
-
-  std::cerr << "[COLLISION] Filter box min=[" << min[0] << ", " << min[1] << ", " << min[2]
-            << "] max=[" << max[0] << ", " << max[1] << ", " << max[2] << "]\n";
+      static_cast<double>(robot_radius_ + safety_margin_),
+      static_cast<double>(robot_height_)});
 
   const auto & cloud = PointPerceptionsOpsView(perceptions)
     .downsample(downsample_leaf_size_)
@@ -143,9 +137,6 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
     .fuse(motion_frame_)
     ->filter(min, max)
     .as_points();
-
-  std::cerr << "[COLLISION] Cloud size after fuse/filter: "
-            << cloud.size() << "\n";
 
   if (cloud.empty()) {
     publish_collision_zone_marker(min, max, cloud, imminent);
@@ -161,46 +152,22 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
   const double r_sq = r * r;
   const double x_max = d_stop + r;
 
-  std::cerr << "[COLLISION] Entering translation check dx=" << dx
-            << " dy=" << dy
-            << " r_sq=" << r_sq
-            << " x_max=" << x_max << "\n";
-
   for (const auto & p : cloud.points) {
-    if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) {
-      std::cerr << "[COLLISION] Skipping invalid point (NaN/Inf) in LIN: ("
-                << p.x << "," << p.y << "," << p.z << ")\n";
-      continue;
-    }
+    if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) {continue;}
 
     const double px = p.x;
     const double py = p.y;
 
-    const double x_prime =  dx * px + dy * py;
+    const double x_prime = dx * px + dy * py;
     const double y_prime = -dy * px + dx * py;
-
-
-   std::cerr << "[COLLISION] Point: ("
-                << p.x << "," << p.y << "," << p.z << ")\t"
-                << "x_prime = " << x_prime << "\t"
-                << "y_prime = " << y_prime << "\t"
-                << std::endl;
 
     if (x_prime <= 0.0 || x_prime > x_max) {continue;}
     if ((y_prime * y_prime) > r_sq) {continue;}
-
-    std::cerr << "[COLLISION] LIN hit: p=("
-              << px << "," << py << "," << p.z
-              << ") x'=" << x_prime
-              << " y'=" << y_prime
-              << "\n";
 
     imminent = true;
     publish_collision_zone_marker(min, max, cloud, imminent);
     return imminent;
   }
-
-  std::cerr << "[COLLISION] Translation: no collision\n";
   publish_collision_zone_marker(min, max, cloud, imminent);
   return imminent;
 }
@@ -213,13 +180,11 @@ ControllerMethodBase::publish_collision_zone_marker(
   const pcl::PointCloud<pcl::PointXYZ> & cloud,
   bool imminent_collision)
 {
-  if (!collision_marker_pub_) {
-    return;
-  }
+  if (!debug_markers_) {return;}
+  if (!collision_marker_pub_) {return;}
 
   visualization_msgs::msg::MarkerArray array;
 
-  // 0) Borrar todo lo anterior en este namespace
   {
     visualization_msgs::msg::Marker clear;
     clear.header.frame_id = motion_frame_;
@@ -232,14 +197,12 @@ ControllerMethodBase::publish_collision_zone_marker(
 
   const rclcpp::Time stamp = get_node()->now();
 
-  // Color según colisión inminente
   std_msgs::msg::ColorRGBA color;
   color.r = imminent_collision ? 1.0f : 0.0f;
   color.g = imminent_collision ? 0.0f : 1.0f;
   color.b = 0.0f;
   color.a = 0.25f;
 
-  // 1) CUBO que representa la caja [min, max] usada en el filtro
   {
     visualization_msgs::msg::Marker box;
     box.header.frame_id = motion_frame_;
@@ -249,7 +212,6 @@ ControllerMethodBase::publish_collision_zone_marker(
     box.type = visualization_msgs::msg::Marker::CUBE;
     box.action = visualization_msgs::msg::Marker::ADD;
 
-    // Centro y tamaño del cubo
     const double cx = 0.5 * (min[0] + max[0]);
     const double cy = 0.5 * (min[1] + max[1]);
     const double cz = 0.5 * (min[2] + max[2]);
@@ -273,7 +235,6 @@ ControllerMethodBase::publish_collision_zone_marker(
     array.markers.push_back(box);
   }
 
-  // 2) PUNTOS: la nube filtrada que realmente se usa en la detección
   {
     visualization_msgs::msg::Marker pts;
     pts.header.frame_id = motion_frame_;
@@ -283,15 +244,13 @@ ControllerMethodBase::publish_collision_zone_marker(
     pts.type = visualization_msgs::msg::Marker::SPHERE_LIST;
     pts.action = visualization_msgs::msg::Marker::ADD;
 
-    pts.pose.orientation.w = 1.0;  // sin transformación extra
+    pts.pose.orientation.w = 1.0;
 
-    // Tamaño de cada esfera/punto
     const float point_scale = 0.03f;
     pts.scale.x = point_scale;
     pts.scale.y = point_scale;
     pts.scale.z = point_scale;
 
-    // Color igual que el cubo (verde/rojo según colisión)
     pts.color = color;
     pts.lifetime = rclcpp::Duration(0, 200 * 1000000);
 
