@@ -272,6 +272,7 @@ TEST_F(PerceptionsTestCase, PointPerceptionHandlerWorks)
     *node,
     "/test_scan",
     "sensor_msgs/msg/LaserScan",
+    5,
     perception,
     cb_group);
 
@@ -322,6 +323,7 @@ TEST_F(PerceptionsTestCase, PointPerceptionHandlerPC2Works)
     *node,
     "/test_pc2",
     "sensor_msgs/msg/PointCloud2",
+    5,
     perception,
     cb_group);
 
@@ -388,6 +390,7 @@ TEST_F(PerceptionsTestCase, ImagePerceptionHandlerWorks)
     *node,
     "/test_image",
     "sensor_msgs/msg/Image",
+    5,
     perception,
     cb_group);
 
@@ -446,7 +449,8 @@ public:
   rclcpp::SubscriptionBase::SharedPtr create_subscription(
     rclcpp_lifecycle::LifecycleNode & node,
     const std::string & topic,
-    const std::string &,
+    [[maybe_unused]] const std::string & type,
+    const int queue_size,
     std::shared_ptr<easynav::PerceptionBase> target,
     rclcpp::CallbackGroup::SharedPtr cb_group)
   {
@@ -454,7 +458,7 @@ public:
     options.callback_group = cb_group;
 
     return node.create_subscription<std_msgs::msg::String>(
-      topic, rclcpp::QoS(1).reliable(),
+      topic, rclcpp::QoS(queue_size),
       [target](const std_msgs::msg::String::SharedPtr msg)
       {
         auto p = std::dynamic_pointer_cast<DummyPerception>(target);
@@ -478,6 +482,7 @@ TEST_F(PerceptionsTestCase, CustomPerceptionHandlerCanBeRegistered)
     *node,
     "/dummy_topic",
     "std_msgs/msg/String",
+    1,
     perception,
     cb_group);
 

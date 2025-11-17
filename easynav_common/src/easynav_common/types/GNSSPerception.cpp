@@ -38,6 +38,7 @@ GNSSPerceptionHandler::create_subscription(
   rclcpp_lifecycle::LifecycleNode & node,
   const std::string & topic,
   const std::string & type,
+  const int queue_size,
   std::shared_ptr<PerceptionBase> target,
   rclcpp::CallbackGroup::SharedPtr cb_group)
 {
@@ -49,7 +50,7 @@ GNSSPerceptionHandler::create_subscription(
   options.callback_group = cb_group;
 
   return node.create_subscription<sensor_msgs::msg::NavSatFix>(
-    topic, rclcpp::SensorDataQoS().reliable(),
+    topic, rclcpp::QoS(queue_size),
     [target](const sensor_msgs::msg::NavSatFix::SharedPtr msg)
     {
       auto typed_target = std::dynamic_pointer_cast<GNSSPerception>(target);

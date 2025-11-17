@@ -213,6 +213,7 @@ SensorsNode::on_configure(const rclcpp_lifecycle::State & state)
 
   for (const auto & sensor_id : sensors) {
     std::string topic, msg_type, group;
+    int queue_size = 1;
 
     if (!has_parameter(sensor_id + ".topic")) {
       declare_parameter(sensor_id + ".topic", topic);
@@ -220,9 +221,13 @@ SensorsNode::on_configure(const rclcpp_lifecycle::State & state)
     if (!has_parameter(sensor_id + ".type")) {
       declare_parameter(sensor_id + ".type", msg_type);
     }
+    if (!has_parameter(sensor_id + ".queue_size")) {
+      declare_parameter(sensor_id + ".queue_size", queue_size);
+    }
 
     get_parameter(sensor_id + ".topic", topic);
     get_parameter(sensor_id + ".type", msg_type);
+    get_parameter(sensor_id + ".queue_size", queue_size);
 
     group = resolve_group_from_msg(msg_type);
 
@@ -253,11 +258,13 @@ SensorsNode::on_configure(const rclcpp_lifecycle::State & state)
       continue;
     }
 
-    auto ptr = handler_it->second->create(sensor_id);
-    auto sub = handler_it->second->create_subscription(*this, topic, msg_type, ptr,
-      realtime_cbg_);
+    auto perception_ptr = handler_it->second->create(sensor_id);
+    auto sub = handler_it->second->create_subscription(
+      *this, topic, msg_type, queue_size,
+      perception_ptr, realtime_cbg_
+    );
 
-    perceptions_[group].emplace_back(PerceptionPtr{ptr, sub});
+    perceptions_[group].emplace_back(PerceptionPtr{perception_ptr, sub});
   }
 
   return CallbackReturnT::SUCCESS;

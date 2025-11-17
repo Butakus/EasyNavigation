@@ -90,6 +90,7 @@ public:
   /// \param node Lifecycle node used to create the subscription.
   /// \param topic Topic name to subscribe to.
   /// \param type ROS message type name. It must be "sensor_msgs/msg/Imu".
+  /// \param queue_size Size of the subscription queue, passed to the QoS config.
   /// \param target Shared pointer to the IMUPerception to be updated.
   /// \param cb_group Callback group for executor-level concurrency control.
   /// \return Shared pointer to the created subscription.
@@ -97,6 +98,7 @@ public:
     rclcpp_lifecycle::LifecycleNode & node,
     const std::string & topic,
     const std::string & type,
+    const int queue_size,
     std::shared_ptr<PerceptionBase> target,
     rclcpp::CallbackGroup::SharedPtr cb_group) override;
 };
