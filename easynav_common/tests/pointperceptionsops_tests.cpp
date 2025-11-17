@@ -100,7 +100,7 @@ TEST_F(PerceptionsOpsTest, CollapseTest)
   pcl::PointCloud<pcl::PointXYZ> collapsed =
     easynav::PointPerceptionsOpsView(perceptions)
     .collapse({NAN, NAN, 0.5})
-    ->as_points();
+    .as_points();
 
   EXPECT_EQ(collapsed.size(), 2u);
   for (const auto & pt : collapsed.points) {
@@ -196,7 +196,7 @@ TEST_F(PerceptionsOpsTest, FuseOperation)
   pcl::PointCloud<pcl::PointXYZ> fused =
     easynav::PointPerceptionsOpsView(perceptions)
     .fuse("odom")
-    ->as_points();
+    .as_points();
 
   ASSERT_EQ(fused.size(), 2u);
 
@@ -285,7 +285,7 @@ TEST(PerceptionsOpsViewCtor, FromSinglePerception_FilterDownsampleCollapse)
   auto collapsed = easynav::PointPerceptionsOpsView(p)
     .filter({0.0, 0.0, 0.0}, {1.0, 1.0, 1.0})
     .collapse({NAN, NAN, 0.25})
-    ->as_points();
+    .as_points();
   ASSERT_EQ(collapsed.size(), 8u);
   for (const auto & pt : collapsed.points) {
     EXPECT_FLOAT_EQ(pt.z, 0.25f);
@@ -325,7 +325,7 @@ TEST(PerceptionsOpsViewCtor, FromOneOfManyPerceptions_UseOneAndOperate)
   auto collapsed = easynav::PointPerceptionsOpsView(*selected)
     .filter({0.25, 0.25, 0.25}, {0.75, 0.75, 0.75})
     .collapse({NAN, NAN, 0.1})
-    ->as_points();
+    .as_points();
   ASSERT_EQ(collapsed.size(), 1u);
   EXPECT_FLOAT_EQ(collapsed[0].z, 0.1f);
 }
@@ -367,7 +367,7 @@ TEST_F(PerceptionsOpsTest, FromSinglePerception_AddAndFuseWithTF)
   tf_buffer->setTransform(tB, "default_authority", false);
 
   // Fuse to "odom" and check both transformed points
-  auto fused_pts = view2->fuse("odom")->as_points();
+  auto fused_pts = view2.fuse("odom").as_points();
   ASSERT_EQ(fused_pts.size(), 2u);
   EXPECT_FLOAT_EQ(fused_pts[0].x, 2.0f);
   EXPECT_FLOAT_EQ(fused_pts[1].x, 8.0f);
@@ -391,7 +391,6 @@ TEST_F(PerceptionsOpsTest, FromSinglePerception_AddAndFuseWithTFDense)
   // Add a second perception
   pcl::PointCloud<pcl::PointXYZ> other;
   other.emplace_back(10.f, 20.f, 30.f);
-  auto view2 = view.add(other, "sensorB", stamp);
 
   // Add a third perception
   pcl::PointCloud<pcl::PointXYZ> dense_cloud;
@@ -414,7 +413,6 @@ TEST_F(PerceptionsOpsTest, FromSinglePerception_AddAndFuseWithTFDense)
         dist * std::sin(elev_rad));
     }
   }
-  auto view3 = view2->add(dense_cloud, "sensorC", stamp);
 
   // Add a fourth perception
   pcl::PointCloud<pcl::PointXYZ> dense_cloud_2;
@@ -435,7 +433,10 @@ TEST_F(PerceptionsOpsTest, FromSinglePerception_AddAndFuseWithTFDense)
         dist * std::sin(elev_rad));
     }
   }
-  auto view4 = view3->add(dense_cloud_2, "sensorD", stamp);
+
+  view.add(other, "sensorB", stamp)
+  .add(dense_cloud, "sensorC", stamp)
+  .add(dense_cloud_2, "sensorD", stamp);
 
   // Register TFs
   geometry_msgs::msg::TransformStamped tA, tB, tC;
@@ -470,7 +471,7 @@ TEST_F(PerceptionsOpsTest, FromSinglePerception_AddAndFuseWithTFDense)
 
   // Fuse to "odom" and check both transformed points
   auto t_start = std::chrono::steady_clock::now();
-  auto fused_pts = view4->fuse("odom")->as_points();
+  auto fused_pts = view.fuse("odom").as_points();
   auto t_end = std::chrono::steady_clock::now();
 
   double ms =
@@ -526,8 +527,8 @@ TEST_F(PerceptionsOpsTest, CollapseDenseLidarPerformance)
   auto t_start = std::chrono::steady_clock::now();
   pcl::PointCloud<pcl::PointXYZ> collapsed =
     easynav::PointPerceptionsOpsView(perceptions)
-      .collapse({NAN, NAN, 0.5})
-      ->as_points();
+    .collapse({NAN, NAN, 0.5})
+    .as_points();
   auto t_end = std::chrono::steady_clock::now();
 
   double ms =
