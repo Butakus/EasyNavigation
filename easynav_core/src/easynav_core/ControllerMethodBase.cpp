@@ -48,27 +48,26 @@ ControllerMethodBase::initialize(
   collision_marker_pub_ = node->create_publisher<visualization_msgs::msg::MarkerArray>(
     "collision_area", 10);
 
-  node->declare_parameter(ns + ".colision_checker.active", collision_checker_active_);
-  node->declare_parameter(ns + ".colision_checker.debug_markers", debug_markers_);
-  node->declare_parameter(ns + ".colision_checker.robot_radius", robot_radius_);
-  node->declare_parameter(ns + ".colision_checker.robot_height", robot_height_);
-  node->declare_parameter(ns + ".colision_checker.brake_acc", brake_acc_);
-  node->declare_parameter(ns + ".colision_checker.safety_margin", safety_margin_);
-  node->declare_parameter(ns + ".colision_checker.z_min_filter", z_min_filter_);
-  node->declare_parameter(ns + ".colision_checker.downsample_leaf_size", downsample_leaf_size_);
-  node->declare_parameter(ns + ".colision_checker.motion_frame", motion_frame_);
+  node->declare_parameter("colision_checker.active", collision_checker_active_);
+  node->declare_parameter("colision_checker.debug_markers", debug_markers_);
+  node->declare_parameter("colision_checker.robot_radius", robot_radius_);
+  node->declare_parameter("colision_checker.robot_height", robot_height_);
+  node->declare_parameter("colision_checker.brake_acc", brake_acc_);
+  node->declare_parameter("colision_checker.safety_margin", safety_margin_);
+  node->declare_parameter("colision_checker.z_min_filter", z_min_filter_);
+  node->declare_parameter("colision_checker.downsample_leaf_size", downsample_leaf_size_);
+  node->declare_parameter("colision_checker.motion_frame", motion_frame_);
 
-  node->get_parameter(ns + ".colision_checker.active", collision_checker_active_);
-  node->get_parameter(ns + ".colision_checker.debug_markers", debug_markers_);
-  node->get_parameter(ns + ".colision_checker.robot_radius", robot_radius_);
-  node->get_parameter(ns + ".colision_checker.robot_height", robot_height_);
-  node->get_parameter(ns + ".colision_checker.brake_acc", brake_acc_);
-  node->get_parameter(ns + ".colision_checker.safety_margin", safety_margin_);
-  node->get_parameter(ns + ".colision_checker.z_min_filter", z_min_filter_);
-  node->get_parameter(ns + ".colision_checker.downsample_leaf_size", downsample_leaf_size_);
-  node->get_parameter(ns + ".colision_checker.motion_frame", motion_frame_);
+  node->get_parameter("colision_checker.active", collision_checker_active_);
+  node->get_parameter("colision_checker.debug_markers", debug_markers_);
+  node->get_parameter("colision_checker.robot_radius", robot_radius_);
+  node->get_parameter("colision_checker.robot_height", robot_height_);
+  node->get_parameter("colision_checker.brake_acc", brake_acc_);
+  node->get_parameter("colision_checker.safety_margin", safety_margin_);
+  node->get_parameter("colision_checker.z_min_filter", z_min_filter_);
+  node->get_parameter("colision_checker.downsample_leaf_size", downsample_leaf_size_);
+  node->get_parameter("colision_checker.motion_frame", motion_frame_);
 
-  return MethodBase::initialize(parent_node, plugin_name, tf_prefix);
   return MethodBase::initialize(parent_node, plugin_name, tf_prefix);
 }
 
@@ -80,7 +79,7 @@ ControllerMethodBase::internal_update_rt(NavState & nav_state, bool trigger)
 
     update_rt(nav_state);
 
-    if (is_inminent_collision(nav_state)) {
+    if (collision_checker_active_ && is_inminent_collision(nav_state)) {
       on_inminent_collision(nav_state);
     }
 
@@ -103,6 +102,7 @@ ControllerMethodBase::on_inminent_collision(NavState & nav_state)
 bool
 ControllerMethodBase::is_inminent_collision(NavState & nav_state)
 {
+  EASYNAV_TRACE_EVENT;
   bool imminent = false;
 
   if (!nav_state.has("cmd_vel")) {return false;}
@@ -120,6 +120,7 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
 
   const double a_brake = std::max(brake_acc_, 1e-3);
   const double d_stop = (v_norm * v_norm) / (2.0 * a_brake) + safety_margin_;
+  const double t_stop = v_norm / a_brake;
 
   std::vector<double> min({
       static_cast<double>(-robot_radius_ - safety_margin_),
@@ -131,12 +132,18 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
       static_cast<double>(robot_radius_ + safety_margin_),
       static_cast<double>(robot_height_)});
 
+  auto t0 = get_node()->now();
+
   const auto & cloud = PointPerceptionsOpsView(perceptions)
     .downsample(downsample_leaf_size_)
-    .filter({-2.0, -2.0, z_min_filter_}, {2.0, 2.0, robot_height_})
+    //.filter({-1.2, -1.2, -1.2}, {1.2, 1.2, 1.2})
     .fuse(motion_frame_)
     ->filter(min, max)
     .as_points();
+
+  auto t1 = get_node()->now();
+  std::cerr << "t1 = " << std::fixed << std::setprecision(8) << (t1-t0).seconds() << std::endl;
+  std::cerr << "points = " <<  cloud.size() << std::endl;
 
   if (cloud.empty()) {
     publish_collision_zone_marker(min, max, cloud, imminent);
@@ -152,22 +159,44 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
   const double r_sq = r * r;
   const double x_max = d_stop + r;
 
+  auto t2 = get_node()->now();
+  std::cerr << "t2 = " << std::fixed << std::setprecision(8) << (t2-t1).seconds() << std::endl;
+
   for (const auto & p : cloud.points) {
     if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) {continue;}
 
     const double px = p.x;
     const double py = p.y;
 
-    const double x_prime = dx * px + dy * py;
-    const double y_prime = -dy * px + dx * py;
+    const double v_rel_x = -vx + wz * py;
+    const double v_rel_y = -vy - wz * px;
 
-    if (x_prime <= 0.0 || x_prime > x_max) {continue;}
-    if ((y_prime * y_prime) > r_sq) {continue;}
+    const double v_rel_sq = v_rel_x * v_rel_x + v_rel_y * v_rel_y;
+    if (v_rel_sq < 1e-8) {continue;}
 
-    imminent = true;
-    publish_collision_zone_marker(min, max, cloud, imminent);
-    return imminent;
+    const double dot = px * v_rel_x + py * v_rel_y;
+    const double t_star = -dot / v_rel_sq;
+
+    if (t_star < 0.0) {continue;}
+    if (t_star > t_stop) {continue;}
+
+    const double cx = px + v_rel_x * t_star;
+    const double cy = py + v_rel_y * t_star;
+    const double d_min_sq = cx * cx + cy * cy;
+
+    if (d_min_sq <= r_sq) {
+      imminent = true;
+      publish_collision_zone_marker(min, max, cloud, imminent);
+      
+      auto t3 = get_node()->now();
+      std::cerr << "t3 = " << std::fixed << std::setprecision(8) << (t3-t2).seconds() << std::endl;
+
+      return true;
+    }
   }
+  auto t3 = get_node()->now();
+  std::cerr << "t3 = " << std::fixed << std::setprecision(8) << (t3-t2).seconds() << std::endl;
+
   publish_collision_zone_marker(min, max, cloud, imminent);
   return imminent;
 }
