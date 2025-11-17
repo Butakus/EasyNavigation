@@ -19,8 +19,6 @@
 
 
 #include <string>
-#include <vector>
-#include <optional>
 
 #include "sensor_msgs/msg/imu.hpp"
 

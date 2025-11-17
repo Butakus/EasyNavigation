@@ -22,12 +22,9 @@
 #include <optional>
 
 #include "pcl_conversions/pcl_conversions.h"
-#include "pcl/point_types_conversion.h"
 
-#include "pcl/common/transforms.h"
 #include "pcl/point_cloud.h"
 #include "pcl/point_types.h"
-#include "pcl/PointIndices.h"
 
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 

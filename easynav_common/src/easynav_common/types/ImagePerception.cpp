@@ -19,8 +19,6 @@
 
 
 #include <string>
-#include <vector>
-#include <optional>
 
 #include "cv_bridge/cv_bridge.hpp"
 #include "sensor_msgs/msg/image.hpp"
