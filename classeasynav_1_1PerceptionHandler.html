@@ -123,9 +123,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a7c0b7d9eb779ed511d322f590120e7ea" id="r_a7c0b7d9eb779ed511d322f590120e7ea"><td class="memItemLeft" align="right" valign="top">virtual std::shared_ptr&lt; <a class="el" href="classeasynav_1_1PerceptionBase.html">PerceptionBase</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a7c0b7d9eb779ed511d322f590120e7ea">create</a> (const std::string &amp;sensor_id)=0</td></tr>
 <tr class="memdesc:a7c0b7d9eb779ed511d322f590120e7ea"><td class="mdescLeft">&#160;</td><td class="mdescRight">Creates a new instance of a perception object managed by this handler.  <br /></td></tr>
 <tr class="separator:a7c0b7d9eb779ed511d322f590120e7ea"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ad4e23be7dcafea9172fafc36b5ce7793" id="r_ad4e23be7dcafea9172fafc36b5ce7793"><td class="memItemLeft" align="right" valign="top">virtual rclcpp::SubscriptionBase::SharedPtr&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad4e23be7dcafea9172fafc36b5ce7793">create_subscription</a> (rclcpp_lifecycle::LifecycleNode &amp;node, const std::string &amp;topic, const std::string &amp;type, std::shared_ptr&lt; <a class="el" href="classeasynav_1_1PerceptionBase.html">PerceptionBase</a> &gt; target, rclcpp::CallbackGroup::SharedPtr cb_group)=0</td></tr>
-<tr class="memdesc:ad4e23be7dcafea9172fafc36b5ce7793"><td class="mdescLeft">&#160;</td><td class="mdescRight">Creates a subscription that processes messages into <a class="el" href="classeasynav_1_1PerceptionBase.html">PerceptionBase</a> instances.  <br /></td></tr>
-<tr class="separator:ad4e23be7dcafea9172fafc36b5ce7793"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a23579a53a61019e28c79c7f4519673ba" id="r_a23579a53a61019e28c79c7f4519673ba"><td class="memItemLeft" align="right" valign="top">virtual rclcpp::SubscriptionBase::SharedPtr&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a23579a53a61019e28c79c7f4519673ba">create_subscription</a> (rclcpp_lifecycle::LifecycleNode &amp;node, const std::string &amp;topic, const std::string &amp;type, const int queue_size, std::shared_ptr&lt; <a class="el" href="classeasynav_1_1PerceptionBase.html">PerceptionBase</a> &gt; target, rclcpp::CallbackGroup::SharedPtr cb_group)=0</td></tr>
+<tr class="memdesc:a23579a53a61019e28c79c7f4519673ba"><td class="mdescLeft">&#160;</td><td class="mdescRight">Creates a subscription that processes messages into <a class="el" href="classeasynav_1_1PerceptionBase.html">PerceptionBase</a> instances.  <br /></td></tr>
+<tr class="separator:a23579a53a61019e28c79c7f4519673ba"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad71c317c86661d3d0459590ea07b3880" id="r_ad71c317c86661d3d0459590ea07b3880"><td class="memItemLeft" align="right" valign="top">virtual std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad71c317c86661d3d0459590ea07b3880">group</a> () const =0</td></tr>
 <tr class="memdesc:ad71c317c86661d3d0459590ea07b3880"><td class="mdescLeft">&#160;</td><td class="mdescRight">Returns the group identifier associated with this handler.  <br /></td></tr>
 <tr class="separator:ad71c317c86661d3d0459590ea07b3880"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -198,8 +198,8 @@ Public Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="ad4e23be7dcafea9172fafc36b5ce7793" name="ad4e23be7dcafea9172fafc36b5ce7793"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#ad4e23be7dcafea9172fafc36b5ce7793">&#9670;&#160;</a></span>create_subscription()</h2>
+<a id="a23579a53a61019e28c79c7f4519673ba" name="a23579a53a61019e28c79c7f4519673ba"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a23579a53a61019e28c79c7f4519673ba">&#9670;&#160;</a></span>create_subscription()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -221,6 +221,11 @@ Public Member Functions</h2></td></tr>
           <td class="paramkey"></td>
           <td></td>
           <td class="paramtype">const std::string &amp;</td>          <td class="paramname"><span class="paramname"><em>type</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const int</td>          <td class="paramname"><span class="paramname"><em>queue_size</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -247,6 +252,7 @@ Public Member Functions</h2></td></tr>
     <tr><td class="paramname">node</td><td>Reference to the lifecycle node used for creating the subscription. </td></tr>
     <tr><td class="paramname">topic</td><td>Topic name to subscribe to. </td></tr>
     <tr><td class="paramname">type</td><td>ROS message type name (e.g., <code>"sensor_msgs/msg/LaserScan"</code>). </td></tr>
+    <tr><td class="paramname">queue_size</td><td>Size of the subscription queue, passed to the QoS config. </td></tr>
     <tr><td class="paramname">target</td><td>Shared pointer where perception results are stored. </td></tr>
     <tr><td class="paramname">cb_group</td><td>Callback group where the subscription callback will be executed. </td></tr>
   </table>
@@ -254,7 +260,7 @@ Public Member Functions</h2></td></tr>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd>Shared pointer to the created subscription. </dd></dl>
 
-<p>Implemented in <a class="el" href="classDummyHandler.html#a2a93b1965c424a99e3cb03b164a59fb8">DummyHandler</a>, <a class="el" href="classeasynav_1_1GNSSPerceptionHandler.html#a891643b72cfcd8643ba35d62faff8cce">GNSSPerceptionHandler</a>, <a class="el" href="classeasynav_1_1ImagePerceptionHandler.html#a891643b72cfcd8643ba35d62faff8cce">ImagePerceptionHandler</a>, <a class="el" href="classeasynav_1_1IMUPerceptionHandler.html#a891643b72cfcd8643ba35d62faff8cce">IMUPerceptionHandler</a>, and <a class="el" href="classeasynav_1_1PointPerceptionHandler.html#a891643b72cfcd8643ba35d62faff8cce">PointPerceptionHandler</a>.</p>
+<p>Implemented in <a class="el" href="classDummyHandler.html#a2ed1f1a98d18930924ab5f507a914392">DummyHandler</a>, <a class="el" href="classeasynav_1_1GNSSPerceptionHandler.html#a49ff83974fe02c67ca78342b0c1a75d7">GNSSPerceptionHandler</a>, <a class="el" href="classeasynav_1_1ImagePerceptionHandler.html#a49ff83974fe02c67ca78342b0c1a75d7">ImagePerceptionHandler</a>, <a class="el" href="classeasynav_1_1IMUPerceptionHandler.html#a49ff83974fe02c67ca78342b0c1a75d7">IMUPerceptionHandler</a>, and <a class="el" href="classeasynav_1_1PointPerceptionHandler.html#a49ff83974fe02c67ca78342b0c1a75d7">PointPerceptionHandler</a>.</p>
 
 </div>
 </div>
