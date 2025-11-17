@@ -372,3 +372,200 @@ TEST_F(PerceptionsOpsTest, FromSinglePerception_AddAndFuseWithTF)
   EXPECT_FLOAT_EQ(fused_pts[0].x, 2.0f);
   EXPECT_FLOAT_EQ(fused_pts[1].x, 8.0f);
 }
+
+TEST_F(PerceptionsOpsTest, FromSinglePerception_AddAndFuseWithTFDense)
+{
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("test_ctor_add_fuse");
+  auto tf_buffer = easynav::RTTFBuffer::getInstance(node->get_clock());
+  tf2_ros::TransformListener tf_listener(*tf_buffer);
+  rclcpp::Time stamp = node->now();
+
+  easynav::PointPerception base;
+  base.valid = true;
+  base.frame_id = "sensorA";
+  base.stamp = stamp;
+  base.data.emplace_back(1.f, 2.f, 3.f);
+
+  easynav::PointPerceptionsOpsView view(base);
+
+  // Add a second perception
+  pcl::PointCloud<pcl::PointXYZ> other;
+  other.emplace_back(10.f, 20.f, 30.f);
+  auto view2 = view.add(other, "sensorB", stamp);
+
+  // Add a third perception
+  pcl::PointCloud<pcl::PointXYZ> dense_cloud;
+  dense_cloud.reserve(250000);
+  const int rings = 128;
+  const int points_per_ring = 2000;
+  for (int r = 0; r < rings; r++) {
+    float elev = -15.0f + 30.0f * (float(r) / float(rings));
+    float elev_rad = elev * M_PI / 180.0f;
+
+    for (int i = 0; i < points_per_ring; i++) {
+      float azim = float(i) * 0.18f;
+      float azim_rad = azim * M_PI / 180.0f;
+
+      float dist = 10.0f + 5.0f * std::sin(i * 0.002f);
+
+      dense_cloud.emplace_back(
+        dist * std::cos(elev_rad) * std::cos(azim_rad),
+        dist * std::cos(elev_rad) * std::sin(azim_rad),
+        dist * std::sin(elev_rad));
+    }
+  }
+  auto view3 = view2->add(dense_cloud, "sensorC", stamp);
+
+  // Add a fourth perception
+  pcl::PointCloud<pcl::PointXYZ> dense_cloud_2;
+  dense_cloud_2.reserve(250000);
+  for (int r = 0; r < rings; r++) {
+    float elev = -15.0f + 30.0f * (float(r) / float(rings));
+    float elev_rad = elev * M_PI / 180.0f;
+
+    for (int i = 0; i < points_per_ring; i++) {
+      float azim = float(i) * 0.18f;
+      float azim_rad = azim * M_PI / 180.0f;
+
+      float dist = 10.0f + 5.0f * std::sin(i * 0.002f);
+
+      dense_cloud_2.emplace_back(
+        dist * std::cos(elev_rad) * std::cos(azim_rad),
+        dist * std::cos(elev_rad) * std::sin(azim_rad),
+        dist * std::sin(elev_rad));
+    }
+  }
+  auto view4 = view3->add(dense_cloud_2, "sensorD", stamp);
+
+  // Register TFs
+  geometry_msgs::msg::TransformStamped tA, tB, tC;
+  tA.header.stamp = stamp;
+  tA.header.frame_id = "odom";
+  tA.child_frame_id = "sensorA";
+  tA.transform.translation.x = 1.0;
+  tA.transform.rotation.w = 1.0;
+  tf_buffer->setTransform(tA, "default_authority", false);
+
+  tB.header.stamp = stamp;
+  tB.header.frame_id = "odom";
+  tB.child_frame_id = "sensorB";
+  tB.transform.translation.x = -2.0;
+  tB.transform.rotation.w = 1.0;
+  tf_buffer->setTransform(tB, "default_authority", false);
+
+  tC.header.stamp = stamp;
+  tC.header.frame_id = "odom";
+  tC.child_frame_id = "sensorC";
+  tC.transform.translation.y = 1.5;
+  tC.transform.rotation.w = 1.0;
+  tf_buffer->setTransform(tC, "default_authority", false);
+
+  tC.header.stamp = stamp;
+  tC.header.frame_id = "odom";
+  tC.child_frame_id = "sensorD";
+  tC.transform.translation.y = -1.0;
+  tC.transform.rotation.w = 1.0;
+  tf_buffer->setTransform(tC, "default_authority", false);
+
+
+  // Fuse to "odom" and check both transformed points
+  auto t_start = std::chrono::steady_clock::now();
+  auto fused_pts = view4->fuse("odom")->as_points();
+  auto t_end = std::chrono::steady_clock::now();
+
+  double ms =
+    std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start).count();
+
+  RCLCPP_INFO(
+    node->get_logger(),
+    "Fuse() executed in %.2f ms with ~%zu points",
+    ms, fused_pts.size());
+
+  ASSERT_EQ(fused_pts.size(), dense_cloud.size() + dense_cloud_2.size() + 2);
+
+  EXPECT_FLOAT_EQ(fused_pts[0].x, 2.0f);  // 1 + 1
+  EXPECT_FLOAT_EQ(fused_pts[1].x, 8.0f);  // 10 - 2
+}
+
+TEST_F(PerceptionsOpsTest, CollapseDenseLidarPerformance)
+{
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("test_collapse_dense_lidar");
+
+  easynav::PointPerceptions perceptions;
+  auto perception = std::make_shared<easynav::PointPerception>();
+
+  perception->valid = true;
+  perception->frame_id = "sensor_lidar";
+  perception->stamp = node->now();
+
+  pcl::PointCloud<pcl::PointXYZ> dense_cloud;
+  dense_cloud.reserve(250000);
+
+  const int rings = 128;
+  const int points_per_ring = 2000;
+  for (int r = 0; r < rings; ++r) {
+    float elev_deg = -15.0f + 30.0f * (static_cast<float>(r) / static_cast<float>(rings));
+    float elev_rad = elev_deg * static_cast<float>(M_PI) / 180.0f;
+
+    for (int i = 0; i < points_per_ring; ++i) {
+      float azim_deg = static_cast<float>(i) * 0.18f;
+      float azim_rad = azim_deg * static_cast<float>(M_PI) / 180.0f;
+
+      float dist = 10.0f + 5.0f * std::sin(static_cast<float>(i) * 0.002f);
+
+      dense_cloud.emplace_back(
+        dist * std::cos(elev_rad) * std::cos(azim_rad),
+        dist * std::cos(elev_rad) * std::sin(azim_rad),
+        dist * std::sin(elev_rad));
+    }
+  }
+
+  perception->data = dense_cloud;
+  perceptions.push_back(perception);
+
+  auto t_start = std::chrono::steady_clock::now();
+  pcl::PointCloud<pcl::PointXYZ> collapsed =
+    easynav::PointPerceptionsOpsView(perceptions)
+      .collapse({NAN, NAN, 0.5})
+      ->as_points();
+  auto t_end = std::chrono::steady_clock::now();
+
+  double ms =
+    std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start).count();
+
+  RCLCPP_INFO(
+    node->get_logger(),
+    "Collapse() executed in %.2f ms with %zu input points and %zu output points",
+    ms,
+    dense_cloud.size(),
+    static_cast<std::size_t>(collapsed.size()));
+
+  EXPECT_EQ(collapsed.size(), dense_cloud.size());
+
+  ASSERT_FALSE(collapsed.empty());
+
+  const auto & src0 = dense_cloud.points[0];
+  const auto & dst0 = collapsed.points[0];
+  EXPECT_FLOAT_EQ(dst0.x, src0.x);
+  EXPECT_FLOAT_EQ(dst0.y, src0.y);
+  EXPECT_FLOAT_EQ(dst0.z, 0.5f);
+
+  const std::size_t mid_idx = collapsed.size() / 2;
+  const auto & src_mid = dense_cloud.points[mid_idx];
+  const auto & dst_mid = collapsed.points[mid_idx];
+  EXPECT_FLOAT_EQ(dst_mid.x, src_mid.x);
+  EXPECT_FLOAT_EQ(dst_mid.y, src_mid.y);
+  EXPECT_FLOAT_EQ(dst_mid.z, 0.5f);
+
+  const std::size_t last_idx = collapsed.size() - 1;
+  const auto & src_last = dense_cloud.points[last_idx];
+  const auto & dst_last = collapsed.points[last_idx];
+  EXPECT_FLOAT_EQ(dst_last.x, src_last.x);
+  EXPECT_FLOAT_EQ(dst_last.y, src_last.y);
+  EXPECT_FLOAT_EQ(dst_last.z, 0.5f);
+
+  EXPECT_EQ(perception->data.size(), dense_cloud.size());
+  EXPECT_FLOAT_EQ(perception->data[0].x, dense_cloud[0].x);
+  EXPECT_FLOAT_EQ(perception->data[0].y, dense_cloud[0].y);
+  EXPECT_FLOAT_EQ(perception->data[0].z, dense_cloud[0].z);
+}

@@ -241,10 +241,27 @@ std::shared_ptr<PointPerceptionsOpsView>
 PointPerceptionsOpsView::collapse(const std::vector<double> & collapse_dims) const
 {
   PointPerceptions result;
+  result.reserve(perceptions_.size());
+
+  // Precompute collapse flags and values
+  const bool collapse_x = collapse_dims.size() > 0 && !std::isnan(collapse_dims[0]);
+  const bool collapse_y = collapse_dims.size() > 1 && !std::isnan(collapse_dims[1]);
+  const bool collapse_z = collapse_dims.size() > 2 && !std::isnan(collapse_dims[2]);
+
+  const float cx = collapse_x ? static_cast<float>(collapse_dims[0]) : 0.0f;
+  const float cy = collapse_y ? static_cast<float>(collapse_dims[1]) : 0.0f;
+  const float cz = collapse_z ? static_cast<float>(collapse_dims[2]) : 0.0f;
 
   for (std::size_t i = 0; i < perceptions_.size(); ++i) {
     const auto & pptr = perceptions_[i];
-    if (!pptr || !pptr->valid || pptr->data.empty()) {continue;}
+    if (!pptr || !pptr->valid || pptr->data.empty()) {
+      continue;
+    }
+
+    const auto & idx_list = indices_[i].indices;
+    if (idx_list.empty()) {
+      continue;
+    }
 
     auto collapsed = std::make_shared<PointPerception>();
     collapsed->valid = pptr->valid;
@@ -252,20 +269,36 @@ PointPerceptionsOpsView::collapse(const std::vector<double> & collapse_dims) con
     collapsed->stamp = pptr->stamp;
 
     const auto & cloud = pptr->data;
-    for (int idx : indices_[i].indices) {
-      auto pt = cloud[idx];
-      if (!std::isnan(collapse_dims[0])) {pt.x = collapse_dims[0];}
-      if (!std::isnan(collapse_dims[1])) {pt.y = collapse_dims[1];}
-      if (!std::isnan(collapse_dims[2])) {pt.z = collapse_dims[2];}
-      collapsed->data.push_back(pt);
+
+    // Reserve exactly the number of points that will be added
+    collapsed->data.points.reserve(idx_list.size());
+    collapsed->data.height = 1;
+    collapsed->data.is_dense = cloud.is_dense;
+
+    for (int idx : idx_list) {
+      if (idx < 0 || static_cast<std::size_t>(idx) >= cloud.size()) {
+        continue;
+      }
+
+      const auto & src = cloud[idx];
+      pcl::PointXYZ dst = src;
+
+      if (collapse_x) {dst.x = cx;}
+      if (collapse_y) {dst.y = cy;}
+      if (collapse_z) {dst.z = cz;}
+
+      collapsed->data.push_back(dst);
     }
 
-    result.push_back(collapsed);
+    collapsed->data.width = static_cast<uint32_t>(collapsed->data.points.size());
+
+    if (!collapsed->data.empty()) {
+      result.push_back(std::move(collapsed));
+    }
   }
 
   return std::make_shared<PointPerceptionsOpsView>(std::move(result));
 }
-
 
 pcl::PointCloud<pcl::PointXYZ>
 PointPerceptionsOpsView::as_points() const
@@ -298,37 +331,78 @@ PointPerceptionsOpsView::fuse(const std::string & target_frame) const
   fused->frame_id = target_frame;
   std::optional<rclcpp::Time> latest_stamp;
 
+  // 1) Pre-compute total number of points after filters
+  std::size_t total_points = 0;
   for (std::size_t i = 0; i < perceptions_.size(); ++i) {
-    auto p = perceptions_[i];
+    const auto & p = perceptions_[i];
     if (!p || !p->valid || p->data.empty()) {continue;}
 
-    geometry_msgs::msg::TransformStamped tf_msg;
-    try {
-      tf_msg = RTTFBuffer::getInstance()->lookupTransform(
-        target_frame, p->frame_id, tf2_ros::fromMsg(p->stamp), tf2::durationFromSec(0.0));
-    } catch (const tf2::TransformException & ex) {
-      RCLCPP_WARN(rclcpp::get_logger("PointPerceptionsOpsView"), "TF failed: %s", ex.what());
-      continue;
+    const auto & idx_list = indices_[i].indices;
+    if (idx_list.empty()) {continue;}
+
+    total_points += idx_list.size();
+  }
+
+  // Reserve memory once for the fused cloud
+  fused->data.points.reserve(total_points);
+  fused->data.height = 1;
+  fused->data.is_dense = false;
+
+  // 2) Transform / copy each perception into fused->data
+  for (std::size_t i = 0; i < perceptions_.size(); ++i) {
+    const auto & p = perceptions_[i];
+    if (!p || !p->valid || p->data.empty()) {continue;}
+
+    const auto & idx_list = indices_[i].indices;
+    if (idx_list.empty()) {continue;}
+
+    const auto & cloud = p->data;
+
+    // Fast path: already in target_frame, just copy filtered points
+    if (p->frame_id == target_frame) {
+      for (int idx : idx_list) {
+        if (static_cast<std::size_t>(idx) < cloud.size()) {
+          fused->data.push_back(cloud[idx]);
+        }
+      }
+    } else {
+      // Need TF transform
+      geometry_msgs::msg::TransformStamped tf_msg;
+      try {
+        tf_msg = RTTFBuffer::getInstance()->lookupTransform(
+          target_frame, p->frame_id,
+          tf2_ros::fromMsg(p->stamp),
+          tf2::durationFromSec(0.0));
+      } catch (const tf2::TransformException & ex) {
+        RCLCPP_WARN(
+          rclcpp::get_logger("PointPerceptionsOpsView"),
+          "TF failed: %s", ex.what());
+        continue;
+      }
+
+      tf2::Transform tf;
+      tf2::fromMsg(tf_msg.transform, tf);
+
+      for (int idx : idx_list) {
+        if (static_cast<std::size_t>(idx) >= cloud.size()) {
+          continue;
+        }
+        const auto & pt = cloud[idx];
+        tf2::Vector3 pt_tf(pt.x, pt.y, pt.z);
+        tf2::Vector3 pt_out = tf * pt_tf;
+        fused->data.emplace_back(
+          static_cast<float>(pt_out.x()),
+          static_cast<float>(pt_out.y()),
+          static_cast<float>(pt_out.z()));
+      }
     }
-
-    tf2::Transform tf;
-    tf2::fromMsg(tf_msg.transform, tf);
-
-    pcl::PointCloud<pcl::PointXYZ> transformed;
-    for (int idx : indices_[i].indices) {
-      const auto & pt = p->data[idx];
-      tf2::Vector3 pt_tf(pt.x, pt.y, pt.z);
-      tf2::Vector3 pt_out = tf * pt_tf;
-      transformed.emplace_back(pt_out.x(), pt_out.y(), pt_out.z());
-    }
-
-    fused->data += transformed;
 
     if (!latest_stamp.has_value() || p->stamp > latest_stamp.value()) {
       latest_stamp = p->stamp;
     }
   }
 
+  fused->data.width = static_cast<uint32_t>(fused->data.points.size());
   fused->stamp = latest_stamp.value_or(rclcpp::Time(0));
 
   PointPerceptions result;
