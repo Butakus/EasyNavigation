@@ -275,32 +275,54 @@ PointPerceptionsOpsView::filter(
 PointPerceptionsOpsView &
 PointPerceptionsOpsView::downsample(double resolution)
 {
-  for (std::size_t i = 0; i < perceptions_.size(); ++i) {
-    if (!perceptions_[i] || !perceptions_[i]->valid || perceptions_[i]->data.empty()) {continue;}
+  if (resolution <= 0.0) {
+    return *this;
+  }
 
-    const auto & cloud = perceptions_[i]->data;
+  const double inv_res = 1.0 / resolution;
+
+  std::unordered_set<VoxelKey, VoxelKeyHash> voxel_set;
+
+  const std::size_t n = perceptions_.size();
+  for (std::size_t i = 0; i < n; ++i) {
+    const auto & pptr = perceptions_[i];
+    if (!pptr || !pptr->valid || pptr->data.empty()) {
+      continue;
+    }
+
     auto & indices = indices_[i].indices;
+    if (indices.size() <= 1) {continue;}
 
-    std::unordered_set<std::tuple<int, int, int>> voxel_set;
+    const auto & cloud = pptr->data;
+
+    voxel_set.clear();
+    voxel_set.reserve(indices.size());
+
     std::size_t write_idx = 0;
 
     for (std::size_t read_idx = 0; read_idx < indices.size(); ++read_idx) {
-      const auto & pt = cloud[indices[read_idx]];
-      auto voxel = std::make_tuple(
-        static_cast<int>(pt.x / resolution),
-        static_cast<int>(pt.y / resolution),
-        static_cast<int>(pt.z / resolution));
+      const int idx = indices[read_idx];
+      if (idx < 0 || static_cast<std::size_t>(idx) >= cloud.size()) {continue;}
 
-      if (voxel_set.insert(voxel).second) {
-        indices[write_idx++] = indices[read_idx];
+      const auto & pt = cloud[idx];
+
+      const float z_val = collapse_z_ ? collapse_val_z_ : pt.z;
+
+      VoxelKey key{
+        static_cast<int>(std::floor(pt.x * inv_res)),
+        static_cast<int>(std::floor(pt.y * inv_res)),
+        static_cast<int>(std::floor(z_val * inv_res))};
+
+      if (voxel_set.insert(key).second) {
+        indices[write_idx++] = idx;
       }
     }
-
     indices.resize(write_idx);
   }
 
   return *this;
 }
+
 
 PointPerceptionsOpsView &
 PointPerceptionsOpsView::collapse(const std::vector<double> & collapse_dims)

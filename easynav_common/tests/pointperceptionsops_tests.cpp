@@ -348,7 +348,7 @@ TEST_F(PerceptionsOpsTest, FromSinglePerception_AddAndFuseWithTF)
   // Add a second perception
   pcl::PointCloud<pcl::PointXYZ> other;
   other.emplace_back(10.f, 20.f, 30.f);
-  auto view2 = view.add(other, "sensorB", stamp);
+  auto & view2 = view.add(other, "sensorB", stamp);
 
   // Register TFs
   geometry_msgs::msg::TransformStamped tA, tB;
@@ -569,4 +569,122 @@ TEST_F(PerceptionsOpsTest, CollapseDenseLidarPerformance)
   EXPECT_FLOAT_EQ(perception->data[0].x, dense_cloud[0].x);
   EXPECT_FLOAT_EQ(perception->data[0].y, dense_cloud[0].y);
   EXPECT_FLOAT_EQ(perception->data[0].z, dense_cloud[0].z);
+}
+
+
+
+TEST_F(PerceptionsOpsTest, All_pipeline)
+{
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("test_ctor_add_fuse");
+  auto tf_buffer = easynav::RTTFBuffer::getInstance(node->get_clock());
+  tf2_ros::TransformListener tf_listener(*tf_buffer);
+  rclcpp::Time stamp = node->now();
+
+  easynav::PointPerception base;
+  base.valid = true;
+  base.frame_id = "sensorA";
+  base.stamp = stamp;
+  base.data.emplace_back(1.f, 2.f, 3.f);
+
+  easynav::PointPerceptionsOpsView view(base);
+
+  // Add a second perception
+  pcl::PointCloud<pcl::PointXYZ> other;
+  other.emplace_back(10.f, 20.f, 30.f);
+
+  // Add a third perception
+  pcl::PointCloud<pcl::PointXYZ> dense_cloud;
+  dense_cloud.reserve(250000);
+  const int rings = 128;
+  const int points_per_ring = 2000;
+  for (int r = 0; r < rings; r++) {
+    float elev = -15.0f + 30.0f * (float(r) / float(rings));
+    float elev_rad = elev * M_PI / 180.0f;
+
+    for (int i = 0; i < points_per_ring; i++) {
+      float azim = float(i) * 0.18f;
+      float azim_rad = azim * M_PI / 180.0f;
+
+      float dist = 10.0f + 5.0f * std::sin(i * 0.002f);
+
+      dense_cloud.emplace_back(
+        dist * std::cos(elev_rad) * std::cos(azim_rad),
+        dist * std::cos(elev_rad) * std::sin(azim_rad),
+        dist * std::sin(elev_rad));
+    }
+  }
+
+  // Add a fourth perception
+  pcl::PointCloud<pcl::PointXYZ> dense_cloud_2;
+  dense_cloud_2.reserve(250000);
+  for (int r = 0; r < rings; r++) {
+    float elev = -15.0f + 30.0f * (float(r) / float(rings));
+    float elev_rad = elev * M_PI / 180.0f;
+
+    for (int i = 0; i < points_per_ring; i++) {
+      float azim = float(i) * 0.18f;
+      float azim_rad = azim * M_PI / 180.0f;
+
+      float dist = 10.0f + 5.0f * std::sin(i * 0.002f);
+
+      dense_cloud_2.emplace_back(
+        dist * std::cos(elev_rad) * std::cos(azim_rad),
+        dist * std::cos(elev_rad) * std::sin(azim_rad),
+        dist * std::sin(elev_rad));
+    }
+  }
+
+  view.add(other, "sensorB", stamp)
+  .add(dense_cloud, "sensorC", stamp)
+  .add(dense_cloud_2, "sensorD", stamp);
+
+  // Register TFs
+  geometry_msgs::msg::TransformStamped tA, tB, tC;
+  tA.header.stamp = stamp;
+  tA.header.frame_id = "odom";
+  tA.child_frame_id = "sensorA";
+  tA.transform.translation.x = 1.0;
+  tA.transform.rotation.w = 1.0;
+  tf_buffer->setTransform(tA, "default_authority", false);
+
+  tB.header.stamp = stamp;
+  tB.header.frame_id = "odom";
+  tB.child_frame_id = "sensorB";
+  tB.transform.translation.x = -2.0;
+  tB.transform.rotation.w = 1.0;
+  tf_buffer->setTransform(tB, "default_authority", false);
+
+  tC.header.stamp = stamp;
+  tC.header.frame_id = "odom";
+  tC.child_frame_id = "sensorC";
+  tC.transform.translation.y = 1.5;
+  tC.transform.rotation.w = 1.0;
+  tf_buffer->setTransform(tC, "default_authority", false);
+
+  tC.header.stamp = stamp;
+  tC.header.frame_id = "odom";
+  tC.child_frame_id = "sensorD";
+  tC.transform.translation.y = -1.0;
+  tC.transform.rotation.w = 1.0;
+  tf_buffer->setTransform(tC, "default_authority", false);
+
+
+  // Fuse to "odom" and check both transformed points
+  auto t_start = std::chrono::steady_clock::now();
+  auto fused_pts = view
+    .downsample(0.1)
+    .filter({NAN, NAN, 1.0}, {NAN, NAN, 2.0})
+    .fuse("odom")
+    .filter({0.0, NAN, NAN}, {NAN, NAN, NAN})
+    .collapse({NAN, NAN, 1.0})
+    .as_points();
+  auto t_end = std::chrono::steady_clock::now();
+
+  double ms =
+    std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start).count();
+
+  RCLCPP_INFO(
+    node->get_logger(),
+    "All pipeline executed in %.2f ms with ~%zu points",
+    ms, fused_pts.size());
 }

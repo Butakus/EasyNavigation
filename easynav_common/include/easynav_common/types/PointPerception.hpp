@@ -230,6 +230,12 @@ public:
   /// \param perceptions Rvalue container of perceptions to be owned by the view.
   explicit PointPerceptionsOpsView(PointPerceptions && perceptions);
 
+  PointPerceptionsOpsView(const PointPerceptionsOpsView &) = delete;
+  PointPerceptionsOpsView & operator=(const PointPerceptionsOpsView &) = delete;
+
+  PointPerceptionsOpsView(PointPerceptionsOpsView &&) = default;
+  PointPerceptionsOpsView & operator=(PointPerceptionsOpsView &&) = default;
+
   /// \brief Filters all point clouds by axis-aligned bounds.
   ///
   /// Components set to \c NaN in \p min_bounds or \p max_bounds leave the corresponding axis unbounded.
