@@ -203,9 +203,10 @@ PointPerceptionsOpsView::PointPerceptionsOpsView(PointPerceptions && perceptions
 PointPerceptionsOpsView &
 PointPerceptionsOpsView::filter(
   const std::vector<double> & min_bounds,
-  const std::vector<double> & max_bounds)
+  const std::vector<double> & max_bounds,
+  bool lazy_post_fuse)
 {
-  if (has_target_frame_) {
+  if (has_target_frame_ && lazy_post_fuse) {
     has_post_filter_ = true;
 
     auto fill_bounds = [](const std::vector<double> & src,
@@ -245,6 +246,12 @@ PointPerceptionsOpsView::filter(
   const double zmax = use_z_max ? max_bounds[2] : 0.0;
 
   const std::size_t n = perceptions_.size();
+  const bool has_tf_array =
+    has_target_frame_ && tf_valid_.size() == n && tf_transforms_.size() == n;
+
+  if (!lazy_post_fuse) {
+    has_post_filter_ = false;
+  }
 
   for (std::size_t i = 0; i < n; ++i) {
     const auto & pptr = perceptions_[i];
@@ -260,15 +267,25 @@ PointPerceptionsOpsView::filter(
     std::vector<int> new_indices;
     new_indices.reserve(idx_list.size());
 
+    const bool apply_tf = has_tf_array && tf_valid_[i];
+
     for (int idx : idx_list) {
       if (idx < 0 || static_cast<std::size_t>(idx) >= cloud.size()) {
         continue;
       }
 
       const auto & pt = cloud[idx];
-      const double x = pt.x;
-      const double y = pt.y;
-      const double z = pt.z;
+      double x = pt.x;
+      double y = pt.y;
+      double z = pt.z;
+
+      if (apply_tf) {
+        tf2::Vector3 p(pt.x, pt.y, pt.z);
+        p = tf_transforms_[i] * p;
+        x = p.x();
+        y = p.y();
+        z = p.z();
+      }
 
       if (use_x_min && x < xmin) {continue;}
       if (use_y_min && y < ymin) {continue;}
@@ -286,7 +303,6 @@ PointPerceptionsOpsView::filter(
 
   return *this;
 }
-
 
 PointPerceptionsOpsView &
 PointPerceptionsOpsView::downsample(double resolution)
@@ -340,21 +356,62 @@ PointPerceptionsOpsView::downsample(double resolution)
 }
 
 PointPerceptionsOpsView &
-PointPerceptionsOpsView::collapse(const std::vector<double> & collapse_dims)
+PointPerceptionsOpsView::collapse(const std::vector<double> & collapse_dims, bool lazy)
 {
-  collapse_x_ = collapse_dims.size() > 0 && !std::isnan(collapse_dims[0]);
-  collapse_y_ = collapse_dims.size() > 1 && !std::isnan(collapse_dims[1]);
-  collapse_z_ = collapse_dims.size() > 2 && !std::isnan(collapse_dims[2]);
+  if (lazy) {
+    collapse_x_ = collapse_dims.size() > 0 && !std::isnan(collapse_dims[0]);
+    collapse_y_ = collapse_dims.size() > 1 && !std::isnan(collapse_dims[1]);
+    collapse_z_ = collapse_dims.size() > 2 && !std::isnan(collapse_dims[2]);
 
-  if (collapse_x_) {
-    collapse_val_x_ = static_cast<float>(collapse_dims[0]);
+    if (collapse_x_) {
+      collapse_val_x_ = static_cast<float>(collapse_dims[0]);
+    }
+    if (collapse_y_) {
+      collapse_val_y_ = static_cast<float>(collapse_dims[1]);
+    }
+    if (collapse_z_) {
+      collapse_val_z_ = static_cast<float>(collapse_dims[2]);
+    }
+
+    return *this;
   }
-  if (collapse_y_) {
-    collapse_val_y_ = static_cast<float>(collapse_dims[1]);
+
+  if (!owned_.has_value()) {
+    RCLCPP_WARN(
+      rclcpp::get_logger("PointPerceptionsOpsView"),
+      "collapse(..., lazy=false) called on a non-owning view. "
+      "Operation ignored.");
+    return *this;
   }
-  if (collapse_z_) {
-    collapse_val_z_ = static_cast<float>(collapse_dims[2]);
+
+  auto & container = owned_.value();
+
+  const bool use_x = collapse_dims.size() > 0 && !std::isnan(collapse_dims[0]);
+  const bool use_y = collapse_dims.size() > 1 && !std::isnan(collapse_dims[1]);
+  const bool use_z = collapse_dims.size() > 2 && !std::isnan(collapse_dims[2]);
+
+  const float vx = use_x ? static_cast<float>(collapse_dims[0]) : 0.0f;
+  const float vy = use_y ? static_cast<float>(collapse_dims[1]) : 0.0f;
+  const float vz = use_z ? static_cast<float>(collapse_dims[2]) : 0.0f;
+
+  if (!use_x && !use_y && !use_z) {
+    return *this;
   }
+
+  for (auto & pptr : container) {
+    if (!pptr || !pptr->valid || pptr->data.empty()) {
+      continue;
+    }
+    auto & cloud = pptr->data;
+
+    for (auto & pt : cloud) {
+      if (use_x) {pt.x = vx;}
+      if (use_y) {pt.y = vy;}
+      if (use_z) {pt.z = vz;}
+    }
+  }
+
+  collapse_x_ = collapse_y_ = collapse_z_ = false;
 
   return *this;
 }

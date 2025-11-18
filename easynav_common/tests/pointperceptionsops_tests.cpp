@@ -687,3 +687,192 @@ TEST_F(PerceptionsOpsTest, All_pipeline)
     "All pipeline executed in %.2f ms with ~%zu points",
     ms, fused_pts.size());
 }
+
+TEST(PerceptionsOpsViewTests, CollapseEager_OwningView_ModifiesOwnedData)
+{
+  easynav::PointPerception p;
+  p.valid = true;
+  p.frame_id = "sensor";
+  p.stamp = rclcpp::Time(0, 0);
+  p.data.emplace_back(1.0f, 2.0f, 0.9f);
+  p.data.emplace_back(1.0f, 4.0f, 1.3f);
+
+  easynav::PointPerceptionsOpsView view(p);
+
+  view.collapse({NAN, NAN, 0.5}, /*lazy=*/false);
+
+  auto collapsed = view.as_points();
+  ASSERT_EQ(collapsed.size(), 2u);
+  EXPECT_FLOAT_EQ(collapsed[0].x, 1.0f);
+  EXPECT_FLOAT_EQ(collapsed[0].z, 0.5f);
+  EXPECT_FLOAT_EQ(collapsed[1].x, 1.0f);
+  EXPECT_FLOAT_EQ(collapsed[1].z, 0.5f);
+
+  const auto & owned_perceptions = view.get_perceptions();
+  ASSERT_EQ(owned_perceptions.size(), 1u);
+  ASSERT_TRUE(owned_perceptions[0]);
+  EXPECT_FLOAT_EQ(owned_perceptions[0]->data[0].z, 0.5f);
+  EXPECT_FLOAT_EQ(owned_perceptions[0]->data[1].z, 0.5f);
+
+  EXPECT_FLOAT_EQ(p.data[0].z, 0.9f);
+  EXPECT_FLOAT_EQ(p.data[1].z, 1.3f);
+}
+
+TEST(PerceptionsOpsViewTests, CollapseEager_NonOwningView_Ignored)
+{
+  easynav::PointPerceptions perceptions;
+  auto perception = std::make_shared<easynav::PointPerception>();
+
+  perception->valid = true;
+  perception->frame_id = "sensor";
+  perception->stamp = rclcpp::Time(0, 0);
+  perception->data.emplace_back(1.0f, 2.0f, 0.9f);
+  perception->data.emplace_back(1.0f, 4.0f, 1.3f);
+  perceptions.push_back(perception);
+
+  easynav::PointPerceptionsOpsView view(perceptions);
+
+  view.collapse({NAN, NAN, 0.5}, /*lazy=*/false);
+
+  auto out = view.as_points();
+  ASSERT_EQ(out.size(), 2u);
+  EXPECT_FLOAT_EQ(out[0].z, 0.9f);
+  EXPECT_FLOAT_EQ(out[1].z, 1.3f);
+
+  EXPECT_FLOAT_EQ(perception->data[0].z, 0.9f);
+  EXPECT_FLOAT_EQ(perception->data[1].z, 1.3f);
+}
+
+TEST_F(PerceptionsOpsTest, FilterPostFuse_Lazy_AppliesInTargetFrame)
+{
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("test_filter_postfuse_lazy");
+  auto tf_buffer = easynav::RTTFBuffer::getInstance(node->get_clock());
+  tf2_ros::TransformListener tf_listener(*tf_buffer);
+
+  rclcpp::Time stamp = node->now();
+
+  // TF: odom -> sensor (x + 1.0)
+  geometry_msgs::msg::TransformStamped tf;
+  tf.header.stamp = stamp;
+  tf.header.frame_id = "odom";
+  tf.child_frame_id = "sensor";
+  tf.transform.translation.x = 1.0;
+  tf.transform.rotation.w = 1.0;
+  tf_buffer->setTransform(tf, "default_authority", false);
+
+  easynav::PointPerception p;
+  p.valid = true;
+  p.frame_id = "sensor";
+  p.stamp = stamp;
+  // In "sensor"
+  p.data.emplace_back(0.0f, 0.0f, 0.0f);     // in odom -> (1, 0, 0)
+  p.data.emplace_back(-0.75f, 0.0f, 0.0f);   // in odom -> (0.25, 0, 0)
+
+  easynav::PointPerceptionsOpsView view(p);
+
+  // fuse + lazy filter in odom: x >= 0.5
+  auto cloud = view
+    .fuse("odom")
+    .filter({0.5, NAN, NAN}, {NAN, NAN, NAN})  // lazy_post_fuse by default = true
+    .as_points();
+
+  ASSERT_EQ(cloud.size(), 1u);
+  EXPECT_FLOAT_EQ(cloud[0].x, 1.0f);  // onlsy the first point will survice (x=1 in odom)
+}
+
+TEST_F(PerceptionsOpsTest, FilterPostFuse_Eager_AppliesInTargetFrame)
+{
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("test_filter_postfuse_eager");
+  auto tf_buffer = easynav::RTTFBuffer::getInstance(node->get_clock());
+  tf2_ros::TransformListener tf_listener(*tf_buffer);
+
+  rclcpp::Time stamp = node->now();
+
+  // TF: odom -> sensor (x + 1.0)
+  geometry_msgs::msg::TransformStamped tf;
+  tf.header.stamp = stamp;
+  tf.header.frame_id = "odom";
+  tf.child_frame_id = "sensor";
+  tf.transform.translation.x = 1.0;
+  tf.transform.rotation.w = 1.0;
+  tf_buffer->setTransform(tf, "default_authority", false);
+
+  easynav::PointPerception p;
+  p.valid = true;
+  p.frame_id = "sensor";
+  p.stamp = stamp;
+  p.data.emplace_back(0.0f, 0.0f, 0.0f);     // -> (1, 0, 0) in odom
+  p.data.emplace_back(-0.75f, 0.0f, 0.0f);   // -> (0.25, 0, 0) un odom
+
+  easynav::PointPerceptionsOpsView view(p);
+
+  auto cloud = view
+    .fuse("odom")
+    .filter({0.5, NAN, NAN}, {NAN, NAN, NAN}, /*lazy_post_fuse=*/false)
+    .as_points();
+
+  ASSERT_EQ(cloud.size(), 1u);
+  EXPECT_FLOAT_EQ(cloud[0].x, 1.0f);
+}
+
+TEST_F(PerceptionsOpsTest, Filter_PreAndPostFuse_EagerCombination)
+{
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("test_filter_pre_post_fuse");
+  auto tf_buffer = easynav::RTTFBuffer::getInstance(node->get_clock());
+  tf2_ros::TransformListener tf_listener(*tf_buffer);
+
+  rclcpp::Time stamp = node->now();
+
+  // TF: odom -> sensor (x + 1.0)
+  geometry_msgs::msg::TransformStamped tf;
+  tf.header.stamp = stamp;
+  tf.header.frame_id = "odom";
+  tf.child_frame_id = "sensor";
+  tf.transform.translation.x = 1.0;
+  tf.transform.rotation.w = 1.0;
+  tf_buffer->setTransform(tf, "default_authority", false);
+
+  easynav::PointPerception p;
+  p.valid = true;
+  p.frame_id = "sensor";
+  p.stamp = stamp;
+  p.data.emplace_back(-1.0f, 0.0f, 0.0f);  // will disrcard in pre-fuse filter
+  p.data.emplace_back(0.0f, 0.0f, 0.0f);   // -> (1,0,0) in odom
+  p.data.emplace_back(1.0f, 0.0f, 0.0f);   // -> (2,0,0) in odom
+
+  easynav::PointPerceptionsOpsView view(p);
+
+  auto cloud = view
+    // pre-fuse filter in frame "sensor": x in [0, 1]
+    .filter({0.0, NAN, NAN}, {1.0, NAN, NAN})
+    // Fuse to "odom"
+    .fuse("odom")
+    // post-fuse eager filter: x >= 1.5 in odom
+    .filter({1.5, NAN, NAN}, {NAN, NAN, NAN}, /*lazy_post_fuse=*/false)
+    .as_points();
+
+  ASSERT_EQ(cloud.size(), 1u);
+  EXPECT_FLOAT_EQ(cloud[0].x, 2.0f);  // only the original point x=1 in sensor survives
+}
+
+TEST(PerceptionsOpsViewTests, CollapseLazy_DoesNotAffectIntermediateFilter)
+{
+  easynav::PointPerception p;
+  p.valid = true;
+  p.frame_id = "sensor";
+  p.stamp = rclcpp::Time(0, 0);
+  p.data.emplace_back(1.0f, 2.0f, 0.9f);
+  p.data.emplace_back(1.0f, 4.0f, 1.3f);
+
+  easynav::PointPerceptionsOpsView view(p);
+
+  // Collapse lazy Z=1.0
+  view.collapse({NAN, NAN, 1.0}, /*lazy=*/true);
+
+  // Filter in z [1.0, 1.0] in sensor frame: applied to original z (0.9 and 1.3),
+  // so both points are discarded.
+  view.filter({NAN, NAN, 1.0}, {NAN, NAN, 1.0});
+
+  auto cloud = view.as_points();
+  EXPECT_EQ(cloud.size(), 0u);
+}

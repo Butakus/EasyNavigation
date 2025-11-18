@@ -238,29 +238,57 @@ public:
 
   /// \brief Filters all point clouds by axis-aligned bounds.
   ///
-  /// Components set to \c NaN in \p min_bounds or \p max_bounds leave the corresponding axis unbounded.
+  /// When the view has no target frame configured (that is, \c fuse() has not been called),
+  /// this method always performs an eager filtering step in the original frame of each sensor,
+  /// updating the internal index sets in-place.
+  ///
+  /// When a target frame has been configured via \c fuse(), the behaviour depends on
+  /// \p lazy_post_fuse:
+  /// - If \p lazy_post_fuse is \c true (default), the bounds are stored as a post-fuse
+  ///   filter in the target frame and are applied lazily during materialization
+  ///   (for example, in \c as_points()), without modifying the internal indices.
+  /// - If \p lazy_post_fuse is \c false, the method applies the transform to the target
+  ///   frame immediately and performs an eager filtering step in that frame, updating
+  ///   the internal indices accordingly.
+  ///
+  /// Components set to \c NaN in \p min_bounds or \p max_bounds leave the corresponding
+  /// axis unbounded.
   ///
   /// \param min_bounds Minimum \c [x,y,z] values (use \c NaN to disable per axis).
   /// \param max_bounds Maximum \c [x,y,z] values (use \c NaN to disable per axis).
+  /// \param lazy_post_fuse If \c true and a target frame is set, configure a lazy
+  ///        post-fuse filter in the target frame; if \c false, always filter eagerly
+  ///        (updating indices) in the current frame (sensor or target).
   /// \return Reference to \c *this to allow chaining.
   PointPerceptionsOpsView & filter(
     const std::vector<double> & min_bounds,
-    const std::vector<double> & max_bounds);
+    const std::vector<double> & max_bounds,
+    bool lazy_post_fuse = true);
 
   /// \brief Downsamples each perception using a voxel grid.
   /// \param resolution Voxel size in meters.
   /// \return Reference to \c *this to allow chaining.
   PointPerceptionsOpsView & downsample(double resolution);
 
-  /// \brief Configures collapsing of dimensions to fixed values (for example, projection onto a plane).
+  /// \brief Collapses dimensions to fixed values (for example, projection onto a plane).
   ///
-  /// Components set to \c NaN in \p collapse_dims keep the original values. This method does not
-  /// modify the underlying perceptions, but stores the collapsing configuration to be applied lazily
-  /// when materializing point clouds (for example in as_points()).
+  /// Components set to \c NaN in \p collapse_dims keep the original values.
+  ///
+  /// The behaviour depends on \p lazy:
+  /// - If \p lazy is \c true (default), the collapse configuration is stored in the view
+  ///   and applied lazily when materializing point clouds (for example, in \c as_points()),
+  ///   without modifying the underlying perception data.
+  /// - If \p lazy is \c false and the view owns its internal container, the collapse is
+  ///   applied eagerly by updating the coordinates of all stored points, so subsequent
+  ///   operations (filters, fusion, etc.) observe the collapsed geometry.
+  ///   On non-owning views, the eager mode is ignored to avoid modifying external data.
   ///
   /// \param collapse_dims Fixed values for each axis (use \c NaN to preserve original values).
+  /// \param lazy If \c true, configure collapse lazily for output only; if \c false and the
+  ///        view is owning, apply the collapse immediately to the internal point data.
   /// \return Reference to \c *this to allow chaining.
-  PointPerceptionsOpsView & collapse(const std::vector<double> & collapse_dims);
+  PointPerceptionsOpsView &
+  collapse(const std::vector<double> & collapse_dims, bool lazy = true);
 
   /// \brief Retrieves all selected points across perceptions as a single concatenated cloud.
   /// \return Concatenated point cloud.
