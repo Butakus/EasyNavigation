@@ -178,7 +178,7 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
     if (d_min_sq <= r_sq) {
       imminent = true;
       publish_collision_zone_marker(min, max, cloud, imminent);
-      
+
       return true;
     }
   }
