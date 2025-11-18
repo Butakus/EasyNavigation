@@ -132,18 +132,12 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
       static_cast<double>(robot_radius_ + safety_margin_),
       static_cast<double>(robot_height_)});
 
-  auto t0 = get_node()->now();
-
   const auto & cloud = PointPerceptionsOpsView(perceptions)
     .downsample(downsample_leaf_size_)
-    //.filter({-1.2, -1.2, -1.2}, {1.2, 1.2, 1.2})
+    .filter({-2.0, -2.0, -2.0}, {2.0, 2.0, 2.0}, false)
     .fuse(motion_frame_)
-    ->filter(min, max)
+    .filter(min, max)
     .as_points();
-
-  auto t1 = get_node()->now();
-  std::cerr << "t1 = " << std::fixed << std::setprecision(8) << (t1-t0).seconds() << std::endl;
-  std::cerr << "points = " <<  cloud.size() << std::endl;
 
   if (cloud.empty()) {
     publish_collision_zone_marker(min, max, cloud, imminent);
@@ -158,9 +152,6 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
   const double dy = vy / v_norm;
   const double r_sq = r * r;
   const double x_max = d_stop + r;
-
-  auto t2 = get_node()->now();
-  std::cerr << "t2 = " << std::fixed << std::setprecision(8) << (t2-t1).seconds() << std::endl;
 
   for (const auto & p : cloud.points) {
     if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) {continue;}
@@ -188,14 +179,9 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
       imminent = true;
       publish_collision_zone_marker(min, max, cloud, imminent);
       
-      auto t3 = get_node()->now();
-      std::cerr << "t3 = " << std::fixed << std::setprecision(8) << (t3-t2).seconds() << std::endl;
-
       return true;
     }
   }
-  auto t3 = get_node()->now();
-  std::cerr << "t3 = " << std::fixed << std::setprecision(8) << (t3-t2).seconds() << std::endl;
 
   publish_collision_zone_marker(min, max, cloud, imminent);
   return imminent;
