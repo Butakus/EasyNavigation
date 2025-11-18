@@ -205,6 +205,29 @@ PointPerceptionsOpsView::filter(
   const std::vector<double> & min_bounds,
   const std::vector<double> & max_bounds)
 {
+  if (has_target_frame_) {
+    has_post_filter_ = true;
+
+    auto fill_bounds = [](const std::vector<double> & src,
+      double dst[3],
+      bool used[3]) {
+        for (int k = 0; k < 3; ++k) {
+          if (static_cast<std::size_t>(k) < src.size() && !std::isnan(src[k])) {
+            used[k] = true;
+            dst[k] = src[k];
+          } else {
+            used[k] = false;
+            dst[k] = 0.0;
+          }
+        }
+      };
+
+    fill_bounds(min_bounds, post_min_, use_post_min_);
+    fill_bounds(max_bounds, post_max_, use_post_max_);
+
+    return *this;
+  }
+
   const bool use_x_min = min_bounds.size() > 0 && !std::isnan(min_bounds[0]);
   const bool use_y_min = min_bounds.size() > 1 && !std::isnan(min_bounds[1]);
   const bool use_z_min = min_bounds.size() > 2 && !std::isnan(min_bounds[2]);
@@ -237,23 +260,15 @@ PointPerceptionsOpsView::filter(
     std::vector<int> new_indices;
     new_indices.reserve(idx_list.size());
 
-    const bool apply_tf = has_target_frame_ && tf_valid_.size() == n && tf_valid_[i];
-
     for (int idx : idx_list) {
       if (idx < 0 || static_cast<std::size_t>(idx) >= cloud.size()) {
         continue;
       }
 
       const auto & pt = cloud[idx];
-      tf2::Vector3 p(pt.x, pt.y, pt.z);
-
-      if (apply_tf) {
-        p = tf_transforms_[i] * p;
-      }
-
-      const double x = p.x();
-      const double y = p.y();
-      const double z = p.z();
+      const double x = pt.x;
+      const double y = pt.y;
+      const double z = pt.z;
 
       if (use_x_min && x < xmin) {continue;}
       if (use_y_min && y < ymin) {continue;}
@@ -271,6 +286,7 @@ PointPerceptionsOpsView::filter(
 
   return *this;
 }
+
 
 PointPerceptionsOpsView &
 PointPerceptionsOpsView::downsample(double resolution)
@@ -309,9 +325,9 @@ PointPerceptionsOpsView::downsample(double resolution)
       const float z_val = collapse_z_ ? collapse_val_z_ : pt.z;
 
       VoxelKey key{
-        static_cast<int>(std::floor(pt.x * inv_res)),
-        static_cast<int>(std::floor(pt.y * inv_res)),
-        static_cast<int>(std::floor(z_val * inv_res))};
+        static_cast<int>(pt.x * inv_res),
+        static_cast<int>(pt.y * inv_res),
+        static_cast<int>(z_val * inv_res)};
 
       if (voxel_set.insert(key).second) {
         indices[write_idx++] = idx;
@@ -322,7 +338,6 @@ PointPerceptionsOpsView::downsample(double resolution)
 
   return *this;
 }
-
 
 PointPerceptionsOpsView &
 PointPerceptionsOpsView::collapse(const std::vector<double> & collapse_dims)
@@ -349,9 +364,9 @@ PointPerceptionsOpsView::as_points() const
 {
   pcl::PointCloud<pcl::PointXYZ> out;
 
-  std::size_t total_points = 0;
   const std::size_t n = perceptions_.size();
 
+  std::size_t total_points = 0;
   for (std::size_t i = 0; i < n; ++i) {
     total_points += indices_[i].indices.size();
   }
@@ -360,7 +375,8 @@ PointPerceptionsOpsView::as_points() const
   out.height = 1;
   out.is_dense = false;
 
-  const bool has_tf = has_target_frame_ && tf_valid_.size() == n;
+  const bool has_tf_array =
+    has_target_frame_ && (tf_valid_.size() == n) && (tf_transforms_.size() == n);
 
   for (std::size_t i = 0; i < n; ++i) {
     const auto & pptr = perceptions_[i];
@@ -371,7 +387,7 @@ PointPerceptionsOpsView::as_points() const
     }
 
     const auto & cloud = pptr->data;
-    const bool apply_tf = has_tf && tf_valid_[i];
+    const bool apply_tf = has_tf_array && tf_valid_[i];
 
     for (int idx : idx_list) {
       if (idx < 0 || static_cast<std::size_t>(idx) >= cloud.size()) {
@@ -385,10 +401,24 @@ PointPerceptionsOpsView::as_points() const
         p = tf_transforms_[i] * p;
       }
 
+      double x = p.x();
+      double y = p.y();
+      double z = p.z();
+
+      if (has_post_filter_) {
+        if (use_post_min_[0] && x < post_min_[0]) {continue;}
+        if (use_post_min_[1] && y < post_min_[1]) {continue;}
+        if (use_post_min_[2] && z < post_min_[2]) {continue;}
+
+        if (use_post_max_[0] && x > post_max_[0]) {continue;}
+        if (use_post_max_[1] && y > post_max_[1]) {continue;}
+        if (use_post_max_[2] && z > post_max_[2]) {continue;}
+      }
+
       pcl::PointXYZ dst(
-        static_cast<float>(p.x()),
-        static_cast<float>(p.y()),
-        static_cast<float>(p.z()));
+        static_cast<float>(x),
+        static_cast<float>(y),
+        static_cast<float>(z));
 
       if (collapse_x_) {dst.x = collapse_val_x_;}
       if (collapse_y_) {dst.y = collapse_val_y_;}

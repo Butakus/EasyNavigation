@@ -324,6 +324,12 @@ private:
   float collapse_val_y_ {0.0f};                ///< Value used when collapsing Y (if enabled).
   float collapse_val_z_ {0.0f};                ///< Value used when collapsing Z (if enabled).
 
+  bool has_post_filter_ {false};
+  double post_min_[3] {0.0, 0.0, 0.0};
+  double post_max_[3] {0.0, 0.0, 0.0};
+  bool use_post_min_[3] {false, false, false};
+  bool use_post_max_[3] {false, false, false};
+
   // Temporary storage for as_points(int)
   mutable pcl::PointCloud<pcl::PointXYZ> tmp_single_cloud_;
 };

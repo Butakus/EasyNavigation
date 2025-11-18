@@ -572,7 +572,6 @@ TEST_F(PerceptionsOpsTest, CollapseDenseLidarPerformance)
 }
 
 
-
 TEST_F(PerceptionsOpsTest, All_pipeline)
 {
   auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("test_ctor_add_fuse");
