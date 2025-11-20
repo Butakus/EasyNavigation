@@ -381,14 +381,22 @@ SensorsNode::cycle(std::shared_ptr<NavState> nav_state)
   }
 
   if (percept_pub_->get_subscription_count() > 0) {
-    auto fused = PointPerceptionsOpsView(get_point_perceptions(perceptions_["points"]))
-      .fuse(tf_prefix_ + perception_default_frame_);
+    auto points_perceptions = get_point_perceptions(perceptions_["points"]);
 
-    auto fused_points = fused->as_points();
+    PointPerceptionsOpsView fused_view(std::move(points_perceptions));
+
+    fused_view.fuse(tf_prefix_ + perception_default_frame_);
+    auto fused_points = fused_view.as_points();
 
     auto msg = points_to_rosmsg(fused_points);
     msg.header.frame_id = tf_prefix_ + perception_default_frame_;
-    msg.header.stamp = fused->get_perceptions()[0]->stamp;
+
+    const auto & percs = fused_view.get_perceptions();
+    if (!percs.empty() && percs[0]) {
+      msg.header.stamp = percs[0]->stamp;
+    } else {
+      msg.header.stamp = now();
+    }
 
     percept_pub_->publish(msg);
   }
