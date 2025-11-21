@@ -21,20 +21,14 @@
 #include "sensor_msgs/msg/image.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
 
 #include "easynav_common/types/Perceptions.hpp"
 #include "easynav_common/types/PointPerception.hpp"
 #include "easynav_common/types/ImagePerception.hpp"
 
-#include "lifecycle_msgs/msg/transition.hpp"
-#include "lifecycle_msgs/msg/state.hpp"
-
 #include "pcl/point_types.h"
 #include "pcl_conversions/pcl_conversions.h"
-#include "pcl/point_types_conversion.h"
-#include "pcl/common/transforms.h"
-#include "tf2_ros/transform_broadcaster.hpp"
-#include "tf2/transform_datatypes.hpp"
 
 #include "gtest/gtest.h"
 
@@ -272,7 +266,6 @@ TEST_F(PerceptionsTestCase, PointPerceptionHandlerWorks)
     *node,
     "/test_scan",
     "sensor_msgs/msg/LaserScan",
-    5,
     perception,
     cb_group);
 
@@ -323,7 +316,6 @@ TEST_F(PerceptionsTestCase, PointPerceptionHandlerPC2Works)
     *node,
     "/test_pc2",
     "sensor_msgs/msg/PointCloud2",
-    5,
     perception,
     cb_group);
 
@@ -390,7 +382,6 @@ TEST_F(PerceptionsTestCase, ImagePerceptionHandlerWorks)
     *node,
     "/test_image",
     "sensor_msgs/msg/Image",
-    5,
     perception,
     cb_group);
 
@@ -450,15 +441,14 @@ public:
     rclcpp_lifecycle::LifecycleNode & node,
     const std::string & topic,
     [[maybe_unused]] const std::string & type,
-    const int queue_size,
     std::shared_ptr<easynav::PerceptionBase> target,
-    rclcpp::CallbackGroup::SharedPtr cb_group)
+    rclcpp::CallbackGroup::SharedPtr cb_group) override
   {
     auto options = rclcpp::SubscriptionOptions();
     options.callback_group = cb_group;
 
     return node.create_subscription<std_msgs::msg::String>(
-      topic, rclcpp::QoS(queue_size),
+      topic, rclcpp::QoS(1),
       [target](const std_msgs::msg::String::SharedPtr msg)
       {
         auto p = std::dynamic_pointer_cast<DummyPerception>(target);
@@ -482,7 +472,6 @@ TEST_F(PerceptionsTestCase, CustomPerceptionHandlerCanBeRegistered)
     *node,
     "/dummy_topic",
     "std_msgs/msg/String",
-    1,
     perception,
     cb_group);
 

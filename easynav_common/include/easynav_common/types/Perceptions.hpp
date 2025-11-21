@@ -135,7 +135,6 @@ public:
   /// \param node Reference to the lifecycle node used for creating the subscription.
   /// \param topic Topic name to subscribe to.
   /// \param type ROS message type name (e.g., `"sensor_msgs/msg/LaserScan"`).
-  /// \param queue_size Size of the subscription queue, passed to the QoS config.
   /// \param target Shared pointer where perception results are stored.
   /// \param cb_group Callback group where the subscription callback will be executed.
   /// \return Shared pointer to the created subscription.
@@ -143,7 +142,6 @@ public:
     rclcpp_lifecycle::LifecycleNode & node,
     const std::string & topic,
     const std::string & type,
-    const int queue_size,
     std::shared_ptr<PerceptionBase> target,
     rclcpp::CallbackGroup::SharedPtr cb_group) = 0;
 

@@ -234,7 +234,6 @@ SensorsNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & state
 
   for (const auto & sensor_id : sensors) {
     std::string topic, msg_type, group;
-    int queue_size = 1;
 
     if (!has_parameter(sensor_id + ".topic")) {
       declare_parameter(sensor_id + ".topic", topic);
@@ -242,13 +241,9 @@ SensorsNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & state
     if (!has_parameter(sensor_id + ".type")) {
       declare_parameter(sensor_id + ".type", msg_type);
     }
-    if (!has_parameter(sensor_id + ".queue_size")) {
-      declare_parameter(sensor_id + ".queue_size", queue_size);
-    }
 
     get_parameter(sensor_id + ".topic", topic);
     get_parameter(sensor_id + ".type", msg_type);
-    get_parameter(sensor_id + ".queue_size", queue_size);
 
     // Resolve canonical group from message type
     const std::string canonical_group = resolve_group_from_msg(msg_type);
@@ -285,8 +280,7 @@ SensorsNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & state
 
     const auto perception_ptr = handler_it->second->create(sensor_id);
     const auto sub = handler_it->second->create_subscription(
-      *this, topic, msg_type, queue_size,
-      perception_ptr, realtime_cbg_
+      *this, topic, msg_type, perception_ptr, realtime_cbg_
     );
 
     perceptions_[group].emplace_back(PerceptionPtr{perception_ptr, sub});
