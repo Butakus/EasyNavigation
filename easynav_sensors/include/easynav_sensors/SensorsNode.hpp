@@ -162,12 +162,12 @@ private:
   /**
    * @brief Populate NavState for a given group from perceptions; returns true if handled
    * @param group Sensor group name.
-   * @param perceptoins Vector of perceptions (one element from each sensor in the group).
+   * @param perceptions Vector of perceptions (one element from each sensor in the group).
    * @param ns Navigation state to populate.
    */
   bool set_by_group(
     const std::string & group,
-    const std::vector<PerceptionPtr> & perceptoins,
+    const std::vector<PerceptionPtr> & perceptions,
     ::easynav::NavState & ns
   );
 

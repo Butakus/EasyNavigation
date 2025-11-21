@@ -112,7 +112,7 @@ void SensorsNode::populate_group_to_handler_map()
 bool
 SensorsNode::set_by_group(
   const std::string & group,
-  const std::vector<easynav::PerceptionPtr> & src,
+  const std::vector<easynav::PerceptionPtr> & perceptions,
   ::easynav::NavState & ns)
 {
   // Find the perception handler function to process this group
@@ -123,7 +123,7 @@ SensorsNode::set_by_group(
   }
 
   // Call the handler function pointer stored for this group
-  it->second(group, src, ns);
+  it->second(group, perceptions, ns);
   return true;
 }
 
