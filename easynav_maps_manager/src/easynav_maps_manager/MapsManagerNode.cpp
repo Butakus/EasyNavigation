@@ -20,16 +20,12 @@
 /// \file
 /// \brief Implementation of the MapsManagerNode class.
 
-#include "rclcpp/rclcpp.hpp"
-#include "rclcpp/macros.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
 #include "lifecycle_msgs/msg/transition.hpp"
 #include "lifecycle_msgs/msg/state.hpp"
 
 #include "easynav_maps_manager/MapsManagerNode.hpp"
-#include "easynav_core/MapsManagerBase.hpp"
-#include "easynav_common/YTSession.hpp"
 
 namespace easynav
 {
@@ -69,10 +65,8 @@ MapsManagerNode::~MapsManagerNode()
 using CallbackReturnT = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
 CallbackReturnT
-MapsManagerNode::on_configure(const rclcpp_lifecycle::State & state)
+MapsManagerNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
-
   std::vector<std::string> map_types;
   declare_parameter("map_types", map_types);
   get_parameter("map_types", map_types);
@@ -115,39 +109,32 @@ MapsManagerNode::on_configure(const rclcpp_lifecycle::State & state)
 }
 
 CallbackReturnT
-MapsManagerNode::on_activate(const rclcpp_lifecycle::State & state)
+MapsManagerNode::on_activate([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
-
   return CallbackReturnT::SUCCESS;
 }
 
 CallbackReturnT
-MapsManagerNode::on_deactivate(const rclcpp_lifecycle::State & state)
+MapsManagerNode::on_deactivate([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
-
   return CallbackReturnT::SUCCESS;
 }
 
 CallbackReturnT
-MapsManagerNode::on_cleanup(const rclcpp_lifecycle::State & state)
+MapsManagerNode::on_cleanup([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
   return CallbackReturnT::SUCCESS;
 }
 
 CallbackReturnT
-MapsManagerNode::on_shutdown(const rclcpp_lifecycle::State & state)
+MapsManagerNode::on_shutdown([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
   return CallbackReturnT::SUCCESS;
 }
 
 CallbackReturnT
-MapsManagerNode::on_error(const rclcpp_lifecycle::State & state)
+MapsManagerNode::on_error([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
   return CallbackReturnT::SUCCESS;
 }
 

@@ -26,7 +26,6 @@
 #include "lifecycle_msgs/msg/state.hpp"
 
 #include "easynav_localizer/LocalizerNode.hpp"
-#include "easynav_common/YTSession.hpp"
 
 namespace easynav
 {
@@ -66,10 +65,8 @@ LocalizerNode::~LocalizerNode()
 using CallbackReturnT = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
 CallbackReturnT
-LocalizerNode::on_configure(const rclcpp_lifecycle::State & state)
+LocalizerNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
-
   std::vector<std::string> localizer_types;
   declare_parameter("localizer_types", localizer_types);
   get_parameter("localizer_types", localizer_types);
@@ -116,39 +113,32 @@ LocalizerNode::on_configure(const rclcpp_lifecycle::State & state)
 }
 
 CallbackReturnT
-LocalizerNode::on_activate(const rclcpp_lifecycle::State & state)
+LocalizerNode::on_activate([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
-
   return CallbackReturnT::SUCCESS;
 }
 
 CallbackReturnT
-LocalizerNode::on_deactivate(const rclcpp_lifecycle::State & state)
+LocalizerNode::on_deactivate([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
-
   return CallbackReturnT::SUCCESS;
 }
 
 CallbackReturnT
-LocalizerNode::on_cleanup(const rclcpp_lifecycle::State & state)
+LocalizerNode::on_cleanup([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
   return CallbackReturnT::SUCCESS;
 }
 
 CallbackReturnT
-LocalizerNode::on_shutdown(const rclcpp_lifecycle::State & state)
+LocalizerNode::on_shutdown([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
   return CallbackReturnT::SUCCESS;
 }
 
 CallbackReturnT
-LocalizerNode::on_error(const rclcpp_lifecycle::State & state)
+LocalizerNode::on_error([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
   return CallbackReturnT::SUCCESS;
 }
 

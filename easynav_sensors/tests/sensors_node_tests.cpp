@@ -19,7 +19,6 @@
 
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
-#include "easynav_common/types/Perceptions.hpp"
 #include "easynav_sensors/SensorsNode.hpp"
 #include "easynav_common/RTTFBuffer.hpp"
 #include "easynav_common/types/NavState.hpp"
@@ -30,11 +29,8 @@
 
 #include "pcl/point_types.h"
 #include "pcl_conversions/pcl_conversions.h"
-#include "pcl/point_types_conversion.h"
-#include "pcl/common/transforms.h"
 #include "tf2_ros/transform_broadcaster.hpp"
 #include "tf2_ros/transform_listener.hpp"
-#include "tf2/transform_datatypes.hpp"
 
 #include "gtest/gtest.h"
 

@@ -20,8 +20,6 @@
 /// \file
 /// \brief Implementation of the DummyMapsManager class.
 
-#include <expected>
-
 #include "easynav_maps_manager/DummyMapsManager.hpp"
 
 namespace easynav

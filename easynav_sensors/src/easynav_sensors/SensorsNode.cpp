@@ -26,8 +26,6 @@
 #include <unordered_map>
 #include <array>
 
-#include "rclcpp/rclcpp.hpp"
-#include "rclcpp/macros.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
 #include "lifecycle_msgs/msg/transition.hpp"

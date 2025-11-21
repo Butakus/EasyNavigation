@@ -23,7 +23,6 @@
 #ifndef EASYNAV_CORE__CONTROLLERMETHODBASE_HPP_
 #define EASYNAV_CORE__CONTROLLERMETHODBASE_HPP_
 
-#include "geometry_msgs/msg/twist_stamped.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 
 #include "pcl/point_cloud.h"

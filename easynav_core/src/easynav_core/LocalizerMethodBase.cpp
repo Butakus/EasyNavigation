@@ -20,12 +20,8 @@
 /// \file
 /// \brief Implementation of the abstract base class LocalizerMethodBase.
 
-#include "nav_msgs/msg/odometry.hpp"
-
 #include "easynav_common/types/NavState.hpp"
 #include "easynav_common/YTSession.hpp"
-
-#include "easynav_core/MethodBase.hpp"
 
 #include "easynav_core/LocalizerMethodBase.hpp"
 
