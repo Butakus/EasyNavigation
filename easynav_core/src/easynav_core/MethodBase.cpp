@@ -77,7 +77,15 @@ bool
 MethodBase::isTime2RunRT()
 {
   const auto now = parent_node_->now();
-  if ((now - rt_last_ts_).seconds() >= (1.0 / rt_frequency_)) {
+  const double target_cycle_time = 1.0 / rt_frequency_;
+  const double cycle_time = (now - rt_last_ts_).seconds();
+  if (cycle_time >= target_cycle_time) {
+    if (cycle_time > 1.5 * target_cycle_time) {
+      RCLCPP_WARN_THROTTLE(
+          parent_node_->get_logger(), *parent_node_->get_clock(), 2000,
+          "[%s] RT cycle time exceeded target by more than 1.5x (%.3f s > %.3f s)",
+          plugin_name_.c_str(), cycle_time, target_cycle_time);
+    }
     rt_last_ts_ = now;
     return true;
   } else {
@@ -89,7 +97,15 @@ bool
 MethodBase::isTime2Run()
 {
   const auto now = parent_node_->now();
-  if ((now - last_ts_).seconds() > (1.0 / frequency_)) {
+  const double target_cycle_time = 1.0 / frequency_;
+  const double cycle_time = (now - last_ts_).seconds();
+  if (cycle_time >= target_cycle_time) {
+    if (cycle_time > 1.5 * target_cycle_time) {
+      RCLCPP_WARN_THROTTLE(
+        parent_node_->get_logger(), *parent_node_->get_clock(), 2000,
+        "[%s] target cycle time exceeded by more than 1.5x (%.3f s > %.3f s)",
+        plugin_name_.c_str(), cycle_time, target_cycle_time);
+    }
     last_ts_ = now;
     return true;
   } else {
