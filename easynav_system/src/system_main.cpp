@@ -27,7 +27,7 @@
 
 #include "easynav_system/SystemNode.hpp"
 #include "easynav_common/RTTFBuffer.hpp"
-#include <easynav_common/YTSession.hpp>
+#include "easynav_common/YTSession.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"

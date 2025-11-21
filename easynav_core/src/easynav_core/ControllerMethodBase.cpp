@@ -23,8 +23,6 @@
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 
-#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
-
 #include "easynav_common/types/NavState.hpp"
 #include "easynav_common/YTSession.hpp"
 
@@ -43,7 +41,6 @@ ControllerMethodBase::initialize(
   const std::string & tf_prefix)
 {
   auto node = parent_node;
-  const auto & ns = plugin_name;
 
   collision_marker_pub_ = node->create_publisher<visualization_msgs::msg::MarkerArray>(
     "collision_area", 10);
@@ -122,7 +119,7 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
   const double v_norm = std::sqrt(vx * vx + vy * vy);
 
   const double a_brake = std::max(brake_acc_, 1e-3);
-  const double d_stop = (v_norm * v_norm) / (2.0 * a_brake) + safety_margin_;
+  // const double d_stop = (v_norm * v_norm) / (2.0 * a_brake) + safety_margin_;
   const double t_stop = v_norm / a_brake;
 
   std::vector<double> min({
@@ -151,10 +148,10 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
   base_pose.orientation.w = 1.0;
 
   const double r = robot_radius_;
-  const double dx = vx / v_norm;
-  const double dy = vy / v_norm;
+  // const double dx = vx / v_norm;
+  // const double dy = vy / v_norm;
   const double r_sq = r * r;
-  const double x_max = d_stop + r;
+  // const double x_max = d_stop + r;
 
   for (const auto & p : cloud.points) {
     if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) {continue;}

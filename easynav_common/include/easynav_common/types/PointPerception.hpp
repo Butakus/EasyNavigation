@@ -229,7 +229,6 @@ public:
   PointPerceptionsOpsView & operator=(const PointPerceptionsOpsView &) = delete;
 
   PointPerceptionsOpsView(PointPerceptionsOpsView &&) = default;
-  PointPerceptionsOpsView & operator=(PointPerceptionsOpsView &&) = default;
 
   /// \brief Filters all point clouds by axis-aligned bounds.
   ///

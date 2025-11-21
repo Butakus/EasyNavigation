@@ -20,12 +20,8 @@
 /// \file
 /// \brief Implementation of the abstract base class PlannerMethodBase.
 
-#include "nav_msgs/msg/path.hpp"
-
 #include "easynav_common/types/NavState.hpp"
 #include "easynav_common/YTSession.hpp"
-
-#include "easynav_core/MethodBase.hpp"
 
 #include "easynav_core/PlannerMethodBase.hpp"
 

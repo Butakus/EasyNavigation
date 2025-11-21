@@ -23,8 +23,6 @@
 #include "lifecycle_msgs/msg/transition.hpp"
 #include "lifecycle_msgs/msg/state.hpp"
 
-#include "easynav_system/SystemNode.hpp"
-
 #include "easynav_controller/ControllerNode.hpp"
 #include "easynav_localizer/LocalizerNode.hpp"
 #include "easynav_maps_manager/MapsManagerNode.hpp"
@@ -33,10 +31,7 @@
 #include "easynav_common/YTSession.hpp"
 #include "easynav_common/types/PointPerception.hpp"
 
-#include "rclcpp/rclcpp.hpp"
-#include "rclcpp/macros.hpp"
-#include "rclcpp_lifecycle/lifecycle_node.hpp"
-
+#include "easynav_system/SystemNode.hpp"
 
 namespace easynav
 {

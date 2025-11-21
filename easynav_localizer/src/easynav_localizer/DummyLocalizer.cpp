@@ -20,7 +20,6 @@
 /// \file
 /// \brief Implementation of the DummyLocalizer class.
 
-#include <expected>
 #include "easynav_localizer/DummyLocalizer.hpp"
 
 #include "easynav_common/RTTFBuffer.hpp"
