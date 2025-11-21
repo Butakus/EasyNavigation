@@ -29,11 +29,9 @@
 
 #include <string>
 #include <vector>
-#include <optional>
 
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
 
-#include "rclcpp/time.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
 #include "easynav_common/types/Perceptions.hpp"

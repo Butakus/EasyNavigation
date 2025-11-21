@@ -19,8 +19,6 @@
 
 
 #include <string>
-#include <vector>
-#include <optional>
 
 #include "sensor_msgs/msg/imu.hpp"
 
@@ -49,7 +47,7 @@ IMUPerceptionHandler::create_subscription(
   options.callback_group = cb_group;
 
   return node.create_subscription<sensor_msgs::msg::Imu>(
-    topic, rclcpp::SensorDataQoS().reliable(),
+    topic, rclcpp::QoS(1),
     [target](const sensor_msgs::msg::Imu::SharedPtr msg)
     {
       auto typed_target = std::dynamic_pointer_cast<IMUPerception>(target);

@@ -32,9 +32,7 @@
 #include <optional>
 
 #include "cv_bridge/cv_bridge.hpp"
-#include "sensor_msgs/msg/image.hpp"
 
-#include "rclcpp/time.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
 #include "easynav_common/types/Perceptions.hpp"
