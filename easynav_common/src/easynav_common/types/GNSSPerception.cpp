@@ -19,13 +19,10 @@
 
 
 #include <string>
-#include <vector>
-#include <optional>
 
 #include "sensor_msgs/msg/nav_sat_fix.hpp"
 
 #include "rclcpp/time.hpp"
-#include "rclcpp_lifecycle/lifecycle_node.hpp"
 
 #include "easynav_common/types/GNSSPerception.hpp"
 
@@ -49,7 +46,7 @@ GNSSPerceptionHandler::create_subscription(
   options.callback_group = cb_group;
 
   return node.create_subscription<sensor_msgs::msg::NavSatFix>(
-    topic, rclcpp::SensorDataQoS().reliable(),
+    topic, rclcpp::QoS(1),
     [target](const sensor_msgs::msg::NavSatFix::SharedPtr msg)
     {
       auto typed_target = std::dynamic_pointer_cast<GNSSPerception>(target);

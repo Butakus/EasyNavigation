@@ -23,12 +23,11 @@
 #ifndef EASYNAV_SENSORS__SENSORNODE_HPP_
 #define EASYNAV_SENSORS__SENSORNODE_HPP_
 
+#include <unordered_map>
+
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/macros.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
-
-#include "tf2_ros/buffer.hpp"
-#include "tf2_ros/transform_listener.hpp"
 
 #include "sensor_msgs/msg/point_cloud2.hpp"
 
@@ -49,6 +48,18 @@ class SensorsNode : public rclcpp_lifecycle::LifecycleNode
 public:
   RCLCPP_SMART_PTR_DEFINITIONS(SensorsNode)
   using CallbackReturnT = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+
+  /**
+   * @brief Function pointer type used to handle sensor groups
+   * @param group Sensor group name.
+   * @param perceptions List of perceptions (one element from each sensor in the group).
+   * @param ns Navigation state to populate.
+   */
+  using SensorsHandlerFn = void(*)(
+    const std::string & group,
+    const std::vector<easynav::PerceptionPtr> & perceptions,
+    ::easynav::NavState & ns
+  );
 
   /**
    * @brief Constructor.
@@ -144,6 +155,29 @@ private:
 
   std::map<std::string, std::vector<PerceptionPtr>> perceptions_;
   std::map<std::string, std::shared_ptr<PerceptionHandler>> handlers_;
+
+  /// @brief Map from group name to handler function pointer (for fast dispatch in set_by_group)
+  std::unordered_map<std::string, SensorsHandlerFn> group_to_handler_;
+
+  /**
+   * @brief Populate NavState for a given group from perceptions; returns true if handled
+   * @param group Sensor group name.
+   * @param perceptions Vector of perceptions (one element from each sensor in the group).
+   * @param ns Navigation state to populate.
+   */
+  bool set_by_group(
+    const std::string & group,
+    const std::vector<PerceptionPtr> & perceptions,
+    ::easynav::NavState & ns
+  );
+
+  /**
+   * @brief Populate the runtime map group_to_handler_.
+   * This method uses compile-time template recursion to fill the map
+   * with the sensor handler functions for the default groups.
+   */
+  template<std::size_t I = 0>
+  void populate_group_to_handler_map();
 };
 
 }  // namespace easynav

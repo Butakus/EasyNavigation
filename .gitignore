@@ -2,3 +2,7 @@
 /.vscode/**
 **/__pycache__/
 
+# ROS 2 build files
+build/
+install/
+log/

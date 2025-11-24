@@ -35,12 +35,7 @@
 #include <vector>
 #include <optional>
 
-#include "tf2_ros/buffer.hpp"
-#include "tf2_ros/transform_listener.hpp"
-
-#include "pcl_conversions/pcl_conversions.h"
-#include "pcl/point_types_conversion.h"
-#include "pcl/common/transforms.h"
+#include "tf2/LinearMath/Transform.hpp"
 #include "pcl/point_cloud.h"
 #include "pcl/point_types.h"
 #include "pcl/PointIndices.h"
@@ -234,7 +229,6 @@ public:
   PointPerceptionsOpsView & operator=(const PointPerceptionsOpsView &) = delete;
 
   PointPerceptionsOpsView(PointPerceptionsOpsView &&) = default;
-  PointPerceptionsOpsView & operator=(PointPerceptionsOpsView &&) = default;
 
   /// \brief Filters all point clouds by axis-aligned bounds.
   ///

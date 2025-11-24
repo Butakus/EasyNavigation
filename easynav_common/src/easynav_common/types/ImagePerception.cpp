@@ -19,8 +19,6 @@
 
 
 #include <string>
-#include <vector>
-#include <optional>
 
 #include "cv_bridge/cv_bridge.hpp"
 #include "sensor_msgs/msg/image.hpp"
@@ -50,7 +48,7 @@ ImagePerceptionHandler::create_subscription(
   options.callback_group = cb_group;
 
   return node.create_subscription<sensor_msgs::msg::Image>(
-    topic, rclcpp::SensorDataQoS().reliable(),
+    topic, rclcpp::QoS(1),
     [target](const sensor_msgs::msg::Image::SharedPtr msg)
     {
       auto typed_target = std::dynamic_pointer_cast<ImagePerception>(target);
