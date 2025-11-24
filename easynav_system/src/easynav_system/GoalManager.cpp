@@ -349,9 +349,13 @@ GoalManager::update(NavState & nav_state)
 
   check_goals(robot_pose, goal_tolerance_);
 
+  if (!nav_state.has("goals")) {
+    nav_state.set("goals", goals_);
+  }
+
   const auto & goals = nav_state.get<nav_msgs::msg::Goals>("goals");
 
-  if (!nav_state.has("goals") || goals != goals_) {
+  if (goals != goals_) {
     nav_state.set("goals", goals_);
   }
 

@@ -23,9 +23,6 @@
 #ifndef EASYNAV_CORE__CONTROLLERMETHODBASE_HPP_
 #define EASYNAV_CORE__CONTROLLERMETHODBASE_HPP_
 
-#include <random>
-
-#include "geometry_msgs/msg/twist_stamped.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 
 #include "pcl/point_cloud.h"
@@ -117,8 +114,6 @@ protected:
 
   /// @brief Frame in which motion and collision checks are evaluated.
   std::string motion_frame_{"base_footprint"};
-
-  std::mt19937 rng_;
 
   /// @brief Publisher for collision visualization markers.
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr collision_marker_pub_;
