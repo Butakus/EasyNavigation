@@ -92,7 +92,7 @@ protected:
   bool debug_markers_{false};
 
   /// @brief Enable or disable collision checking.
-  bool collision_checker_active_{true};
+  bool collision_checker_active_{false};
 
   /// @brief Robot radius used for safety calculations (m).
   double robot_radius_{0.35};
