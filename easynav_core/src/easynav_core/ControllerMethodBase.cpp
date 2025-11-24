@@ -108,7 +108,7 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
   if (!nav_state.has("cmd_vel")) {return false;}
   if (!nav_state.has("points")) {return false;}
 
-  const auto twist = nav_state.get<geometry_msgs::msg::TwistStamped>("cmd_vel");
+  const auto & twist = nav_state.get<geometry_msgs::msg::TwistStamped>("cmd_vel");
   const auto & perceptions = nav_state.get<PointPerceptions>("points");
 
   if (perceptions.empty()) {return false;}
