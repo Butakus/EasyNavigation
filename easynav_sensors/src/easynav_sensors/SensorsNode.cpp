@@ -39,6 +39,7 @@
 #include "easynav_common/types/PointPerception.hpp"
 #include "easynav_common/types/IMUPerception.hpp"
 #include "easynav_common/types/GNSSPerception.hpp"
+#include "easynav_common/types/DetectionsPerception.hpp"
 
 namespace easynav
 {
@@ -52,7 +53,8 @@ using Registry = std::tuple<
   easynav::ImagePerception,
   easynav::IMUPerception,
   easynav::GNSSPerception,
-  easynav::PointPerception
+  easynav::PointPerception,
+  easynav::DetectionsPerception
 >;
 
 template<std::size_t I = 0>
@@ -171,6 +173,18 @@ SensorsNode::SensorsNode(const rclcpp::NodeOptions & options)
       return ret.str();
       });
 
+  ::easynav::NavState::register_printer<easynav::DetectionsPerceptions>(
+    [](const easynav::DetectionsPerceptions & perceptions) {
+      std::ostringstream ret;
+      ret << "DetectionsPerceptions " << perceptions.size() << " with:\n";
+      for (const auto & perception : perceptions) {
+        ret   << "\t[" << static_cast<const void *>(perception.get()) << " --> "
+              << "Detections: " << perception->data.detections.size()
+              << "] with ts " << perception->stamp.seconds() << "\n";
+      }
+      return ret.str();
+      });
+
   ::easynav::NavState::register_printer<easynav::IMUPerceptions>(
     [](const easynav::IMUPerceptions & perceptions) {
       std::ostringstream ret;
@@ -207,6 +221,7 @@ SensorsNode::SensorsNode(const rclcpp::NodeOptions & options)
   register_handler(std::make_shared<ImagePerceptionHandler>());
   register_handler(std::make_shared<IMUPerceptionHandler>());
   register_handler(std::make_shared<GNSSPerceptionHandler>());
+  register_handler(std::make_shared<DetectionsPerceptionsHandler>());
   // Populate map from default group strings to handler function pointers for fast dispatch
   populate_group_to_handler_map();
 }
