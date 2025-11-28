@@ -11,7 +11,6 @@ Doxygen documentation: [https://EasyNavigation.github.io/EasyNavigation/](https:
 
 📋 Roadmap Project: [RoadMap](https://github.com/EasyNavigation/EasyNavigation/blob/rolling/ROADMAP.md)
 
-
 **EasyNavigation (EasyNav)** is an open-source navigation system for **ROS 2**, designed to be:
 
 ✅ **Representation-agnostic**, supporting a wide variety of environment models: 2D costmaps, elevation-aware gridmaps, Octomap-based 3D representations, raw point clouds, or hybrid combinations.  
@@ -20,7 +19,7 @@ Doxygen documentation: [https://EasyNavigation.github.io/EasyNavigation/](https:
 🚀 **Lightweight and simple to deploy**, using a single binary and a parameter file for configuration.  
 🧪 **Simulation-ready**, thanks to a rich collection of PlayGrounds with different robots and environments.
 
-EasyNav is developed by the **[Intelligent Robotics Lab](https://intelligentroboticslab.gsyc.urjc.es/)** at **Universidad Rey Juan Carlos**, and aims to be a flexible, extensible, and practical alternative to existing ROS 2 navigation stacks such as **Nav2**. 
+EasyNav is developed by the **[Intelligent Robotics Lab](https://intelligentroboticslab.gsyc.urjc.es/)** at **Universidad Rey Juan Carlos**, and aims to be a flexible, extensible, and practical alternative to existing ROS 2 navigation stacks such as **Nav2**.
 
 ## 📦 Main Repositories
 

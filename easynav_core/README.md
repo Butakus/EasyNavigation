@@ -22,13 +22,15 @@ Each plugin README in `easynav_plugins` can refer to these sections instead of d
 **Header:** `easynav_core/MethodBase.hpp`  
 **Role:** Common lifecycle and timing utilities for all method plugins.
 
-### Responsibilities
+### MethodBase Responsibilities
+
 - Store a pointer to the parent `rclcpp_lifecycle::LifecycleNode`.
 - Keep the plugin name and TF prefix.
 - Provide `initialize()` + virtual `on_initialize()` hook for derived classes.
 - Provide update-rate helpers for real-time and non-real-time loops.
 
 ### Parameters
+
 All parameters are declared under each derived plugin namespace; `MethodBase` just expects them to exist. Typical parameters (declared by derived classes) include:
 
 | Name | Type | Default | Description |
@@ -38,7 +40,7 @@ All parameters are declared under each derived plugin namespace; `MethodBase` ju
 
 > Note: The exact parameter names and defaults are defined in each derived plugin; `MethodBase` only consumes the configured frequencies.
 
-### Public API
+### MethodBase Public API
 
 | Method | Description |
 |---|---|
@@ -53,6 +55,7 @@ All parameters are declared under each derived plugin namespace; `MethodBase` ju
 | `get_last_rt_execution_ts()` / `get_last_execution_ts()` | Access the last execution timestamps. |
 
 ### NavState / Topics
+
 `MethodBase` itself does not read or write `NavState` and does not create publishers or subscriptions. All such interfaces are defined in derived base classes (see below) and their plugins.
 
 ---
@@ -64,12 +67,14 @@ All parameters are declared under each derived plugin namespace; `MethodBase` ju
 
 Typical derived plugins: `easynav_simple_controller`, `easynav_mppi_controller`, `easynav_serest_controller`, `easynav_vff_controller`.
 
-### Responsibilities
+### Controller Responsibilities
+
 - Extend `MethodBase` with a real-time control loop (`update_rt`).
 - Provide a standard collision-checking utility based on point clouds.
 - Optionally publish visualization markers for the collision zone.
 
 ### Parameters (common collision checker)
+
 Derived controllers usually expose these parameters (names may vary slightly per plugin):
 
 | Name | Type | Default | Description |
@@ -104,7 +109,7 @@ The actual topic name is built inside the controller plugin using `get_node()` a
 | `points` | `sensor_msgs::msg::PointCloud2` or filtered cloud | **Read** | 3D points around the robot used for collision prediction. |
 | `cmd_vel` | `geometry_msgs::msg::TwistStamped` | **Write** (via `on_inminent_collision`) | Default handler stops the robot on imminent collision. |
 
-### Public API
+### Controller Public API
 
 | Method | Description |
 |---|---|
@@ -124,11 +129,12 @@ The actual topic name is built inside the controller plugin using `get_node()` a
 
 Typical derived plugins: `easynav_costmap_planner`, `easynav_navmap_planner`, `easynav_simple_planner`.
 
-### Responsibilities
+### Planner Responsibilities
+
 - Extend `MethodBase` with non-RT `update()` callbacks.
 - Provide convenience helpers to respect the configured planning frequency.
 
-### Public API
+### Planner Public API
 
 | Method | Description |
 |---|---|
@@ -137,6 +143,7 @@ Typical derived plugins: `easynav_costmap_planner`, `easynav_navmap_planner`, `e
 | `update(nav_state)` | **Pure virtual.** Implement the planning algorithm and write the path into `NavState`. |
 
 ### Parameters / NavState / Topics
+
 `PlannerMethodBase` itself does not declare parameters, navstate keys, or topics. These are defined by each planner plugin (see their READMEs). This base only standardizes when and how often the planner is executed.
 
 ---
@@ -148,11 +155,12 @@ Typical derived plugins: `easynav_costmap_planner`, `easynav_navmap_planner`, `e
 
 Typical derived plugins: `easynav_costmap_localizer`, `easynav_navmap_localizer`, `easynav_simple_localizer`.
 
-### Responsibilities
+### Localizer Responsibilities
+
 - Extend `MethodBase` with both RT and non-RT update hooks.
 - Provide helpers to respect configured frequencies for each.
 
-### Public API
+### Localizer Public API
 
 | Method | Description |
 |---|---|
@@ -162,7 +170,9 @@ Typical derived plugins: `easynav_costmap_localizer`, `easynav_navmap_localizer`
 | `update(nav_state)` | **Pure virtual.** Non-RT update (e.g., sensor correction, map alignment). |
 
 ### Parameters / NavState / Topics
+
 Like `PlannerMethodBase`, `LocalizerMethodBase` itself does not fix specific parameters or topics. Each concrete localizer plugin documents:
+
 - Parameters (e.g., particle filter sizes, noise models, initial pose).
 - NavState keys (e.g., `map.*`, `robot_pose`, sensor inputs).
 - Topics/TF frames used.
@@ -176,11 +186,12 @@ Like `PlannerMethodBase`, `LocalizerMethodBase` itself does not fix specific par
 
 Typical derived plugins: `easynav_costmap_maps_manager`, `easynav_navmap_maps_manager`, `easynav_simple_maps_manager`, `easynav_bonxai_maps_manager`, ...
 
-### Responsibilities
+### MapsManager Responsibilities
+
 - Extend `MethodBase` with a single non-RT `update()` hook.
 - Provide timing helper to run map updates at a configured frequency.
 
-### Public API
+### MapsManager Public API
 
 | Method | Description |
 |---|---|
@@ -188,7 +199,9 @@ Typical derived plugins: `easynav_costmap_maps_manager`, `easynav_navmap_maps_ma
 | `update(nav_state)` | **Pure virtual.** Implement the logic to build or update map representations in `NavState`. |
 
 ### Parameters / NavState / Topics
+
 `MapsManagerBase` itself does not declare parameters or topics. Concrete managers define:
+
 - Map-specific parameters (files, layers, filters, resolutions, etc.).
 - NavState keys (e.g., `map.static`, `map.dynamic`, `map.navmap`, ...).
 - Subscriptions/publishers for map I/O.
@@ -203,6 +216,7 @@ For any plugin whose base class is in `easynav_core`, you can avoid duplicating 
 > See the **ControllerMethodBase** section in [`easynav_core`](https://github.com/EasyNavigation/EasyNavigation/tree/rolling/easynav_core#easynavcontrollermethodbase) for shared collision-checking parameters, NavState usage and debug markers.
 
 Similarly for planners, localizers, and maps managers:
+
 - **Planners:** link to the `PlannerMethodBase` section.
 - **Localizers:** link to the `LocalizerMethodBase` section.
 - **Maps managers:** link to the `MapsManagerBase` section.
