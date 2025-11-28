@@ -46,11 +46,3 @@ EasyNav is developed by the **[Intelligent Robotics Lab](https://intelligentrobo
 | Francisco José Romero Ramírez | Universidad Rey Juan Carlos | [kiko2r](https://github.com/kiko2r) | Developer |
 | Miguel de Miguel Paraiso | Universidad Rey Juan Carlos | [midemig](https://github.com/midemig) | Advisor |
 | Jorge Beltrán de la Cita | Universidad Rey Juan Carlos | [beltransen](https://github.com/beltransen) | Advisor |
-
----
-
-<p align="center">
-  <a href="https://intelligentroboticslab.gsyc.urjc.es/">
-    <strong>Intelligent Robotics Lab – Universidad Rey Juan Carlos</strong>
-  </a>
-</p>

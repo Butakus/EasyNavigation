@@ -169,7 +169,7 @@ Typical derived plugins: `easynav_costmap_localizer`, `easynav_navmap_localizer`
 | `update_rt(nav_state)` | **Pure virtual.** Real-time localization update (e.g., predict step). |
 | `update(nav_state)` | **Pure virtual.** Non-RT update (e.g., sensor correction, map alignment). |
 
-### Parameters / NavState / Topics
+### Localizer Parameters / NavState / Topics
 
 Like `PlannerMethodBase`, `LocalizerMethodBase` itself does not fix specific parameters or topics. Each concrete localizer plugin documents:
 
@@ -198,7 +198,7 @@ Typical derived plugins: `easynav_costmap_maps_manager`, `easynav_navmap_maps_ma
 | `internal_update(nav_state)` | Checks update timing and calls `update(nav_state)` when due. |
 | `update(nav_state)` | **Pure virtual.** Implement the logic to build or update map representations in `NavState`. |
 
-### Parameters / NavState / Topics
+### MapsManager Parameters / NavState / Topics
 
 `MapsManagerBase` itself does not declare parameters or topics. Concrete managers define:
 
