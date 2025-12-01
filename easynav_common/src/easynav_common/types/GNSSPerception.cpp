@@ -20,53 +20,42 @@
 
 #include <string>
 
-#include "cv_bridge/cv_bridge.hpp"
-#include "sensor_msgs/msg/image.hpp"
+#include "sensor_msgs/msg/nav_sat_fix.hpp"
 
 #include "rclcpp/time.hpp"
-#include "rclcpp_lifecycle/lifecycle_node.hpp"
 
-#include "easynav_common/types/ImagePerception.hpp"
+#include "easynav_common/types/GNSSPerception.hpp"
 
 namespace easynav
 {
 
 
 rclcpp::SubscriptionBase::SharedPtr
-ImagePerceptionHandler::create_subscription(
+GNSSPerceptionHandler::create_subscription(
   rclcpp_lifecycle::LifecycleNode & node,
   const std::string & topic,
   const std::string & type,
   std::shared_ptr<PerceptionBase> target,
   rclcpp::CallbackGroup::SharedPtr cb_group)
 {
-  if (type != "sensor_msgs/msg/Image") {
-    throw std::runtime_error("Unsupported message type for ImagePerceptionHandler: " + type);
+  if (type != "sensor_msgs/msg/NavSatFix") {
+    throw std::runtime_error("Unsupported message type for GNSSPerceptionHandler: " + type);
   }
 
   auto options = rclcpp::SubscriptionOptions();
   options.callback_group = cb_group;
 
-  return node.create_subscription<sensor_msgs::msg::Image>(
+  return node.create_subscription<sensor_msgs::msg::NavSatFix>(
     topic, rclcpp::QoS(1),
-    [target](const sensor_msgs::msg::Image::SharedPtr msg)
+    [target](const sensor_msgs::msg::NavSatFix::SharedPtr msg)
     {
-      auto typed_target = std::dynamic_pointer_cast<ImagePerception>(target);
+      auto typed_target = std::dynamic_pointer_cast<GNSSPerception>(target);
 
       typed_target->stamp = msg->header.stamp;
       typed_target->frame_id = msg->header.frame_id;
       typed_target->new_data = true;
-
-      try {
-        cv_bridge::CvImageConstPtr cv_ptr = cv_bridge::toCvShare(msg, msg->encoding);
-        typed_target->data = cv_ptr->image.clone();  // se clona para evitar compartir buffers
-        typed_target->valid = true;
-      } catch (const cv_bridge::Exception & e) {
-        RCLCPP_WARN(
-          rclcpp::get_logger("ImagePerceptionHandler"),
-          "cv_bridge exception: %s", e.what());
-        typed_target->valid = false;
-      }
+      typed_target->data = *msg;
+      typed_target->valid = true;
     },
     options);
 }

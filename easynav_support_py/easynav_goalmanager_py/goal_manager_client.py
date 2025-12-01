@@ -184,7 +184,7 @@ class GoalManagerClient:
                         case _:
                             self.node.get_logger().error(
                                 'State SENT_PREEMPT; Unexpected message: "%d": "%s"' %
-                                msg.type, msg.status_message)
+                                (msg.type, msg.status_message))
                             self.state = ClientState.ERROR
                 case ClientState.SENT_PREEMPT:
                     match msg.type:
@@ -203,7 +203,7 @@ class GoalManagerClient:
                         case _:
                             self.node.get_logger().error(
                                 'State SENT_PREEMPT; Unexpected message: "%d": "%s"' %
-                                msg.type, msg.status_message)
+                                (msg.type, msg.status_message))
                             self.state = ClientState.ERROR
                 case ClientState.ACCEPTED_AND_NAVIGATING:
                     match msg.type:

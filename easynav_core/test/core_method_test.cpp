@@ -18,6 +18,9 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 #include "gtest/gtest.h"
+#include <expected>
+
+#include "nav_msgs/msg/odometry.hpp"
 
 #include "easynav_common/types/NavState.hpp"
 #include "easynav_core/MethodBase.hpp"
