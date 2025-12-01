@@ -2,8 +2,8 @@
 Changelog for package easynav_localizer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.0 (2025-12-01)
+------------------
 * Merge rolling features into kilted
 * Cleanup unused headers
 * Reshape execution and sensor handling

@@ -2,8 +2,8 @@
 Changelog for package easynav_tools
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.0 (2025-12-01)
+------------------
 * Merge rolling features into kilted
 * Add missing dependencies
 * Contributors: Francisco Martín Rico, Francisco Miguel Moreno

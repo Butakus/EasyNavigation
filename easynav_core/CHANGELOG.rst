@@ -2,8 +2,8 @@
 Changelog for package easynav_core
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.0 (2025-12-01)
+------------------
 * Add README.md with base classes description
 * Set collision checker disabled by default
 * Cleanup unused headers

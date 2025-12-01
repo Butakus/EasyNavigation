@@ -2,8 +2,8 @@
 Changelog for package easynav_sensors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.0 (2025-12-01)
+------------------
 * Merge rolling features into kilted
 * Add vision_msgs/msg/Detection3DArray perception
 * Cleanup unused headers

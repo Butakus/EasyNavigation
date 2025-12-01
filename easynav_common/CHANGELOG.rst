@@ -2,8 +2,8 @@
 Changelog for package easynav_common
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.0 (2025-12-01)
+------------------
 * Add vision_msgs/msg/Detection3DArray perception
 * Cleanup unused headers
 * Reshape execution and sensor handling
