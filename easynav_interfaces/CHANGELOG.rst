@@ -2,6 +2,11 @@
 Changelog for package easynav_interfaces
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge rolling features into kilted
+* Contributors: Francisco Martín Rico, Francisco Miguel Moreno
+
 0.1.4 (2025-10-16)
 ------------------
 * Merge kilted version bump into rolling

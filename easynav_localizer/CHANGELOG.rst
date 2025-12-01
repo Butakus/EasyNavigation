@@ -2,6 +2,14 @@
 Changelog for package easynav_localizer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Merge rolling features into kilted
+* Cleanup unused headers
+* Reshape execution and sensor handling
+* Make dummies' fake processing time independent from clock source
+* Contributors: Francisco Martín Rico, Francisco Miguel Moreno
+
 0.1.4 (2025-10-16)
 ------------------
 * Merge kilted version bump into rolling

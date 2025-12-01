@@ -2,6 +2,18 @@
 Changelog for package easynav_common
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Add vision_msgs/msg/Detection3DArray perception
+* Cleanup unused headers
+* Reshape execution and sensor handling
+* Finished collision checker
+* Optimize pointperceptionview
+* Allow using yaets tracing macros from outside the easynav namespace
+* GNSS Support
+* Add missing dependencies
+* Contributors: Francisco Martín Rico, Francisco Miguel Moreno
+
 0.1.4 (2025-10-16)
 ------------------
 * Fix compilation errors in jazzy
