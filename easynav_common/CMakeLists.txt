@@ -36,11 +36,11 @@ target_include_directories(${PROJECT_NAME} PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
   ${PCL_INCLUDE_DIRS}
+  ${pcl_conversions_INCLUDE_DIRS}
 )
 target_link_libraries(${PROJECT_NAME} PUBLIC
   rclcpp::rclcpp
   rclcpp_lifecycle::rclcpp_lifecycle
-  pcl_conversions::pcl_conversions
   tf2_ros::tf2_ros
   tf2_geometry_msgs::tf2_geometry_msgs
   cv_bridge::cv_bridge
