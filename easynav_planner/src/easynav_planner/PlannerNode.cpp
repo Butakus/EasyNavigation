@@ -20,15 +20,12 @@
 /// \file
 /// \brief Implementation of the PlannerNode class.
 
-#include "nav_msgs/msg/path.hpp"
 #include "pluginlib/class_loader.hpp"
 
 #include "lifecycle_msgs/msg/transition.hpp"
 #include "lifecycle_msgs/msg/state.hpp"
 
 #include "easynav_planner/PlannerNode.hpp"
-#include "easynav_core/PlannerMethodBase.hpp"
-#include "easynav_common/YTSession.hpp"
 
 namespace easynav
 {
@@ -67,10 +64,8 @@ PlannerNode::~PlannerNode()
 using CallbackReturnT = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
 CallbackReturnT
-PlannerNode::on_configure(const rclcpp_lifecycle::State & state)
+PlannerNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
-
   std::vector<std::string> planner_types;
   declare_parameter("planner_types", planner_types);
   get_parameter("planner_types", planner_types);
@@ -117,39 +112,32 @@ PlannerNode::on_configure(const rclcpp_lifecycle::State & state)
 }
 
 CallbackReturnT
-PlannerNode::on_activate(const rclcpp_lifecycle::State & state)
+PlannerNode::on_activate([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
-
   return CallbackReturnT::SUCCESS;
 }
 
 CallbackReturnT
-PlannerNode::on_deactivate(const rclcpp_lifecycle::State & state)
+PlannerNode::on_deactivate([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
-
   return CallbackReturnT::SUCCESS;
 }
 
 CallbackReturnT
-PlannerNode::on_cleanup(const rclcpp_lifecycle::State & state)
+PlannerNode::on_cleanup([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
   return CallbackReturnT::SUCCESS;
 }
 
 CallbackReturnT
-PlannerNode::on_shutdown(const rclcpp_lifecycle::State & state)
+PlannerNode::on_shutdown([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
   return CallbackReturnT::SUCCESS;
 }
 
 CallbackReturnT
-PlannerNode::on_error(const rclcpp_lifecycle::State & state)
+PlannerNode::on_error([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
   return CallbackReturnT::SUCCESS;
 }
 

@@ -19,7 +19,6 @@
 
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
-#include "easynav_common/types/Perceptions.hpp"
 #include "easynav_sensors/SensorsNode.hpp"
 #include "easynav_common/RTTFBuffer.hpp"
 #include "easynav_common/types/NavState.hpp"
@@ -30,11 +29,8 @@
 
 #include "pcl/point_types.h"
 #include "pcl_conversions/pcl_conversions.h"
-#include "pcl/point_types_conversion.h"
-#include "pcl/common/transforms.h"
 #include "tf2_ros/transform_broadcaster.hpp"
 #include "tf2_ros/transform_listener.hpp"
-#include "tf2/transform_datatypes.hpp"
 
 #include "gtest/gtest.h"
 
@@ -413,7 +409,7 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
     });
 
   auto tf_buffer = easynav::RTTFBuffer::getInstance(test_node->get_clock());
-  tf2_ros::TransformListener tf_listener(*tf_buffer, test_node, true);
+  tf2_ros::TransformListener tf_listener(*tf_buffer, *test_node, true);
 
   auto tf_broadcaster = std::make_shared<tf2_ros::TransformBroadcaster>(*test_node);
   geometry_msgs::msg::TransformStamped transform;

@@ -24,7 +24,6 @@
 #include "easynav_common/Singleton.hpp"
 
 #include "tf2_ros/buffer.hpp"
-#include "rclcpp/rclcpp.hpp"
 
 namespace easynav
 {

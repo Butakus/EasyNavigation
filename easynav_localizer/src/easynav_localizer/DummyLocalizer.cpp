@@ -20,7 +20,6 @@
 /// \file
 /// \brief Implementation of the DummyLocalizer class.
 
-#include <expected>
 #include "easynav_localizer/DummyLocalizer.hpp"
 
 #include "easynav_common/RTTFBuffer.hpp"
@@ -45,8 +44,9 @@ std::expected<void, std::string> DummyLocalizer::on_initialize()
 
 void DummyLocalizer::update_rt([[maybe_unused]] NavState & nav_state)
 {
-  auto start = get_node()->now();
-  while ((get_node()->now() - start).seconds() < cycle_time_rt_) {}
+  namespace chr = std::chrono;
+  auto start = chr::steady_clock::now();
+
 
   geometry_msgs::msg::TransformStamped tf_msg;
   tf_msg.header.stamp = get_node()->now();
@@ -57,13 +57,15 @@ void DummyLocalizer::update_rt([[maybe_unused]] NavState & nav_state)
   // tf_broadcaster_->sendTransform(tf_msg);
 
   nav_state.set("robot_pose", robot_pose_);
+
+  // Busy wait to simulate processing time
+  while (chr::duration<double>(chr::steady_clock::now() - start).count() < cycle_time_rt_) {}
 }
 
 void DummyLocalizer::update([[maybe_unused]] NavState & nav_state)
 {
-  auto start = get_node()->now();
-  while ((get_node()->now() - start).seconds() < cycle_time_nort_) {}
-
+  namespace chr = std::chrono;
+  auto start = chr::steady_clock::now();
 
   geometry_msgs::msg::TransformStamped tf_msg;
   tf_msg.header.stamp = get_node()->now();
@@ -74,6 +76,9 @@ void DummyLocalizer::update([[maybe_unused]] NavState & nav_state)
   // tf_broadcaster_->sendTransform(tf_msg);
 
   nav_state.set("robot_pose", robot_pose_);
+
+  // Busy wait to simulate processing time
+  while (chr::duration<double>(chr::steady_clock::now() - start).count() < cycle_time_nort_) {}
 }
 
 }  // namespace easynav

@@ -20,8 +20,6 @@
 /// \file
 /// \brief Implementation of the DummyPlanner class.
 
-#include <expected>
-
 #include "easynav_planner/DummyPlanner.hpp"
 
 namespace easynav
@@ -32,9 +30,7 @@ std::expected<void, std::string> DummyPlanner::on_initialize()
   auto node = get_node();
   const auto & plugin_name = get_plugin_name();
 
-  node->declare_parameter<double>(plugin_name + ".cycle_time_rt", 0.0);
   node->declare_parameter<double>(plugin_name + ".cycle_time_nort", 0.0);
-  node->get_parameter<double>(plugin_name + ".cycle_time_rt", cycle_time_rt_);
   node->get_parameter<double>(plugin_name + ".cycle_time_nort", cycle_time_nort_);
 
   // Initialize the Path message
@@ -47,10 +43,13 @@ std::expected<void, std::string> DummyPlanner::on_initialize()
 
 void DummyPlanner::update([[maybe_unused]] NavState & nav_state)
 {
-  auto start = get_node()->now();
-  while ((get_node()->now() - start).seconds() < cycle_time_nort_) {}
+  namespace chr = std::chrono;
+  auto start = chr::steady_clock::now();
 
   // Compute the current path...
+
+  // Busy wait to simulate processing time
+  while (chr::duration<double>(chr::steady_clock::now() - start).count() < cycle_time_nort_) {}
 }
 
 }  // namespace easynav

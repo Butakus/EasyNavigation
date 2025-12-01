@@ -20,17 +20,17 @@
 /// \file
 /// \brief Defines data structures and utilities for representing and processing image perceptions.
 ///
-/// This file contains the definition of the ImagePerception class, which holds image sensor data (as cv::Mat),
-/// and the ImagePerceptionHandler class, which handles subscriptions to image messages and transforms them into
-/// ImagePerception instances. It also defines an alias for a collection of such perceptions.
+/// This file contains the definition of the DetectionsPerceptions class
+/// and the DetectionsPerceptionsHandler class, which handles subscriptions to image messages and transforms them into
+/// DetectionsPerceptions instances. It also defines an alias for a collection of such perceptions.
 
-#ifndef EASYNAV_COMMON_TYPES__IMAGEPERCEPTIONS_HPP_
-#define EASYNAV_COMMON_TYPES__IMAGEPERCEPTIONS_HPP_
+#ifndef EASYNAV_COMMON_TYPES__DETECTIONSPERCEPTIONS_HPP_
+#define EASYNAV_COMMON_TYPES__DETECTIONSPERCEPTIONS_HPP_
 
 #include <string>
 #include <vector>
 
-#include "cv_bridge/cv_bridge.hpp"
+#include "vision_msgs/msg/detection3_d_array.hpp"
 
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
@@ -39,60 +39,57 @@
 namespace easynav
 {
 
-/// \class ImagePerception
+/// \class DetectionsPerceptions
 /// \brief Represents a single image perception from a sensor.
 ///
 /// Inherits from PerceptionBase and stores an OpenCV image (cv::Mat) along with metadata such as timestamp and frame_id.
-class ImagePerception : public PerceptionBase
+class DetectionsPerception : public PerceptionBase
 {
 public:
   /// \brief Group identifier for image perceptions.
-  static constexpr std::string_view default_group_ = "image";
+  static constexpr std::string_view default_group_ = "detections";
 
   /// \brief Returns whether the given ROS 2 type name is supported by this perception.
-  /// \param t Fully qualified message type name (e.g., "sensor_msgs/msg/Image").
-  /// \return true if \p t equals "sensor_msgs/msg/Image", otherwise false.
+  /// \param t Fully qualified message type name (e.g., "vision_msgs/msg/Detection3DArray").
+  /// \return true if \p t equals "vision_msgs/msg/Detection3DArray", otherwise false.
   static inline bool supports_msg_type(std::string_view t)
   {
-    return t == "sensor_msgs/msg/Image";
+    return t == "vision_msgs/msg/Detection3DArray";
   }
 
-  /// \brief Image data received from the sensor.
-  ///
-  /// The matrix layout follows OpenCV conventions. The encoding and channel depth depend on upstream conversion
-  /// (typically via cv_bridge).
-  cv::Mat data;
+  /// \brief Detection3DArray data received from the an external processing system.
+  vision_msgs::msg::Detection3DArray data;
 };
 
-/// \class ImagePerceptionHandler
-/// \brief Handles the creation and updating of ImagePerception instances from sensor_msgs::msg::Image messages.
+/// \class DetectionsPerceptionsHandler
+/// \brief Handles the creation and updating of DetectionsPerceptions instances from sensor_msgs::msg::Image messages.
 ///
 /// This class provides methods to register subscriptions to image topics, decode incoming messages into cv::Mat
-/// using cv_bridge, and update target ImagePerception instances.
-class ImagePerceptionHandler : public PerceptionHandler
+/// using cv_bridge, and update target DetectionsPerceptions instances.
+class DetectionsPerceptionsHandler : public PerceptionHandler
 {
 public:
   /// \brief Returns the group managed by this handler.
   /// \return The string literal "image".
-  std::string group() const override {return "image";}
+  std::string group() const override {return "detections";}
 
-  /// \brief Creates a new empty ImagePerception instance.
+  /// \brief Creates a new empty DetectionsPerceptions instance.
   /// \param sensor_id Name or identifier of the sensor. Currently unused, reserved for future extensions.
-  /// \return Shared pointer to a newly created ImagePerception.
+  /// \return Shared pointer to a newly created DetectionsPerceptions.
   std::shared_ptr<PerceptionBase> create(const std::string &) override
   {
-    return std::make_shared<ImagePerception>();
+    return std::make_shared<DetectionsPerception>();
   }
 
-  /// \brief Creates a subscription to an image topic that updates a target ImagePerception.
+  /// \brief Creates a subscription to an image topic that updates a target DetectionsPerceptions.
   ///
   /// The subscription receives sensor_msgs::msg::Image messages on \p topic, converts them to cv::Mat,
-  /// fills ImagePerception::data, and updates inherited metadata (stamp, frame_id).
+  /// fills DetectionsPerceptions::data, and updates inherited metadata (stamp, frame_id).
   ///
   /// \param node Lifecycle node used to create the subscription.
   /// \param topic Topic name to subscribe to.
   /// \param type ROS message type name. It must be "sensor_msgs/msg/Image".
-  /// \param target Shared pointer to the ImagePerception to be updated.
+  /// \param target Shared pointer to the DetectionsPerceptions to be updated.
   /// \param cb_group Callback group for executor-level concurrency control.
   /// \return Shared pointer to the created subscription.
   rclcpp::SubscriptionBase::SharedPtr create_subscription(
@@ -104,14 +101,14 @@ public:
 };
 
 /**
- * @typedef ImagePerceptions
- * @brief Alias for a vector of shared pointers to ImagePerception objects.
+ * @typedef DetectionsPerceptionss
+ * @brief Alias for a vector of shared pointers to DetectionsPerceptions objects.
  *
  * The container can represent a time-ordered or batched collection, depending on producer logic.
  */
-using ImagePerceptions =
-  std::vector<std::shared_ptr<ImagePerception>>;
+using DetectionsPerceptions =
+  std::vector<std::shared_ptr<DetectionsPerception>>;
 
 }  // namespace easynav
 
-#endif  // EASYNAV_COMMON_TYPES__IMAGEPERCEPTIONS_HPP_
+#endif  // EASYNAV_COMMON_TYPES__DETECTIONSPERCEPTIONS_HPP_
