@@ -23,9 +23,10 @@
 #include <numbers>
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "tf2/utils.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+
 #include "easynav_system/GoalManager.hpp"
 
-#include "nav_msgs/msg/odometry.hpp"
 
 namespace easynav
 {
@@ -320,7 +321,7 @@ GoalManager::update(NavState & nav_state)
     return;
   }
 
-  auto robot_pose = nav_state.get<nav_msgs::msg::Odometry>("robot_pose").pose.pose;
+  const auto & robot_pose = nav_state.get<nav_msgs::msg::Odometry>("robot_pose").pose.pose;
 
   easynav_interfaces::msg::NavigationControl feedback;
   feedback.type = easynav_interfaces::msg::NavigationControl::FEEDBACK;
@@ -329,7 +330,7 @@ GoalManager::update(NavState & nav_state)
   feedback.user_id = id_;
   feedback.nav_current_user_id = current_client_id_;
 
-  const auto odom = nav_state.get<nav_msgs::msg::Odometry>("robot_pose");
+  const auto & odom = nav_state.get<nav_msgs::msg::Odometry>("robot_pose");
 
   feedback.goals = goals_;
   feedback.current_pose.header = odom.header;
@@ -348,7 +349,13 @@ GoalManager::update(NavState & nav_state)
 
   check_goals(robot_pose, goal_tolerance_);
 
-  if (!nav_state.has("goals") || nav_state.get<nav_msgs::msg::Goals>("goals") != goals_) {
+  if (!nav_state.has("goals")) {
+    nav_state.set("goals", goals_);
+  }
+
+  const auto & goals = nav_state.get<nav_msgs::msg::Goals>("goals");
+
+  if (goals != goals_) {
     nav_state.set("goals", goals_);
   }
 

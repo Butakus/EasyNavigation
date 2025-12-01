@@ -35,9 +35,7 @@
 #include <vector>
 #include <optional>
 
-#include "pcl_conversions/pcl_conversions.h"
-#include "pcl/point_types_conversion.h"
-#include "pcl/common/transforms.h"
+#include "tf2/LinearMath/Transform.hpp"
 #include "pcl/point_cloud.h"
 #include "pcl/point_types.h"
 #include "pcl/PointIndices.h"
@@ -174,7 +172,8 @@ PointPerceptions get_point_perceptions(std::vector<PerceptionPtr> & perceptionpt
 /// \brief Provides efficient, non-destructive, chainable operations over a set of point-based perceptions.
 ///
 /// This view enables filtering, downsampling, fusion, and dimensional collapsing across multiple point clouds
-/// without duplicating memory, by keeping index-based selections per perception.
+/// without duplicating the underlying perceptions. Most operations work lazily by keeping index-based selections
+/// and transformation options, and only materialize a new point cloud when required (for example in as_points()).
 class PointPerceptionsOpsView
 {
 public:
@@ -214,7 +213,6 @@ public:
   /// \param perceptions Constant reference to the source container.
   explicit PointPerceptionsOpsView(const PointPerceptions & perceptions);
 
-
   /// \brief Constructs a view from a single PointPerception instance.
   ///
   /// Creates an internal container owning the given perception and
@@ -223,35 +221,68 @@ public:
   /// \param perception The PointPerception to wrap in the view.
   explicit PointPerceptionsOpsView(const PointPerception & perception);
 
-
   /// \brief Constructs a view taking ownership of the container.
   /// \param perceptions Rvalue container of perceptions to be owned by the view.
   explicit PointPerceptionsOpsView(PointPerceptions && perceptions);
 
+  PointPerceptionsOpsView(const PointPerceptionsOpsView &) = delete;
+  PointPerceptionsOpsView & operator=(const PointPerceptionsOpsView &) = delete;
+
+  PointPerceptionsOpsView(PointPerceptionsOpsView &&) = default;
+
   /// \brief Filters all point clouds by axis-aligned bounds.
   ///
-  /// Components set to \c NaN in \p min_bounds or \p max_bounds leave the corresponding axis unbounded.
+  /// When the view has no target frame configured (that is, \c fuse() has not been called),
+  /// this method always performs an eager filtering step in the original frame of each sensor,
+  /// updating the internal index sets in-place.
+  ///
+  /// When a target frame has been configured via \c fuse(), the behaviour depends on
+  /// \p lazy_post_fuse:
+  /// - If \p lazy_post_fuse is \c true (default), the bounds are stored as a post-fuse
+  ///   filter in the target frame and are applied lazily during materialization
+  ///   (for example, in \c as_points()), without modifying the internal indices.
+  /// - If \p lazy_post_fuse is \c false, the method applies the transform to the target
+  ///   frame immediately and performs an eager filtering step in that frame, updating
+  ///   the internal indices accordingly.
+  ///
+  /// Components set to \c NaN in \p min_bounds or \p max_bounds leave the corresponding
+  /// axis unbounded.
   ///
   /// \param min_bounds Minimum \c [x,y,z] values (use \c NaN to disable per axis).
   /// \param max_bounds Maximum \c [x,y,z] values (use \c NaN to disable per axis).
+  /// \param lazy_post_fuse If \c true and a target frame is set, configure a lazy
+  ///        post-fuse filter in the target frame; if \c false, always filter eagerly
+  ///        (updating indices) in the current frame (sensor or target).
   /// \return Reference to \c *this to allow chaining.
   PointPerceptionsOpsView & filter(
     const std::vector<double> & min_bounds,
-    const std::vector<double> & max_bounds);
+    const std::vector<double> & max_bounds,
+    bool lazy_post_fuse = true);
 
   /// \brief Downsamples each perception using a voxel grid.
   /// \param resolution Voxel size in meters.
   /// \return Reference to \c *this to allow chaining.
   PointPerceptionsOpsView & downsample(double resolution);
 
-  /// \brief Collapses dimensions to fixed values (e.g., projection onto a plane).
+  /// \brief Collapses dimensions to fixed values (for example, projection onto a plane).
   ///
   /// Components set to \c NaN in \p collapse_dims keep the original values.
   ///
+  /// The behaviour depends on \p lazy:
+  /// - If \p lazy is \c true (default), the collapse configuration is stored in the view
+  ///   and applied lazily when materializing point clouds (for example, in \c as_points()),
+  ///   without modifying the underlying perception data.
+  /// - If \p lazy is \c false and the view owns its internal container, the collapse is
+  ///   applied eagerly by updating the coordinates of all stored points, so subsequent
+  ///   operations (filters, fusion, etc.) observe the collapsed geometry.
+  ///   On non-owning views, the eager mode is ignored to avoid modifying external data.
+  ///
   /// \param collapse_dims Fixed values for each axis (use \c NaN to preserve original values).
-  /// \return A new view with collapsed points.
-  std::shared_ptr<PointPerceptionsOpsView> collapse(
-    const std::vector<double> & collapse_dims) const;
+  /// \param lazy If \c true, configure collapse lazily for output only; if \c false and the
+  ///        view is owning, apply the collapse immediately to the internal point data.
+  /// \return Reference to \c *this to allow chaining.
+  PointPerceptionsOpsView &
+  collapse(const std::vector<double> & collapse_dims, bool lazy = true);
 
   /// \brief Retrieves all selected points across perceptions as a single concatenated cloud.
   /// \return Concatenated point cloud.
@@ -262,20 +293,35 @@ public:
   /// \return Const reference to the filtered point cloud.
   const pcl::PointCloud<pcl::PointXYZ> & as_points(int idx) const;
 
-  /// \brief Fuses all perceptions into one by transforming them to a common frame.
-  /// \param target_frame Frame ID to which all clouds are transformed.
-  /// \return New view containing the fused result.
-  std::shared_ptr<PointPerceptionsOpsView> fuse(const std::string & target_frame) const;
+  /// \brief Configures fusion of all perceptions into a common frame.
+  ///
+  /// This method does not immediately build a fused point cloud. Instead, it stores the target frame
+  /// and the required transforms so that subsequent operations (for example filter) and final
+  /// materialization (as_points()) work in \p target_frame without duplicating the underlying data.
+  ///
+  /// \param target_frame Frame ID to which all clouds are conceptually transformed.
+  /// \return Reference to \c *this to allow chaining.
+  PointPerceptionsOpsView & fuse(const std::string & target_frame);
 
-  /// \brief Adds a new perception from a point cloud and returns an extended view.
+  /// \brief Adds a new perception to the current view.
+  ///
+  /// This method extends the underlying set of perceptions managed by the view.
+  /// It does not create a new PointPerceptionsOpsView instance; instead, it
+  /// updates the current view in place and returns a reference to \c *this
+  /// to allow method chaining.
+  ///
+  /// The newly added perception becomes part of subsequent operations such as
+  /// filtering, fusion, collapsing, and final materialization (as_points()).
+  ///
   /// \param points Point cloud to include.
   /// \param frame Frame ID associated with \p points.
   /// \param stamp Timestamp associated with \p points.
-  /// \return New view including the added perception.
-  std::shared_ptr<PointPerceptionsOpsView> add(
+  /// \return Reference to \c *this to allow chaining.
+  PointPerceptionsOpsView &
+  add(
     const pcl::PointCloud<pcl::PointXYZ> points,
     const std::string & frame,
-    rclcpp::Time stamp) const;
+    rclcpp::Time stamp);
 
   /// \brief Provides a constant reference to the underlying perceptions container.
   /// \return Constant reference to the container.
@@ -285,6 +331,29 @@ private:
   std::optional<PointPerceptions> owned_;      ///< Owned container if moved in.
   const PointPerceptions & perceptions_;       ///< Reference to perception container.
   std::vector<pcl::PointIndices> indices_;     ///< Filtered indices per perception.
+
+  // Lazy fusion state
+  bool has_target_frame_ {false};              ///< True if a common target frame has been configured.
+  std::string target_frame_;                   ///< Target frame configured by fuse().
+  std::vector<tf2::Transform> tf_transforms_;  ///< Cached transforms from perception frame to target frame.
+  std::vector<bool> tf_valid_;                 ///< True if corresponding transform is valid.
+
+  // Lazy collapse state
+  bool collapse_x_ {false};                    ///< Collapse X dimension if true.
+  bool collapse_y_ {false};                    ///< Collapse Y dimension if true.
+  bool collapse_z_ {false};                    ///< Collapse Z dimension if true.
+  float collapse_val_x_ {0.0f};                ///< Value used when collapsing X (if enabled).
+  float collapse_val_y_ {0.0f};                ///< Value used when collapsing Y (if enabled).
+  float collapse_val_z_ {0.0f};                ///< Value used when collapsing Z (if enabled).
+
+  bool has_post_filter_ {false};
+  double post_min_[3] {0.0, 0.0, 0.0};
+  double post_max_[3] {0.0, 0.0, 0.0};
+  bool use_post_min_[3] {false, false, false};
+  bool use_post_max_[3] {false, false, false};
+
+  // Temporary storage for as_points(int)
+  mutable pcl::PointCloud<pcl::PointXYZ> tmp_single_cloud_;
 };
 
 }  // namespace easynav

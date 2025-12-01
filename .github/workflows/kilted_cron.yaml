@@ -1,12 +1,8 @@
 name: kilted
 
 on:
-  pull_request:
-    branches:
-      - kilted
-  push:
-    branches:
-      - kilted
+  schedule:
+      - cron: '0 0 * * 6'     
 jobs:
   build-and-test:
     runs-on: ${{ matrix.os }}
@@ -27,6 +23,7 @@ jobs:
         with:
           package-name: easynav_common easynav_controller easynav_localizer easynav_maps_manager easynav_planner easynav_sensors easynav_system easynav_support_py easynav_tools
           target-ros2-distro: kilted
+          ref: kilted
           vcs-repo-file-url: ${GITHUB_WORKSPACE}/.github/thirdparty.repos
           colcon-defaults: |
             {

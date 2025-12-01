@@ -21,20 +21,14 @@
 #include "sensor_msgs/msg/image.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
 
 #include "easynav_common/types/Perceptions.hpp"
 #include "easynav_common/types/PointPerception.hpp"
 #include "easynav_common/types/ImagePerception.hpp"
 
-#include "lifecycle_msgs/msg/transition.hpp"
-#include "lifecycle_msgs/msg/state.hpp"
-
 #include "pcl/point_types.h"
 #include "pcl_conversions/pcl_conversions.h"
-#include "pcl/point_types_conversion.h"
-#include "pcl/common/transforms.h"
-#include "tf2_ros/transform_broadcaster.hpp"
-#include "tf2/transform_datatypes.hpp"
 
 #include "gtest/gtest.h"
 
@@ -446,15 +440,15 @@ public:
   rclcpp::SubscriptionBase::SharedPtr create_subscription(
     rclcpp_lifecycle::LifecycleNode & node,
     const std::string & topic,
-    const std::string &,
+    [[maybe_unused]] const std::string & type,
     std::shared_ptr<easynav::PerceptionBase> target,
-    rclcpp::CallbackGroup::SharedPtr cb_group)
+    rclcpp::CallbackGroup::SharedPtr cb_group) override
   {
     auto options = rclcpp::SubscriptionOptions();
     options.callback_group = cb_group;
 
     return node.create_subscription<std_msgs::msg::String>(
-      topic, rclcpp::QoS(1).reliable(),
+      topic, rclcpp::QoS(1),
       [target](const std_msgs::msg::String::SharedPtr msg)
       {
         auto p = std::dynamic_pointer_cast<DummyPerception>(target);
