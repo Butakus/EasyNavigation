@@ -27,7 +27,6 @@
 #include "lifecycle_msgs/msg/state.hpp"
 
 #include "easynav_controller/ControllerNode.hpp"
-#include "easynav_common/YTSession.hpp"
 
 namespace easynav
 {
@@ -80,10 +79,8 @@ ControllerNode::~ControllerNode()
 using CallbackReturnT = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
 
 CallbackReturnT
-ControllerNode::on_configure(const rclcpp_lifecycle::State & state)
+ControllerNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
-
   std::vector<std::string> controller_types;
   declare_parameter("controller_types", controller_types);
   get_parameter("controller_types", controller_types);
@@ -130,39 +127,32 @@ ControllerNode::on_configure(const rclcpp_lifecycle::State & state)
 }
 
 CallbackReturnT
-ControllerNode::on_activate(const rclcpp_lifecycle::State & state)
+ControllerNode::on_activate([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
-
   return CallbackReturnT::SUCCESS;
 }
 
 CallbackReturnT
-ControllerNode::on_deactivate(const rclcpp_lifecycle::State & state)
+ControllerNode::on_deactivate([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
-
   return CallbackReturnT::SUCCESS;
 }
 
 CallbackReturnT
-ControllerNode::on_cleanup(const rclcpp_lifecycle::State & state)
+ControllerNode::on_cleanup([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
   return CallbackReturnT::SUCCESS;
 }
 
 CallbackReturnT
-ControllerNode::on_shutdown(const rclcpp_lifecycle::State & state)
+ControllerNode::on_shutdown([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
   return CallbackReturnT::SUCCESS;
 }
 
 CallbackReturnT
-ControllerNode::on_error(const rclcpp_lifecycle::State & state)
+ControllerNode::on_error([[maybe_unused]] const rclcpp_lifecycle::State & state)
 {
-  (void)state;
   return CallbackReturnT::SUCCESS;
 }
 

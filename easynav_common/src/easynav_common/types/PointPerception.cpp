@@ -22,12 +22,9 @@
 #include <optional>
 
 #include "pcl_conversions/pcl_conversions.h"
-#include "pcl/point_types_conversion.h"
 
-#include "pcl/common/transforms.h"
 #include "pcl/point_cloud.h"
 #include "pcl/point_types.h"
-#include "pcl/PointIndices.h"
 
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
@@ -38,7 +35,6 @@
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
 #include "easynav_common/types/PointPerception.hpp"
-#include "easynav_common/YTSession.hpp"
 #include "easynav_common/RTTFBuffer.hpp"
 
 namespace easynav
@@ -57,7 +53,7 @@ PointPerceptionHandler::create_subscription(
 
   if (type == "sensor_msgs/msg/PointCloud2") {
     return node.create_subscription<sensor_msgs::msg::PointCloud2>(
-      topic, rclcpp::SensorDataQoS().reliable(),
+      topic, rclcpp::QoS(1),
       [target](const sensor_msgs::msg::PointCloud2::SharedPtr msg)
       {
         auto typed_target = std::dynamic_pointer_cast<PointPerception>(target);
@@ -142,66 +138,163 @@ points_to_rosmsg(const pcl::PointCloud<pcl::PointXYZ> & cloud)
 
 
 PointPerceptionsOpsView::PointPerceptionsOpsView(const PointPerceptions & perceptions)
-: perceptions_(perceptions), indices_(perceptions.size())
+: owned_(std::nullopt),
+  perceptions_(perceptions)
 {
-  for (std::size_t i = 0; i < perceptions_.size(); ++i) {
-    if (perceptions_[i]) {
-      indices_[i].indices.resize(perceptions_[i]->data.size());
-      std::iota(indices_[i].indices.begin(), indices_[i].indices.end(), 0);
+  const std::size_t n = perceptions_.size();
+  indices_.resize(n);
+  tf_transforms_.resize(n);
+  tf_valid_.assign(n, false);
+
+  for (std::size_t i = 0; i < n; ++i) {
+    auto & pptr = perceptions_[i];
+    if (!pptr || !pptr->valid || pptr->data.empty()) {
+      continue;
     }
+    auto & idx = indices_[i].indices;
+    idx.resize(pptr->data.size());
+    std::iota(idx.begin(), idx.end(), 0);
   }
 }
 
 PointPerceptionsOpsView::PointPerceptionsOpsView(const PointPerception & perception)
-: owned_(std::in_place),
-  perceptions_(*owned_),
-  indices_(1)
+: owned_(PointPerceptions{}),
+  perceptions_(*owned_)
 {
   owned_->push_back(std::make_shared<PointPerception>(perception));
 
-  indices_[0].indices.resize(perceptions_[0]->data.size());
-  std::iota(indices_[0].indices.begin(), indices_[0].indices.end(), 0);
+  const std::size_t n = owned_->size();
+  indices_.resize(n);
+  tf_transforms_.resize(n);
+  tf_valid_.assign(n, false);
+
+  auto & pptr = owned_->front();
+  if (pptr && pptr->valid && !pptr->data.empty()) {
+    auto & idx = indices_.front().indices;
+    idx.resize(pptr->data.size());
+    std::iota(idx.begin(), idx.end(), 0);
+  }
 }
 
 PointPerceptionsOpsView::PointPerceptionsOpsView(PointPerceptions && perceptions)
-: owned_(std::move(perceptions)), perceptions_(*owned_), indices_(perceptions_.size())
+: owned_(std::move(perceptions)),
+  perceptions_(*owned_)
 {
-  for (std::size_t i = 0; i < perceptions_.size(); ++i) {
-    if (!perceptions_[i] || !perceptions_[i]->valid || perceptions_[i]->data.empty()) {continue;}
+  const std::size_t n = perceptions_.size();
+  indices_.resize(n);
+  tf_transforms_.resize(n);
+  tf_valid_.assign(n, false);
 
-    indices_[i].indices.resize(perceptions_[i]->data.size());
-    std::iota(indices_[i].indices.begin(), indices_[i].indices.end(), 0);
+  for (std::size_t i = 0; i < n; ++i) {
+    auto & pptr = perceptions_[i];
+    if (!pptr || !pptr->valid || pptr->data.empty()) {
+      continue;
+    }
+    auto & idx = indices_[i].indices;
+    idx.resize(pptr->data.size());
+    std::iota(idx.begin(), idx.end(), 0);
   }
 }
 
 PointPerceptionsOpsView &
 PointPerceptionsOpsView::filter(
   const std::vector<double> & min_bounds,
-  const std::vector<double> & max_bounds)
+  const std::vector<double> & max_bounds,
+  bool lazy_post_fuse)
 {
-  for (std::size_t i = 0; i < perceptions_.size(); ++i) {
-    if (!perceptions_[i] || !perceptions_[i]->valid || perceptions_[i]->data.empty()) {continue;}
+  if (has_target_frame_ && lazy_post_fuse) {
+    has_post_filter_ = true;
 
-    const auto & cloud = perceptions_[i]->data;
-    auto & indices = indices_[i].indices;
+    auto fill_bounds = [](const std::vector<double> & src,
+      double dst[3],
+      bool used[3]) {
+        for (int k = 0; k < 3; ++k) {
+          if (static_cast<std::size_t>(k) < src.size() && !std::isnan(src[k])) {
+            used[k] = true;
+            dst[k] = src[k];
+          } else {
+            used[k] = false;
+            dst[k] = 0.0;
+          }
+        }
+      };
 
-    std::size_t write_idx = 0;
-    for (std::size_t read_idx = 0; read_idx < indices.size(); ++read_idx) {
-      const auto & pt = cloud[indices[read_idx]];
-      bool keep = true;
-      if (!std::isnan(min_bounds[0]) && pt.x < min_bounds[0]) {keep = false;}
-      if (!std::isnan(max_bounds[0]) && pt.x > max_bounds[0]) {keep = false;}
-      if (!std::isnan(min_bounds[1]) && pt.y < min_bounds[1]) {keep = false;}
-      if (!std::isnan(max_bounds[1]) && pt.y > max_bounds[1]) {keep = false;}
-      if (!std::isnan(min_bounds[2]) && pt.z < min_bounds[2]) {keep = false;}
-      if (!std::isnan(max_bounds[2]) && pt.z > max_bounds[2]) {keep = false;}
+    fill_bounds(min_bounds, post_min_, use_post_min_);
+    fill_bounds(max_bounds, post_max_, use_post_max_);
 
-      if (keep) {
-        indices[write_idx++] = indices[read_idx];
-      }
+    return *this;
+  }
+
+  const bool use_x_min = min_bounds.size() > 0 && !std::isnan(min_bounds[0]);
+  const bool use_y_min = min_bounds.size() > 1 && !std::isnan(min_bounds[1]);
+  const bool use_z_min = min_bounds.size() > 2 && !std::isnan(min_bounds[2]);
+
+  const bool use_x_max = max_bounds.size() > 0 && !std::isnan(max_bounds[0]);
+  const bool use_y_max = max_bounds.size() > 1 && !std::isnan(max_bounds[1]);
+  const bool use_z_max = max_bounds.size() > 2 && !std::isnan(max_bounds[2]);
+
+  const double xmin = use_x_min ? min_bounds[0] : 0.0;
+  const double ymin = use_y_min ? min_bounds[1] : 0.0;
+  const double zmin = use_z_min ? min_bounds[2] : 0.0;
+
+  const double xmax = use_x_max ? max_bounds[0] : 0.0;
+  const double ymax = use_y_max ? max_bounds[1] : 0.0;
+  const double zmax = use_z_max ? max_bounds[2] : 0.0;
+
+  const std::size_t n = perceptions_.size();
+  const bool has_tf_array =
+    has_target_frame_ && tf_valid_.size() == n && tf_transforms_.size() == n;
+
+  if (!lazy_post_fuse) {
+    has_post_filter_ = false;
+  }
+
+  for (std::size_t i = 0; i < n; ++i) {
+    const auto & pptr = perceptions_[i];
+    auto & idx_list = indices_[i].indices;
+
+    if (!pptr || !pptr->valid || pptr->data.empty() || idx_list.empty()) {
+      idx_list.clear();
+      continue;
     }
 
-    indices.resize(write_idx);
+    const auto & cloud = pptr->data;
+
+    std::vector<int> new_indices;
+    new_indices.reserve(idx_list.size());
+
+    const bool apply_tf = has_tf_array && tf_valid_[i];
+
+    for (int idx : idx_list) {
+      if (idx < 0 || static_cast<std::size_t>(idx) >= cloud.size()) {
+        continue;
+      }
+
+      const auto & pt = cloud[idx];
+      double x = pt.x;
+      double y = pt.y;
+      double z = pt.z;
+
+      if (apply_tf) {
+        tf2::Vector3 p(pt.x, pt.y, pt.z);
+        p = tf_transforms_[i] * p;
+        x = p.x();
+        y = p.y();
+        z = p.z();
+      }
+
+      if (use_x_min && x < xmin) {continue;}
+      if (use_y_min && y < ymin) {continue;}
+      if (use_z_min && z < zmin) {continue;}
+
+      if (use_x_max && x > xmax) {continue;}
+      if (use_y_max && y > ymax) {continue;}
+      if (use_z_max && z > zmax) {continue;}
+
+      new_indices.push_back(idx);
+    }
+
+    idx_list.swap(new_indices);
   }
 
   return *this;
@@ -210,151 +303,326 @@ PointPerceptionsOpsView::filter(
 PointPerceptionsOpsView &
 PointPerceptionsOpsView::downsample(double resolution)
 {
-  for (std::size_t i = 0; i < perceptions_.size(); ++i) {
-    if (!perceptions_[i] || !perceptions_[i]->valid || perceptions_[i]->data.empty()) {continue;}
+  if (resolution <= 0.0) {
+    return *this;
+  }
 
-    const auto & cloud = perceptions_[i]->data;
+  const double inv_res = 1.0 / resolution;
+
+  std::unordered_set<VoxelKey, VoxelKeyHash> voxel_set;
+
+  const std::size_t n = perceptions_.size();
+  for (std::size_t i = 0; i < n; ++i) {
+    const auto & pptr = perceptions_[i];
+    if (!pptr || !pptr->valid || pptr->data.empty()) {
+      continue;
+    }
+
     auto & indices = indices_[i].indices;
+    if (indices.size() <= 1) {continue;}
 
-    std::unordered_set<std::tuple<int, int, int>> voxel_set;
+    const auto & cloud = pptr->data;
+
+    voxel_set.clear();
+    voxel_set.reserve(indices.size());
+
     std::size_t write_idx = 0;
 
     for (std::size_t read_idx = 0; read_idx < indices.size(); ++read_idx) {
-      const auto & pt = cloud[indices[read_idx]];
-      auto voxel = std::make_tuple(
-        static_cast<int>(pt.x / resolution),
-        static_cast<int>(pt.y / resolution),
-        static_cast<int>(pt.z / resolution));
+      const int idx = indices[read_idx];
+      if (idx < 0 || static_cast<std::size_t>(idx) >= cloud.size()) {continue;}
 
-      if (voxel_set.insert(voxel).second) {
-        indices[write_idx++] = indices[read_idx];
+      const auto & pt = cloud[idx];
+
+      const float z_val = collapse_z_ ? collapse_val_z_ : pt.z;
+
+      VoxelKey key{
+        static_cast<int>(pt.x * inv_res),
+        static_cast<int>(pt.y * inv_res),
+        static_cast<int>(z_val * inv_res)};
+
+      if (voxel_set.insert(key).second) {
+        indices[write_idx++] = idx;
       }
     }
-
     indices.resize(write_idx);
   }
 
   return *this;
 }
 
-std::shared_ptr<PointPerceptionsOpsView>
-PointPerceptionsOpsView::collapse(const std::vector<double> & collapse_dims) const
+PointPerceptionsOpsView &
+PointPerceptionsOpsView::collapse(const std::vector<double> & collapse_dims, bool lazy)
 {
-  PointPerceptions result;
+  if (lazy) {
+    collapse_x_ = collapse_dims.size() > 0 && !std::isnan(collapse_dims[0]);
+    collapse_y_ = collapse_dims.size() > 1 && !std::isnan(collapse_dims[1]);
+    collapse_z_ = collapse_dims.size() > 2 && !std::isnan(collapse_dims[2]);
 
-  for (std::size_t i = 0; i < perceptions_.size(); ++i) {
-    const auto & pptr = perceptions_[i];
-    if (!pptr || !pptr->valid || pptr->data.empty()) {continue;}
-
-    auto collapsed = std::make_shared<PointPerception>();
-    collapsed->valid = pptr->valid;
-    collapsed->frame_id = pptr->frame_id;
-    collapsed->stamp = pptr->stamp;
-
-    const auto & cloud = pptr->data;
-    for (int idx : indices_[i].indices) {
-      auto pt = cloud[idx];
-      if (!std::isnan(collapse_dims[0])) {pt.x = collapse_dims[0];}
-      if (!std::isnan(collapse_dims[1])) {pt.y = collapse_dims[1];}
-      if (!std::isnan(collapse_dims[2])) {pt.z = collapse_dims[2];}
-      collapsed->data.push_back(pt);
+    if (collapse_x_) {
+      collapse_val_x_ = static_cast<float>(collapse_dims[0]);
+    }
+    if (collapse_y_) {
+      collapse_val_y_ = static_cast<float>(collapse_dims[1]);
+    }
+    if (collapse_z_) {
+      collapse_val_z_ = static_cast<float>(collapse_dims[2]);
     }
 
-    result.push_back(collapsed);
+    return *this;
   }
 
-  return std::make_shared<PointPerceptionsOpsView>(std::move(result));
-}
+  if (!owned_.has_value()) {
+    RCLCPP_WARN(
+      rclcpp::get_logger("PointPerceptionsOpsView"),
+      "collapse(..., lazy=false) called on a non-owning view. "
+      "Operation ignored.");
+    return *this;
+  }
 
+  auto & container = owned_.value();
+
+  const bool use_x = collapse_dims.size() > 0 && !std::isnan(collapse_dims[0]);
+  const bool use_y = collapse_dims.size() > 1 && !std::isnan(collapse_dims[1]);
+  const bool use_z = collapse_dims.size() > 2 && !std::isnan(collapse_dims[2]);
+
+  const float vx = use_x ? static_cast<float>(collapse_dims[0]) : 0.0f;
+  const float vy = use_y ? static_cast<float>(collapse_dims[1]) : 0.0f;
+  const float vz = use_z ? static_cast<float>(collapse_dims[2]) : 0.0f;
+
+  if (!use_x && !use_y && !use_z) {
+    return *this;
+  }
+
+  for (auto & pptr : container) {
+    if (!pptr || !pptr->valid || pptr->data.empty()) {
+      continue;
+    }
+    auto & cloud = pptr->data;
+
+    for (auto & pt : cloud) {
+      if (use_x) {pt.x = vx;}
+      if (use_y) {pt.y = vy;}
+      if (use_z) {pt.z = vz;}
+    }
+  }
+
+  collapse_x_ = collapse_y_ = collapse_z_ = false;
+
+  return *this;
+}
 
 pcl::PointCloud<pcl::PointXYZ>
 PointPerceptionsOpsView::as_points() const
 {
-  pcl::PointCloud<pcl::PointXYZ> output;
+  pcl::PointCloud<pcl::PointXYZ> out;
 
-  for (std::size_t i = 0; i < perceptions_.size(); ++i) {
-    auto perception = perceptions_[i];
+  const std::size_t n = perceptions_.size();
 
-    if (!perception || !perception->valid || perception->data.empty()) {continue;}
-
-    const auto & cloud = perception->data;
-    const auto & index_list = indices_[i].indices;
-
-    for (int idx : index_list) {
-      if (static_cast<std::size_t>(idx) < cloud.size()) {
-        output.push_back(cloud[idx]);
-      }
-    }
+  std::size_t total_points = 0;
+  for (std::size_t i = 0; i < n; ++i) {
+    total_points += indices_[i].indices.size();
   }
 
-  return output;
-}
+  out.points.reserve(total_points);
+  out.height = 1;
+  out.is_dense = false;
 
-std::shared_ptr<PointPerceptionsOpsView>
-PointPerceptionsOpsView::fuse(const std::string & target_frame) const
-{
-  auto fused = std::make_shared<PointPerception>();
-  fused->valid = true;
-  fused->frame_id = target_frame;
-  std::optional<rclcpp::Time> latest_stamp;
+  const bool has_tf_array =
+    has_target_frame_ && (tf_valid_.size() == n) && (tf_transforms_.size() == n);
 
-  for (std::size_t i = 0; i < perceptions_.size(); ++i) {
-    auto p = perceptions_[i];
-    if (!p || !p->valid || p->data.empty()) {continue;}
+  for (std::size_t i = 0; i < n; ++i) {
+    const auto & pptr = perceptions_[i];
+    const auto & idx_list = indices_[i].indices;
 
-    geometry_msgs::msg::TransformStamped tf_msg;
-    try {
-      tf_msg = RTTFBuffer::getInstance()->lookupTransform(
-        target_frame, p->frame_id, tf2_ros::fromMsg(p->stamp), tf2::durationFromSec(0.0));
-    } catch (const tf2::TransformException & ex) {
-      RCLCPP_WARN(rclcpp::get_logger("PointPerceptionsOpsView"), "TF failed: %s", ex.what());
+    if (!pptr || !pptr->valid || pptr->data.empty() || idx_list.empty()) {
       continue;
     }
 
-    tf2::Transform tf;
-    tf2::fromMsg(tf_msg.transform, tf);
+    const auto & cloud = pptr->data;
+    const bool apply_tf = has_tf_array && tf_valid_[i];
 
-    pcl::PointCloud<pcl::PointXYZ> transformed;
-    for (int idx : indices_[i].indices) {
-      const auto & pt = p->data[idx];
-      tf2::Vector3 pt_tf(pt.x, pt.y, pt.z);
-      tf2::Vector3 pt_out = tf * pt_tf;
-      transformed.emplace_back(pt_out.x(), pt_out.y(), pt_out.z());
-    }
+    for (int idx : idx_list) {
+      if (idx < 0 || static_cast<std::size_t>(idx) >= cloud.size()) {
+        continue;
+      }
 
-    fused->data += transformed;
+      const auto & src = cloud[idx];
+      tf2::Vector3 p(src.x, src.y, src.z);
 
-    if (!latest_stamp.has_value() || p->stamp > latest_stamp.value()) {
-      latest_stamp = p->stamp;
+      if (apply_tf) {
+        p = tf_transforms_[i] * p;
+      }
+
+      double x = p.x();
+      double y = p.y();
+      double z = p.z();
+
+      if (has_post_filter_) {
+        if (use_post_min_[0] && x < post_min_[0]) {continue;}
+        if (use_post_min_[1] && y < post_min_[1]) {continue;}
+        if (use_post_min_[2] && z < post_min_[2]) {continue;}
+
+        if (use_post_max_[0] && x > post_max_[0]) {continue;}
+        if (use_post_max_[1] && y > post_max_[1]) {continue;}
+        if (use_post_max_[2] && z > post_max_[2]) {continue;}
+      }
+
+      pcl::PointXYZ dst(
+        static_cast<float>(x),
+        static_cast<float>(y),
+        static_cast<float>(z));
+
+      if (collapse_x_) {dst.x = collapse_val_x_;}
+      if (collapse_y_) {dst.y = collapse_val_y_;}
+      if (collapse_z_) {dst.z = collapse_val_z_;}
+
+      out.points.push_back(dst);
     }
   }
 
-  fused->stamp = latest_stamp.value_or(rclcpp::Time(0));
-
-  PointPerceptions result;
-  result.push_back(fused);
-
-  return std::make_shared<PointPerceptionsOpsView>(std::move(result));
+  out.width = static_cast<uint32_t>(out.points.size());
+  return out;
 }
 
-std::shared_ptr<PointPerceptionsOpsView>
+const pcl::PointCloud<pcl::PointXYZ> &
+PointPerceptionsOpsView::as_points(int idx) const
+{
+  tmp_single_cloud_.clear();
+  tmp_single_cloud_.height = 1;
+  tmp_single_cloud_.is_dense = false;
+
+  if (idx < 0 || static_cast<std::size_t>(idx) >= perceptions_.size()) {
+    tmp_single_cloud_.width = 0;
+    return tmp_single_cloud_;
+  }
+
+  const std::size_t i = static_cast<std::size_t>(idx);
+  const auto & pptr = perceptions_[i];
+  const auto & idx_list = indices_[i].indices;
+
+  if (!pptr || !pptr->valid || pptr->data.empty() || idx_list.empty()) {
+    tmp_single_cloud_.width = 0;
+    return tmp_single_cloud_;
+  }
+
+  const auto & cloud = pptr->data;
+
+  const bool has_tf = has_target_frame_ &&
+    tf_valid_.size() == perceptions_.size() &&
+    tf_valid_[i];
+
+  for (int id : idx_list) {
+    if (id < 0 || static_cast<std::size_t>(id) >= cloud.size()) {
+      continue;
+    }
+
+    const auto & src = cloud[id];
+    tf2::Vector3 p(src.x, src.y, src.z);
+
+    if (has_tf) {
+      p = tf_transforms_[i] * p;
+    }
+
+    pcl::PointXYZ dst(
+      static_cast<float>(p.x()),
+      static_cast<float>(p.y()),
+      static_cast<float>(p.z()));
+
+    if (collapse_x_) {dst.x = collapse_val_x_;}
+    if (collapse_y_) {dst.y = collapse_val_y_;}
+    if (collapse_z_) {dst.z = collapse_val_z_;}
+
+    tmp_single_cloud_.points.push_back(dst);
+  }
+
+  tmp_single_cloud_.width =
+    static_cast<uint32_t>(tmp_single_cloud_.points.size());
+  return tmp_single_cloud_;
+}
+
+
+PointPerceptionsOpsView &
+PointPerceptionsOpsView::fuse(const std::string & target_frame)
+{
+  has_target_frame_ = true;
+  target_frame_ = target_frame;
+
+  const std::size_t n = perceptions_.size();
+  if (tf_transforms_.size() != n) {
+    tf_transforms_.resize(n);
+  }
+  if (tf_valid_.size() != n) {
+    tf_valid_.assign(n, false);
+  }
+
+  auto tf_buffer = easynav::RTTFBuffer::getInstance();
+
+  for (std::size_t i = 0; i < n; ++i) {
+    const auto & pptr = perceptions_[i];
+    if (!pptr || !pptr->valid || pptr->data.empty()) {
+      tf_valid_[i] = false;
+      continue;
+    }
+
+    if (pptr->frame_id == target_frame_) {
+      tf_valid_[i] = false;
+      continue;
+    }
+
+    try {
+      auto tf_msg = tf_buffer->lookupTransform(
+        target_frame_, pptr->frame_id,
+        tf2_ros::fromMsg(pptr->stamp),
+        tf2::durationFromSec(0.0));
+
+      tf2::fromMsg(tf_msg.transform, tf_transforms_[i]);
+      tf_valid_[i] = true;
+    } catch (const tf2::TransformException & ex) {
+      RCLCPP_WARN(
+        rclcpp::get_logger("PointPerceptionsOpsView"),
+        "TF lookup failed in fuse(): %s", ex.what());
+      tf_valid_[i] = false;
+    }
+  }
+
+  return *this;
+}
+
+PointPerceptionsOpsView &
 PointPerceptionsOpsView::add(
   const pcl::PointCloud<pcl::PointXYZ> points,
   const std::string & frame,
-  rclcpp::Time stamp) const
+  rclcpp::Time stamp)
 {
-  auto new_perception = std::make_shared<PointPerception>();
-  new_perception->valid = true;
-  new_perception->frame_id = frame;
-  new_perception->data = points;
-  new_perception->stamp = stamp;
+  if (!owned_.has_value()) {
+    RCLCPP_ERROR(
+      rclcpp::get_logger("PointPerceptionsOpsView"),
+      "add() called on a view that does not own the underlying container.");
+    return *this;
+  }
 
-  PointPerceptions new_perceptions = perceptions_;
-  new_perceptions.push_back(new_perception);
-  auto new_perception_view = std::make_shared<PointPerceptionsOpsView>(std::move(new_perceptions));
+  auto & container = owned_.value();
 
-  return new_perception_view;
+  auto p = std::make_shared<PointPerception>();
+  p->valid = true;
+  p->frame_id = frame;
+  p->stamp = stamp;
+  p->data = points;
+
+  container.push_back(p);
+
+  indices_.push_back(pcl::PointIndices{});
+  auto & idx = indices_.back().indices;
+  idx.resize(points.size());
+  std::iota(idx.begin(), idx.end(), 0);
+
+  tf_transforms_.push_back(tf2::Transform());
+  tf_valid_.push_back(false);
+
+  return *this;
 }
+
 
 PointPerceptions get_point_perceptions(std::vector<PerceptionPtr> & perceptionptr)
 {

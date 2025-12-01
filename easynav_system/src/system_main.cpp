@@ -17,18 +17,21 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-
 #include <string>
+#include <atomic>
+#include <thread>
+#include <chrono>
 
 #include "lifecycle_msgs/msg/transition.hpp"
 #include "lifecycle_msgs/msg/state.hpp"
 
 #include "easynav_system/SystemNode.hpp"
-
 #include "easynav_common/RTTFBuffer.hpp"
+#include "easynav_common/YTSession.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
+#include "tf2_ros/transform_listener.hpp"
 
 using namespace std::chrono_literals;
 
@@ -36,84 +39,137 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
 
-  rclcpp::experimental::executors::EventsExecutor exe_nort, exe_rt;
-  auto system_node = easynav::SystemNode::make_shared();
+  std::atomic_bool stop{false};
 
-  exe_nort.add_node(system_node->get_node_base_interface());
-  exe_rt.add_callback_group(system_node->get_real_time_cbg(),
-    system_node->get_node_base_interface());
+  std::thread rt_thread;
+  {
+    // Executors live in this scope and will be destroyed after join().
+    rclcpp::executors::SingleThreadedExecutor exe_nort;
+    rclcpp::executors::SingleThreadedExecutor exe_rt;
 
-  auto tf_node = rclcpp::Node::make_shared("tf_node");
-  exe_rt.add_node(tf_node);
+    auto system_node = easynav::SystemNode::make_shared();
 
-  auto tf_buffer = easynav::RTTFBuffer::getInstance(tf_node->get_clock());
+    exe_nort.add_node(system_node->get_node_base_interface());
+    exe_rt.add_callback_group(system_node->get_real_time_cbg(),
+                              system_node->get_node_base_interface());
 
-  for (auto & node : system_node->get_system_nodes()) {
-    exe_nort.add_node(node.second.node_ptr->get_node_base_interface());
-    if (node.second.realtime_cbg != nullptr) {
-      exe_rt.add_callback_group(node.second.realtime_cbg,
-        node.second.node_ptr->get_node_base_interface());
+    auto tf_node = rclcpp::Node::make_shared("tf_node");
+
+    auto tf_clock = std::make_shared<rclcpp::Clock>(RCL_STEADY_TIME);
+    auto tf_buffer = easynav::RTTFBuffer::getInstance(tf_clock);
+
+    for (auto & node : system_node->get_system_nodes()) {
+      exe_nort.add_node(node.second.node_ptr->get_node_base_interface());
+      if (node.second.realtime_cbg != nullptr) {
+        exe_rt.add_callback_group(node.second.realtime_cbg,
+                                  node.second.node_ptr->get_node_base_interface());
+      }
     }
-  }
 
-  system_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
-  if (system_node->get_current_state().id() !=
-    lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
-  {
-    RCLCPP_ERROR(system_node->get_logger(), "Unable to configure EasyNav");
-    rclcpp::shutdown();
-    return 1;
-  }
-  system_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE);
-  if (system_node->get_current_state().id() !=
-    lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
-  {
-    RCLCPP_ERROR(system_node->get_logger(), "Unable to activate EasyNav");
-    rclcpp::shutdown();
-    return 1;
-  }
+    // Lifecycle: configure -> activate
+    system_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
+    if (system_node->get_current_state().id() !=
+      lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE)
+    {
+      RCLCPP_ERROR(system_node->get_logger(), "Unable to configure EasyNav");
+      rclcpp::shutdown();
+      return 1;
+    }
+    system_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE);
+    if (system_node->get_current_state().id() !=
+      lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
+    {
+      RCLCPP_ERROR(system_node->get_logger(), "Unable to activate EasyNav");
+      rclcpp::shutdown();
+      return 1;
+    }
 
-  bool use_real_time = true;
-  system_node->declare_parameter("use_real_time", use_real_time);
-  system_node->get_parameter("use_real_time", use_real_time);
+    bool use_real_time = true;
+    system_node->declare_parameter("use_real_time", use_real_time);
+    system_node->get_parameter("use_real_time", use_real_time);
 
-  auto rt_thread = std::thread(
-    [&]() {
-      if (use_real_time) {
-        RCLCPP_INFO(system_node->get_logger(), "Selected Real-Time");
-        sched_param sch;
-        sch.sched_priority = 80;
+    // Get spin duration timeout for both threads
+    double spin_time_rt = 0.001;
+    system_node->declare_parameter("spin_time_rt", spin_time_rt);
+    system_node->get_parameter("spin_time_rt", spin_time_rt);
+    double spin_time_nort = 0.001;
+    system_node->declare_parameter("spin_time_nort", spin_time_nort);
+    system_node->get_parameter("spin_time_nort", spin_time_nort);
 
-        if (sched_setscheduler(0, SCHED_FIFO, &sch) == -1) {
-          RCLCPP_WARN(
-            system_node->get_logger(),
-            "Failed to tet EasyNav to execute in Real Time.");
-          RCLCPP_WARN(system_node->get_logger(), "set your system to have permissions.");
-          RCLCPP_WARN(system_node->get_logger(), "Running RT Thread with normal priority.");
-        }
-      } else {
-        RCLCPP_INFO(system_node->get_logger(), "Selected NO Real-Time");
-      }
+    // Convert spin timeouts from seconds to nanoseconds and cast to chrono type
+    const auto spin_duration_rt = std::chrono::duration_cast<std::chrono::nanoseconds>(
+      std::chrono::duration<double>(spin_time_rt)
+    );
 
-      tf2_ros::TransformListener tf_listener(*tf_buffer, tf_node, true);
+    const auto spin_duration_nort = std::chrono::duration_cast<std::chrono::nanoseconds>(
+      std::chrono::duration<double>(spin_time_nort)
+    );
 
-      rclcpp::Rate rate(100);
-      while (rclcpp::ok()) {
-        if (system_node->get_current_state().id() ==
-        lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
-        {
-          system_node->system_cycle_rt();
-        }
-        rate.sleep();
-        exe_rt.spin_some();
-      }
+    // Cooperative shutdown on SIGINT
+    rclcpp::on_shutdown([&](){
+        stop.store(true, std::memory_order_relaxed);
+        exe_rt.cancel();
+        exe_nort.cancel();
     });
 
-  exe_nort.spin();
+    // RT thread
+    rt_thread = std::thread(
+      [&, tf_node, tf_buffer, system_node, use_real_time]() {
+        if (use_real_time) {
+          RCLCPP_INFO(system_node->get_logger(), "Selected Real-Time");
+          sched_param sch; sch.sched_priority = 80;
+          if (sched_setscheduler(0, SCHED_FIFO, &sch) == -1) {
+            RCLCPP_WARN(system_node->get_logger(),
+              "Failed to set Real Time. Running with normal priority.");
+          }
+        } else {
+          RCLCPP_INFO(system_node->get_logger(), "Selected NO Real-Time");
+        }
 
-  rt_thread.join();
+        tf2_ros::TransformListener tf_listener(*tf_buffer, tf_node, true);
 
-  // TODO: There is an issue here to cleanly finish https://github.com/ros2/rclcpp/issues/2520
+        rclcpp::WallRate rate(200);
+        while (!stop.load(std::memory_order_relaxed)) {
+          if (system_node->get_current_state().id() ==
+          lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
+          {
+            system_node->system_cycle_rt();
+          }
+          {
+            EASYNAV_TRACE_NAMED_EVENT("easynav_system::spin_rt");
+            exe_rt.spin_all(spin_duration_rt);
+          }
+          rate.sleep();
+        }
+      });
+
+    // Non-RT loop
+    rclcpp::WallRate rate(200);
+    while (!stop.load(std::memory_order_relaxed)) {
+
+      if (system_node->get_current_state().id() ==
+        lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE)
+      {
+        system_node->system_cycle();
+      }
+      {
+        EASYNAV_TRACE_NAMED_EVENT("easynav_system::spin_nort");
+        exe_nort.spin_all(spin_duration_nort);
+      }
+      rate.sleep();
+    }
+
+    // Ensure stop flag visible and cancel executors (idempotent)
+    stop.store(true, std::memory_order_relaxed);
+    exe_rt.cancel();
+    exe_nort.cancel();
+  }
+
+
+  // Wait the RT thread to finish before shutting down ROS.
+  if (rt_thread.joinable()) {
+    rt_thread.join();
+  }
 
   rclcpp::shutdown();
   return 0;

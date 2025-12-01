@@ -142,9 +142,6 @@ private:
   /// @brief Real-time callback group.
   rclcpp::CallbackGroup::SharedPtr realtime_cbg_;
 
-  /// @brief Timer for non-real-time updates.
-  rclcpp::TimerBase::SharedPtr system_main_nort_timer_;
-
   /// @brief Controller node.
   ControllerNode::SharedPtr controller_node_;
 

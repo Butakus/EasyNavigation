@@ -1,12 +1,8 @@
-name: kilted
+name: rolling
 
 on:
-  pull_request:
-    branches:
-      - kilted
-  push:
-    branches:
-      - kilted
+  schedule:
+      - cron: '0 0 * * 6'     
 jobs:
   build-and-test:
     runs-on: ${{ matrix.os }}
@@ -17,16 +13,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: kilted
+          ref: rolling
       - name: Setup ROS 2
         uses: ros-tooling/setup-ros@0.7.15
         with:
-          required-ros-distributions: kilted
+          required-ros-distributions: rolling
       - name: build and test
         uses: ros-tooling/action-ros-ci@0.4.5
         with:
           package-name: easynav_common easynav_controller easynav_localizer easynav_maps_manager easynav_planner easynav_sensors easynav_system easynav_support_py easynav_tools
-          target-ros2-distro: kilted
+          target-ros2-distro: rolling
+          ref: rolling
           vcs-repo-file-url: ${GITHUB_WORKSPACE}/.github/thirdparty.repos
           colcon-defaults: |
             {

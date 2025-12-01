@@ -20,13 +20,56 @@
 /// \file
 /// \brief Implementation of the GoalManager class.
 
+#include <numbers>
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
+#include "tf2/utils.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+
 #include "easynav_system/GoalManager.hpp"
 
-#include "nav_msgs/msg/odometry.hpp"
 
 namespace easynav
 {
+
+/** Internal utility functions */
+/**
+  * @brief Get the x/y distance between two poses
+  *
+  * @param pose1 First pose
+  * @param pose2 Second pose
+  */
+double calculate_distance_xy(
+  const geometry_msgs::msg::Pose & pose1,
+  const geometry_msgs::msg::Pose & pose2)
+{
+  const double dx = pose1.position.x - pose2.position.x;
+  const double dy = pose1.position.y - pose2.position.y;
+  return std::hypot(dx, dy);
+}
+
+/** Angle normalization to [-pi, pi) range (in radians) */
+constexpr double norm_angle(const double angle)
+{
+  using std::numbers::pi;
+  double norm_angle = std::fmod(angle + pi, 2 * pi);
+  return norm_angle < 0 ? norm_angle + pi : norm_angle - pi;
+}
+
+/**
+  * @brief Get the (absolute) yaw angle difference between two poses
+  *
+  * @param pose1 First pose
+  * @param pose2 Second pose
+  */
+double calculate_angle(
+  const geometry_msgs::msg::Pose & pose1,
+  const geometry_msgs::msg::Pose & pose2)
+{
+  const double yaw1 = tf2::getYaw(pose1.orientation);
+  const double yaw2 = tf2::getYaw(pose2.orientation);
+  return norm_angle(yaw1 - yaw2);
+}
+
 
 GoalManager::GoalManager(
   NavState & nav_state,
@@ -36,11 +79,13 @@ GoalManager::GoalManager(
   nav_state.set("navigation_state", state_);
 
   parent_node_->declare_parameter("allow_preempt_goal", allow_preempt_goal_);
-  parent_node_->declare_parameter("position_tolerance", position_tolerance_);
-  parent_node_->declare_parameter("angle_tolerance", angle_tolerance_);
+  parent_node_->declare_parameter("position_tolerance", goal_tolerance_.position);
+  parent_node_->declare_parameter("height_tolerance", goal_tolerance_.height);
+  parent_node_->declare_parameter("angle_tolerance", goal_tolerance_.yaw);
   parent_node_->get_parameter("allow_preempt_goal", allow_preempt_goal_);
-  parent_node_->get_parameter("position_tolerance", position_tolerance_);
-  parent_node_->get_parameter("angle_tolerance", angle_tolerance_);
+  parent_node_->get_parameter("position_tolerance", goal_tolerance_.position);
+  parent_node_->get_parameter("height_tolerance", goal_tolerance_.height);
+  parent_node_->get_parameter("angle_tolerance", goal_tolerance_.yaw);
 
   control_sub_ = parent_node_->create_subscription<easynav_interfaces::msg::NavigationControl>(
     "easynav_control", 100,
@@ -276,7 +321,7 @@ GoalManager::update(NavState & nav_state)
     return;
   }
 
-  auto robot_pose = nav_state.get<nav_msgs::msg::Odometry>("robot_pose").pose.pose;
+  const auto & robot_pose = nav_state.get<nav_msgs::msg::Odometry>("robot_pose").pose.pose;
 
   easynav_interfaces::msg::NavigationControl feedback;
   feedback.type = easynav_interfaces::msg::NavigationControl::FEEDBACK;
@@ -285,7 +330,7 @@ GoalManager::update(NavState & nav_state)
   feedback.user_id = id_;
   feedback.nav_current_user_id = current_client_id_;
 
-  const auto odom = nav_state.get<nav_msgs::msg::Odometry>("robot_pose");
+  const auto & odom = nav_state.get<nav_msgs::msg::Odometry>("robot_pose");
 
   feedback.goals = goals_;
   feedback.current_pose.header = odom.header;
@@ -293,20 +338,24 @@ GoalManager::update(NavState & nav_state)
   feedback.navigation_time = parent_node_->now() - nav_start_time_;
 
   const auto & first_goal = goals_.goals.front().pose;
-  feedback.distance_to_goal = calculate_distance(robot_pose, first_goal);
+  feedback.distance_to_goal = calculate_distance_xy(robot_pose, first_goal);
 
-  // ToDo[@fmrico]: Complete feedback info
+  // ToDo[@fmrico]: Complete feedback info: estimated_time_remaining and distance_covered
 
   RCLCPP_DEBUG(parent_node_->get_logger(), "Sending navigation feedback");
 
   control_pub_->publish(feedback);
   *last_control_ = feedback;
 
-  check_goals(
-    robot_pose,
-    position_tolerance_, angle_tolerance_);
+  check_goals(robot_pose, goal_tolerance_);
 
-  if (!nav_state.has("goals") || nav_state.get<nav_msgs::msg::Goals>("goals") != goals_) {
+  if (!nav_state.has("goals")) {
+    nav_state.set("goals", goals_);
+  }
+
+  const auto & goals = nav_state.get<nav_msgs::msg::Goals>("goals");
+
+  if (goals != goals_) {
     nav_state.set("goals", goals_);
   }
 
@@ -322,8 +371,8 @@ GoalManager::update(NavState & nav_state)
     easynav_interfaces::msg::GoalManagerInfo msg;
     msg.status = static_cast<int>(get_state());
     msg.goals = get_goals();
-    msg.position_tolerance = position_tolerance_;
-    msg.angle_tolerance = angle_tolerance_;
+    msg.position_tolerance = goal_tolerance_.position;
+    msg.angle_tolerance = goal_tolerance_.yaw;
     msg.position_distance = feedback.distance_to_goal;
     msg.angle_distance = calculate_angle(robot_pose, first_goal);
     info_pub_->publish(msg);
@@ -333,50 +382,24 @@ GoalManager::update(NavState & nav_state)
 void
 GoalManager::check_goals(
   const geometry_msgs::msg::Pose & current_pose,
-  double position_tolerance, double angle_tolerance)
+  const GoalTolerance & goal_tolerance)
 {
   if (goals_.goals.empty()) {return;}
 
   const auto & first_goal = goals_.goals.front().pose;
 
-  double distance = calculate_distance(current_pose, first_goal);
+  const double distance_xy = calculate_distance_xy(current_pose, first_goal);
+  const double distance_z = std::abs(current_pose.position.z - first_goal.position.z);
 
-  if (distance > position_tolerance) {
+  if (distance_xy > goal_tolerance.position || distance_z > goal_tolerance.height) {
     return;
   }
 
-  double angle_diff = calculate_angle(current_pose, first_goal);
+  const double angle_diff = calculate_angle(current_pose, first_goal);
 
-  if (angle_diff <= angle_tolerance) {
+  if (angle_diff <= goal_tolerance.yaw) {
     goals_.goals.erase(goals_.goals.begin());
   }
-}
-
-double
-GoalManager::calculate_distance(
-  const geometry_msgs::msg::Pose & pose1,
-  const geometry_msgs::msg::Pose & pose2)
-{
-  double dx = pose1.position.x - pose2.position.x;
-  double dy = pose1.position.y - pose2.position.y;
-  double dz = pose1.position.z - pose2.position.z;
-  double distance = std::sqrt(dx * dx + dy * dy + dz * dz);
-
-  return distance;
-}
-
-double
-GoalManager::calculate_angle(
-  const geometry_msgs::msg::Pose & pose1,
-  const geometry_msgs::msg::Pose & pose2)
-{
-  tf2::Quaternion q_current, q_goal;
-  tf2::fromMsg(pose1.orientation, q_current);
-  tf2::fromMsg(pose2.orientation, q_goal);
-
-  double angle_diff = q_current.angleShortestPath(q_goal);
-
-  return angle_diff;
 }
 
 }  // namespace easynav
