@@ -2,6 +2,12 @@
 Changelog for package easynav_support_py
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Add feedback case in sent goal state to avoid unknown msg error
+* small fixes in py goal manager client
+* Contributors: Esther Aguado, Francisco Martín Rico, estherag
+
 0.1.4 (2025-10-16)
 ------------------
 * Merge kilted version bump into rolling

@@ -2,6 +2,19 @@
 Changelog for package easynav_system
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Remove unused include and random
+* Set collision checker disabled by default
+* Cleanup unused headers
+* Add feedback case in sent goal state to avoid unknown msg error
+* Change spin_some to spin_all. Add param for max spin time
+* Dedicated thread for TF updates
+* Fix TF compilation warnings
+* GoalManager: Split position tolerance into x/y and height
+* Remove use_sim_time param from tf node left in `#59 <https://github.com/Butakus/EasyNavigation/issues/59>`_
+* Contributors: Esther Aguado, Francisco Martín Rico, Francisco Miguel Moreno, estherag
+
 0.1.4 (2025-10-16)
 ------------------
 * Fix compilation errors in jazzy
