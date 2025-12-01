@@ -2,8 +2,8 @@
 Changelog for package easynav_tools
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.0 (2025-12-01)
+------------------
 * Add missing dependencies
 * Contributors: Francisco Martín Rico, Francisco Miguel Moreno
 

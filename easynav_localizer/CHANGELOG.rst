@@ -2,8 +2,8 @@
 Changelog for package easynav_localizer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.0 (2025-12-01)
+------------------
 * Cleanup unused headers
 * Make dummies' fake processing time independent from clock source
 * Contributors: Francisco Martín Rico, Francisco Miguel Moreno

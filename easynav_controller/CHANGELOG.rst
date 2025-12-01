@@ -2,8 +2,8 @@
 Changelog for package easynav_controller
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.0 (2025-12-01)
+------------------
 * Cleanup unused headers
 * Reshape execution and sensor handling
 * Make dummies' fake processing time independent from clock source

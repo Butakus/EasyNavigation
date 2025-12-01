@@ -2,8 +2,8 @@
 Changelog for package easynav_system
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.0 (2025-12-01)
+------------------
 * Remove unused include and random
 * Set collision checker disabled by default
 * Cleanup unused headers

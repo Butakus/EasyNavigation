@@ -2,8 +2,8 @@
 Changelog for package easynav_common
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.0 (2025-12-01)
+------------------
 * Merge rolling into jazzy
 * Add vision_msgs/msg/Detection3DArray perception
 * Cleanup unused headers
