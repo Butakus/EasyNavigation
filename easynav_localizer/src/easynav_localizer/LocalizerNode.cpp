@@ -84,10 +84,14 @@ LocalizerNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & sta
   if (!has_parameter("robot_frame")) {
     declare_parameter<std::string>("robot_frame", tf_info.robot_frame);
   }
+  if (!has_parameter("world_frame")) {
+    declare_parameter<std::string>("world_frame", tf_info.world_frame);
+  }
   get_parameter("tf_prefix", tf_info.tf_prefix);
   get_parameter("map_frame", tf_info.map_frame);
   get_parameter("odom_frame", tf_info.odom_frame);
   get_parameter("robot_frame", tf_info.robot_frame);
+  get_parameter("world_frame", tf_info.world_frame);
 
   if (localizer_types.size() > 1) {
     RCLCPP_ERROR(get_logger(),
