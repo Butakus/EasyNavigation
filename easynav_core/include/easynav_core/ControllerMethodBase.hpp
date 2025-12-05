@@ -65,7 +65,7 @@ public:
   initialize(
     const std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node,
     const std::string & plugin_name,
-    const std::string & tf_prefix = "");
+    const TFInfo & tf_info);
 
   /**
    * @brief Helper to run the real-time control method if appropriate.

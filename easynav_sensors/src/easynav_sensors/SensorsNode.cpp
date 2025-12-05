@@ -144,11 +144,6 @@ SensorsNode::SensorsNode(const rclcpp::NodeOptions & options)
     declare_parameter("forget_time", 1.0);
   }
 
-  if (!has_parameter("perception_default_frame")) {
-    perception_default_frame_ = "odom";
-    declare_parameter("perception_default_frame", perception_default_frame_);
-  }
-
   ::easynav::NavState::register_printer<easynav::PointPerceptions>(
     [](const easynav::PointPerceptions & perceptions) {
       std::ostringstream ret;
@@ -241,9 +236,7 @@ SensorsNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & state
   std::vector<std::string> sensors;
   get_parameter("sensors", sensors);
   get_parameter("forget_time", forget_time_);
-  get_parameter("perception_default_frame", perception_default_frame_);
-
-  get_parameter("tf_prefix", tf_prefix_);
+  get_parameter("robot_frame", perception_default_frame_);
 
   for (const auto & sensor_id : sensors) {
     std::string topic, msg_type, group;
@@ -392,11 +385,11 @@ SensorsNode::cycle(std::shared_ptr<NavState> nav_state)
 
     PointPerceptionsOpsView fused_view(std::move(points_perceptions));
 
-    fused_view.fuse(tf_prefix_ + perception_default_frame_);
+    fused_view.fuse(perception_default_frame_);
     auto fused_points = fused_view.as_points();
 
     auto msg = points_to_rosmsg(fused_points);
-    msg.header.frame_id = tf_prefix_ + perception_default_frame_;
+    msg.header.frame_id = perception_default_frame_;
 
     const auto & percs = fused_view.get_perceptions();
     if (!percs.empty() && percs[0]) {

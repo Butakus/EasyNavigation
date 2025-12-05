@@ -38,7 +38,7 @@ std::expected<void, std::string>
 ControllerMethodBase::initialize(
   const std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node,
   const std::string & plugin_name,
-  const std::string & tf_prefix)
+  const TFInfo & tf_info)
 {
   auto node = parent_node;
 
@@ -53,7 +53,6 @@ ControllerMethodBase::initialize(
   node->declare_parameter("colision_checker.safety_margin", safety_margin_);
   node->declare_parameter("colision_checker.z_min_filter", z_min_filter_);
   node->declare_parameter("colision_checker.downsample_leaf_size", downsample_leaf_size_);
-  node->declare_parameter("colision_checker.motion_frame", motion_frame_);
 
   node->get_parameter("colision_checker.active", collision_checker_active_);
   node->get_parameter("colision_checker.debug_markers", debug_markers_);
@@ -63,9 +62,8 @@ ControllerMethodBase::initialize(
   node->get_parameter("colision_checker.safety_margin", safety_margin_);
   node->get_parameter("colision_checker.z_min_filter", z_min_filter_);
   node->get_parameter("colision_checker.downsample_leaf_size", downsample_leaf_size_);
-  node->get_parameter("colision_checker.motion_frame", motion_frame_);
 
-  return MethodBase::initialize(parent_node, plugin_name, tf_prefix);
+  return MethodBase::initialize(parent_node, plugin_name, tf_info);
 }
 
 bool
@@ -110,6 +108,7 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
 
   const auto & twist = nav_state.get<geometry_msgs::msg::TwistStamped>("cmd_vel");
   const auto & perceptions = nav_state.get<PointPerceptions>("points");
+  motion_frame_ = get_tf_info().robot_frame;
 
   if (perceptions.empty()) {return false;}
 

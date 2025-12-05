@@ -78,6 +78,10 @@ SystemNode::SystemNode(const rclcpp::NodeOptions & options)
   declare_parameter<std::string>("tf_prefix", "");
   declare_parameter<bool>("use_cmd_vel_stamped", use_cmd_vel_stamped_);
 
+  declare_parameter<std::string>("robot_frame", robot_frame_);
+  declare_parameter<std::string>("odom_frame", odom_frame_);
+  declare_parameter<std::string>("map_frame", map_frame_);
+
   // get_logger().set_level(rclcpp::Logger::Level::Debug);
 }
 
@@ -102,6 +106,9 @@ SystemNode::on_configure(const rclcpp_lifecycle::State & state)
   (void)state;
 
   get_parameter<bool>("use_cmd_vel_stamped", use_cmd_vel_stamped_);
+  get_parameter<std::string>("robot_frame", robot_frame_);
+  get_parameter<std::string>("odom_frame", odom_frame_);
+  get_parameter<std::string>("map_frame", map_frame_);
 
   std::string tf_prefix;
   get_parameter("tf_prefix", tf_prefix);
@@ -109,9 +116,26 @@ SystemNode::on_configure(const rclcpp_lifecycle::State & state)
     tf_prefix = tf_prefix + "/";
   }
 
+  nav_state_->set("robot_frame", tf_prefix + robot_frame_);
+  nav_state_->set("odom_frame", tf_prefix + odom_frame_);
+  nav_state_->set("map_frame", tf_prefix + map_frame_);
+
   for (auto & system_node : get_system_nodes()) {
     system_node.second.node_ptr->declare_parameter<std::string>("tf_prefix", "");
+    system_node.second.node_ptr->declare_parameter<std::string>("robot_frame",
+        tf_prefix + robot_frame_);
+    system_node.second.node_ptr->declare_parameter<std::string>("odom_frame",
+        tf_prefix + odom_frame_);
+    system_node.second.node_ptr->declare_parameter<std::string>("map_frame",
+        tf_prefix + map_frame_);
+
     system_node.second.node_ptr->set_parameter({"tf_prefix", tf_prefix});
+    system_node.second.node_ptr->set_parameter(
+      {"robot_frame", tf_prefix + robot_frame_});
+    system_node.second.node_ptr->set_parameter(
+      {"odom_frame", tf_prefix + odom_frame_});
+    system_node.second.node_ptr->set_parameter(
+      {"map_frame", tf_prefix + map_frame_});
 
     RCLCPP_INFO(get_logger(), "Configuring [%s]", system_node.first.c_str());
     system_node.second.node_ptr->trigger_transition(

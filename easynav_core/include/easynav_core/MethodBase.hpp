@@ -31,6 +31,13 @@
 namespace easynav
 {
 
+struct {
+  std::string tf_prefix {""};
+  std::string map_frame {"map"};
+  std::string odom_frame {"odom"};
+  std::string robot_frame {"base_link"};
+} TFInfo;
+
 /**
  * @class MethodBase
  * @brief Base class for Easy Navigation method plugins.
@@ -60,7 +67,7 @@ public:
   initialize(
     const std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node,
     const std::string & plugin_name,
-    const std::string & tf_prefix = "");
+    const TFInfo & tf_info);
 
   /**
    * @brief Hook for custom setup logic in derived classes.
@@ -92,8 +99,8 @@ public:
    *
    * @return TF namespace with a trailing "/".
    */
-  [[nodiscard]] const std::string &
-  get_tf_prefix() const;
+  [[nodiscard]] const TFInfo &
+  get_tf_info() const;
 
   /**
    * @brief Check whether it is time to run a real-time update.
@@ -154,8 +161,8 @@ private:
   /// @brief Name assigned to the plugin.
   std::string plugin_name_;
 
-  /// @brief TF Namespace.
-  std::string tf_prefix_;
+  /// @brief TF Information.
+  TFInfo tf_info_;
 
   /// @brief Desired real-time and non-RT loop frequencies in Hz.
   float rt_frequency_, frequency_;

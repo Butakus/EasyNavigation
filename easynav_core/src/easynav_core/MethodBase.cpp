@@ -34,12 +34,11 @@ std::expected<void, std::string>
 MethodBase::initialize(
   const std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node,
   const std::string & plugin_name,
-  const std::string & tf_prefix
-)
+  const TFInfo & tf_info)
 {
   parent_node_ = parent_node;
   plugin_name_ = plugin_name;
-  tf_prefix_ = tf_prefix;
+  tf_info_ = tf_info;
 
   rt_frequency_ = 10.0;
   frequency_ = 10.0;
@@ -67,10 +66,10 @@ MethodBase::get_plugin_name() const
   return plugin_name_;
 }
 
-const std::string &
-MethodBase::get_tf_prefix() const
+const TFInfo &
+MethodBase::get_tf_info() const
 {
-  return tf_prefix_;
+  return tf_info_;
 }
 
 bool
