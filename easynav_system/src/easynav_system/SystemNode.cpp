@@ -75,9 +75,9 @@ SystemNode::SystemNode(const rclcpp::NodeOptions & options)
   planner_node_ = PlannerNode::make_shared();
   sensors_node_ = SensorsNode::make_shared();
 
-  declare_parameter<std::string>("tf_prefix", "");
   declare_parameter<bool>("use_cmd_vel_stamped", use_cmd_vel_stamped_);
 
+  declare_parameter<std::string>("tf_prefix", "");
   declare_parameter<std::string>("robot_frame", robot_frame_);
   declare_parameter<std::string>("odom_frame", odom_frame_);
   declare_parameter<std::string>("map_frame", map_frame_);
@@ -115,10 +115,6 @@ SystemNode::on_configure(const rclcpp_lifecycle::State & state)
   if (tf_prefix != "") {
     tf_prefix = tf_prefix + "/";
   }
-
-  nav_state_->set("robot_frame", tf_prefix + robot_frame_);
-  nav_state_->set("odom_frame", tf_prefix + odom_frame_);
-  nav_state_->set("map_frame", tf_prefix + map_frame_);
 
   for (auto & system_node : get_system_nodes()) {
     system_node.second.node_ptr->declare_parameter<std::string>("tf_prefix", "");
