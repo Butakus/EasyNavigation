@@ -39,6 +39,9 @@ struct TFInfo
 
   /// Robot base frame (base_link/base_footprint equivalent).
   std::string robot_frame {"base_link"};
+
+  /// World frame used by global estimators (e.g. earth-fixed frame).
+  std::string world_frame{"earth"};
 };
 
 }  // namespace easynav

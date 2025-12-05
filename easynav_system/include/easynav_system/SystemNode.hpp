@@ -175,6 +175,9 @@ private:
   /// @brief Map frame id
   std::string map_frame_ {"map"};
 
+  /// @brief World frame id (e.g. earth-fixed frame)
+  std::string world_frame_ {"earth"};
+
   /// @brief Publisher for nav_state as string.
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr navstate_pub_;
 
