@@ -27,17 +27,10 @@
 #include <expected>
 
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
+#include "easynav_common/types/TFInfo.hpp"
 
 namespace easynav
 {
-
-struct TFInfo
-{
-  std::string tf_prefix {""};
-  std::string map_frame {"map"};
-  std::string odom_frame {"odom"};
-  std::string robot_frame {"base_link"};
-};
 
 /**
  * @class MethodBase
