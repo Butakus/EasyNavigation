@@ -31,12 +31,13 @@
 namespace easynav
 {
 
-struct {
+struct TFInfo
+{
   std::string tf_prefix {""};
   std::string map_frame {"map"};
   std::string odom_frame {"odom"};
   std::string robot_frame {"base_link"};
-} TFInfo;
+};
 
 /**
  * @class MethodBase

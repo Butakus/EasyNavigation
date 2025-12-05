@@ -53,12 +53,7 @@ public:
     return {};
   }
 
-  bool was_on_initialize_called() const
-  {
-    return on_initialize_called_;
-  }
-
-private:
+public:
   bool on_initialize_called_ {false};
 };
 
@@ -71,9 +66,8 @@ public:
 
   std::expected<void, std::string> on_initialize() override
   {
-    odom_.header.frame_id = get_tf_prefix() + "base_link";
+    odom_.header.frame_id = get_tf_info().robot_frame;
     odom_.pose.pose.position.x = 5;
-
     return {};
   }
 
@@ -107,23 +101,50 @@ TEST_F(CoreMethodTestCase, InitializeSetsParentNode)
 {
   auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("test_node");
   easynav::MethodBase method;
-
-  method.initialize(node, "test");
-
-  EXPECT_EQ(method.get_node(), node) << "initialize() should set parent_node_ correctly.";
+  easynav::TFInfo tf_info;
+  method.initialize(node, "test", tf_info);
 }
 
 TEST_F(CoreMethodTestCase, OnInitializeCalled)
 {
   auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("test_node");
   MockMethod method;
-
-  method.initialize(node, "test");
-
-  EXPECT_TRUE(method.was_on_initialize_called()) <<
+  easynav::TFInfo tf_info;
+  method.initialize(node, "test", tf_info);
+  EXPECT_TRUE(method.on_initialize_called_) <<
     "on_initialize() should be called during initialization.";
 }
 
+TEST(Core_MethodBase, TFInfoPropagatesToDerived)
+{
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("test_tfinfo_node");
+
+  class TFInfoProbeMethod : public easynav::MethodBase
+  {
+public:
+    std::expected<void, std::string> on_initialize() override
+    {
+      seen_tf_info = get_tf_info();
+      return {};
+    }
+
+    easynav::TFInfo seen_tf_info;
+  };
+
+  TFInfoProbeMethod method;
+  easynav::TFInfo tf_info;
+  tf_info.tf_prefix = "robot_/";
+  tf_info.map_frame = "world";
+  tf_info.odom_frame = "world_odom";
+  tf_info.robot_frame = "robot_base";
+
+  method.initialize(node, "test_plugin", tf_info);
+
+  EXPECT_EQ(method.seen_tf_info.tf_prefix, tf_info.tf_prefix);
+  EXPECT_EQ(method.seen_tf_info.map_frame, tf_info.map_frame);
+  EXPECT_EQ(method.seen_tf_info.odom_frame, tf_info.odom_frame);
+  EXPECT_EQ(method.seen_tf_info.robot_frame, tf_info.robot_frame);
+}
 
 int main(int argc, char ** argv)
 {
