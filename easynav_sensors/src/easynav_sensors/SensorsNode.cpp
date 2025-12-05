@@ -236,7 +236,15 @@ SensorsNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & state
   std::vector<std::string> sensors;
   get_parameter("sensors", sensors);
   get_parameter("forget_time", forget_time_);
-  get_parameter("robot_frame", perception_default_frame_);
+
+  if (!has_parameter("tf_prefix")) {
+    declare_parameter<std::string>("tf_prefix", tf_prefix_);
+  }
+  if (!has_parameter("robot_frame")) {
+    declare_parameter<std::string>("robot_frame", robot_frame_);
+  }
+  get_parameter("tf_prefix", tf_prefix_);
+  get_parameter("robot_frame", robot_frame_);
 
   for (const auto & sensor_id : sensors) {
     std::string topic, msg_type, group;
@@ -385,11 +393,11 @@ SensorsNode::cycle(std::shared_ptr<NavState> nav_state)
 
     PointPerceptionsOpsView fused_view(std::move(points_perceptions));
 
-    fused_view.fuse(perception_default_frame_);
+    fused_view.fuse(robot_frame_);
     auto fused_points = fused_view.as_points();
 
     auto msg = points_to_rosmsg(fused_points);
-    msg.header.frame_id = perception_default_frame_;
+    msg.header.frame_id = robot_frame_;
 
     const auto & percs = fused_view.get_perceptions();
     if (!percs.empty() && percs[0]) {

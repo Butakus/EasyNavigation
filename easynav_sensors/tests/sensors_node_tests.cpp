@@ -413,7 +413,7 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
 
   auto tf_broadcaster = std::make_shared<tf2_ros::TransformBroadcaster>(*test_node);
   geometry_msgs::msg::TransformStamped transform;
-  transform.header.frame_id = "odom";
+  transform.header.frame_id = "base_link";
   transform.transform.translation.x = 0.0;
   transform.transform.translation.y = 0.0;
   transform.transform.translation.z = 1.0;
@@ -428,6 +428,7 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
 
   std::vector<std::string> sensors = {"laser1", "laser2"};
   sensors_node->declare_parameter("laser1.topic", std::string("/scan1"));
+  sensors_node->declare_parameter("robot_frame", std::string("base_link"));
   sensors_node->declare_parameter("laser1.type", std::string("sensor_msgs/msg/LaserScan"));
   sensors_node->declare_parameter("laser1.group", std::string("points"));
   sensors_node->declare_parameter("laser2.topic", std::string("/scan2"));
@@ -436,6 +437,7 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
 
   sensors_node->set_parameter({"sensors", sensors});
   sensors_node->set_parameter({"forget_time", 0.5});
+  sensors_node->set_parameter({"robot_frame", std::string("base_link")});
   sensors_node->set_parameter({"laser1.topic", std::string("/scan1")});
   sensors_node->set_parameter({"laser1.type", std::string("sensor_msgs/msg/LaserScan")});
   sensors_node->set_parameter({"laser1.group", std::string("points")});

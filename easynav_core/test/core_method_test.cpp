@@ -115,7 +115,7 @@ TEST_F(CoreMethodTestCase, OnInitializeCalled)
     "on_initialize() should be called during initialization.";
 }
 
-TEST(Core_MethodBase, TFInfoPropagatesToDerived)
+TEST_F(CoreMethodTestCase, TFInfoPropagatesToDerived)
 {
   auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("test_tfinfo_node");
 
