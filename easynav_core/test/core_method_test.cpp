@@ -23,6 +23,7 @@
 #include "nav_msgs/msg/odometry.hpp"
 
 #include "easynav_common/types/NavState.hpp"
+#include "easynav_common/RTTFBuffer.hpp"
 #include "easynav_core/MethodBase.hpp"
 #include "easynav_core/LocalizerMethodBase.hpp"
 
@@ -66,7 +67,7 @@ public:
 
   std::expected<void, std::string> on_initialize() override
   {
-    odom_.header.frame_id = get_tf_info().robot_frame;
+    odom_.header.frame_id = easynav::RTTFBuffer::getInstance()->get_tf_info().robot_frame;
     odom_.pose.pose.position.x = 5;
     return {};
   }
@@ -101,16 +102,14 @@ TEST_F(CoreMethodTestCase, InitializeSetsParentNode)
 {
   auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("test_node");
   easynav::MethodBase method;
-  easynav::TFInfo tf_info;
-  method.initialize(node, "test", tf_info);
+  method.initialize(node, "test");
 }
 
 TEST_F(CoreMethodTestCase, OnInitializeCalled)
 {
   auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("test_node");
   MockMethod method;
-  easynav::TFInfo tf_info;
-  method.initialize(node, "test", tf_info);
+  method.initialize(node, "test");
   EXPECT_TRUE(method.on_initialize_called_) <<
     "on_initialize() should be called during initialization.";
 }
@@ -124,7 +123,7 @@ TEST_F(CoreMethodTestCase, TFInfoPropagatesToDerived)
 public:
     std::expected<void, std::string> on_initialize() override
     {
-      seen_tf_info = get_tf_info();
+      seen_tf_info = easynav::RTTFBuffer::getInstance()->get_tf_info();
       return {};
     }
 
@@ -133,17 +132,20 @@ public:
 
   TFInfoProbeMethod method;
   easynav::TFInfo tf_info;
-  tf_info.tf_prefix = "robot_/";
-  tf_info.map_frame = "world";
-  tf_info.odom_frame = "world_odom";
-  tf_info.robot_frame = "robot_base";
+  tf_info.tf_prefix = "robot_1";
+  tf_info.map_frame = "my_map";
+  tf_info.odom_frame = "my_odom";
+  tf_info.robot_frame = "my_base";
+  tf_info.world_frame = "my_world";
 
-  method.initialize(node, "test_plugin", tf_info);
+  easynav::RTTFBuffer::getInstance()->set_tf_info(tf_info);
+  method.initialize(node, "test_plugin");
 
-  EXPECT_EQ(method.seen_tf_info.tf_prefix, tf_info.tf_prefix);
-  EXPECT_EQ(method.seen_tf_info.map_frame, tf_info.map_frame);
-  EXPECT_EQ(method.seen_tf_info.odom_frame, tf_info.odom_frame);
-  EXPECT_EQ(method.seen_tf_info.robot_frame, tf_info.robot_frame);
+  EXPECT_EQ(method.seen_tf_info.tf_prefix, "robot_1");
+  EXPECT_EQ(method.seen_tf_info.map_frame, "robot_1/my_map");
+  EXPECT_EQ(method.seen_tf_info.odom_frame, "robot_1/my_odom");
+  EXPECT_EQ(method.seen_tf_info.robot_frame, "robot_1/my_base");
+  EXPECT_EQ(method.seen_tf_info.world_frame, "robot_1/my_world");
 }
 
 int main(int argc, char ** argv)

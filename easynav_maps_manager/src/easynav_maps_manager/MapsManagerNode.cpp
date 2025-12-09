@@ -71,28 +71,6 @@ MapsManagerNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & s
   declare_parameter("map_types", map_types);
   get_parameter("map_types", map_types);
 
-  TFInfo tf_info;
-  if (!has_parameter("tf_prefix")) {
-    declare_parameter<std::string>("tf_prefix", tf_info.tf_prefix);
-  }
-  if (!has_parameter("map_frame")) {
-    declare_parameter<std::string>("map_frame", tf_info.map_frame);
-  }
-  if (!has_parameter("odom_frame")) {
-    declare_parameter<std::string>("odom_frame", tf_info.odom_frame);
-  }
-  if (!has_parameter("robot_frame")) {
-    declare_parameter<std::string>("robot_frame", tf_info.robot_frame);
-  }
-  if (!has_parameter("world_frame")) {
-    declare_parameter<std::string>("world_frame", tf_info.world_frame);
-  }
-  get_parameter("tf_prefix", tf_info.tf_prefix);
-  get_parameter("map_frame", tf_info.map_frame);
-  get_parameter("odom_frame", tf_info.odom_frame);
-  get_parameter("robot_frame", tf_info.robot_frame);
-  get_parameter("world_frame", tf_info.world_frame);
-
   for (const auto & map_type : map_types) {
     std::string plugin;
     declare_parameter(map_type + std::string(".plugin"), plugin);
@@ -105,7 +83,7 @@ MapsManagerNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & s
       std::shared_ptr<MapsManagerBase> instance;
       instance = maps_manager_loader_->createSharedInstance(plugin);
 
-      auto result = instance->initialize(shared_from_this(), map_type, tf_info);
+      auto result = instance->initialize(shared_from_this(), map_type);
 
       if (!result) {
         RCLCPP_ERROR(get_logger(),

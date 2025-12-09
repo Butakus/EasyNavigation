@@ -166,18 +166,6 @@ private:
   /// @brief Wheter publish stamped or unstamped speed
   bool use_cmd_vel_stamped_ {false};
 
-  /// @brief Robot frame id
-  std::string robot_frame_ {"base_footprint"};
-
-  /// @brief Odometry frame id
-  std::string odom_frame_ {"odom"};
-
-  /// @brief Map frame id
-  std::string map_frame_ {"map"};
-
-  /// @brief World frame id (e.g. earth-fixed frame)
-  std::string world_frame_ {"earth"};
-
   /// @brief Publisher for nav_state as string.
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr navstate_pub_;
 

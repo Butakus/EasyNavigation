@@ -85,28 +85,6 @@ ControllerNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & st
   declare_parameter("controller_types", controller_types);
   get_parameter("controller_types", controller_types);
 
-  TFInfo tf_info;
-  if (!has_parameter("tf_prefix")) {
-    declare_parameter<std::string>("tf_prefix", tf_info.tf_prefix);
-  }
-  if (!has_parameter("map_frame")) {
-    declare_parameter<std::string>("map_frame", tf_info.map_frame);
-  }
-  if (!has_parameter("odom_frame")) {
-    declare_parameter<std::string>("odom_frame", tf_info.odom_frame);
-  }
-  if (!has_parameter("robot_frame")) {
-    declare_parameter<std::string>("robot_frame", tf_info.robot_frame);
-  }
-  if (!has_parameter("world_frame")) {
-    declare_parameter<std::string>("world_frame", tf_info.world_frame);
-  }
-  get_parameter("tf_prefix", tf_info.tf_prefix);
-  get_parameter("map_frame", tf_info.map_frame);
-  get_parameter("odom_frame", tf_info.odom_frame);
-  get_parameter("robot_frame", tf_info.robot_frame);
-  get_parameter("world_frame", tf_info.world_frame);
-
   if (controller_types.size() > 1) {
     RCLCPP_ERROR(get_logger(),
       "You must instance one controller.  [%lu] found", controller_types.size());
@@ -124,7 +102,7 @@ ControllerNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & st
 
       controller_method_ = controller_loader_->createSharedInstance(plugin);
 
-      auto result = controller_method_->initialize(shared_from_this(), controller_type, tf_info);
+      auto result = controller_method_->initialize(shared_from_this(), controller_type);
 
       if (!result) {
         RCLCPP_ERROR(get_logger(),

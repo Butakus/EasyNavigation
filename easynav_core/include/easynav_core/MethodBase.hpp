@@ -27,7 +27,6 @@
 #include <expected>
 
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
-#include "easynav_common/types/TFInfo.hpp"
 
 namespace easynav
 {
@@ -60,8 +59,7 @@ public:
   virtual std::expected<void, std::string>
   initialize(
     const std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node,
-    const std::string & plugin_name,
-    const TFInfo & tf_info);
+    const std::string & plugin_name);
 
   /**
    * @brief Hook for custom setup logic in derived classes.
@@ -87,14 +85,6 @@ public:
    */
   [[nodiscard]] const std::string &
   get_plugin_name() const;
-
-  /**
-   * @brief Get the TF namespace.
-   *
-   * @return TF namespace with a trailing "/".
-   */
-  [[nodiscard]] const TFInfo &
-  get_tf_info() const;
 
   /**
    * @brief Check whether it is time to run a real-time update.
@@ -154,9 +144,6 @@ private:
 
   /// @brief Name assigned to the plugin.
   std::string plugin_name_;
-
-  /// @brief TF Information.
-  TFInfo tf_info_;
 
   /// @brief Desired real-time and non-RT loop frequencies in Hz.
   float rt_frequency_, frequency_;

@@ -28,7 +28,10 @@ namespace easynav
 /// @brief Aggregated TF configuration used across EasyNav.
 struct TFInfo
 {
-  /// Optional TF prefix applied to legacy frame names (kept for compatibility).
+  // These parameters are designed to enforce compliance with REP-105:
+  // http://www.ros.org/reps/rep-0105.html
+
+  /// Optional TF prefix applied to frame names.
   std::string tf_prefix {""};
 
   /// Global map frame.

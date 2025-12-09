@@ -24,6 +24,7 @@
 
 #include "easynav_controller/DummyController.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
+#include "easynav_common/RTTFBuffer.hpp"
 
 namespace easynav
 {
@@ -44,9 +45,11 @@ void DummyController::update_rt([[maybe_unused]] NavState & nav_state)
   namespace chr = std::chrono;
   auto start = chr::steady_clock::now();
 
+  const auto & tf_info = easynav::RTTFBuffer::getInstance()->get_tf_info();
+
   // Compute the current command...
   cmd_vel_.header.stamp = get_node()->now();
-  cmd_vel_.header.frame_id = get_tf_info().robot_frame;
+  cmd_vel_.header.frame_id = tf_info.robot_frame;
   cmd_vel_.twist.linear.x = 0.0;
   cmd_vel_.twist.linear.y = 0.0;
   cmd_vel_.twist.linear.z = 0.0;

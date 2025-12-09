@@ -40,6 +40,7 @@
 #include "easynav_common/types/IMUPerception.hpp"
 #include "easynav_common/types/GNSSPerception.hpp"
 #include "easynav_common/types/DetectionsPerception.hpp"
+#include "easynav_common/RTTFBuffer.hpp"
 
 namespace easynav
 {
@@ -237,15 +238,6 @@ SensorsNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & state
   get_parameter("sensors", sensors);
   get_parameter("forget_time", forget_time_);
 
-  if (!has_parameter("tf_prefix")) {
-    declare_parameter<std::string>("tf_prefix", tf_prefix_);
-  }
-  if (!has_parameter("robot_frame")) {
-    declare_parameter<std::string>("robot_frame", robot_frame_);
-  }
-  get_parameter("tf_prefix", tf_prefix_);
-  get_parameter("robot_frame", robot_frame_);
-
   for (const auto & sensor_id : sensors) {
     std::string topic, msg_type, group;
 
@@ -393,12 +385,14 @@ SensorsNode::cycle(std::shared_ptr<NavState> nav_state)
 
     PointPerceptionsOpsView fused_view(std::move(points_perceptions));
 
-    fused_view.fuse(robot_frame_);
+    const auto & tf_info = easynav::RTTFBuffer::getInstance()->get_tf_info();
+    const std::string & robot_frame = tf_info.robot_frame;
+
+    fused_view.fuse(robot_frame);
     auto fused_points = fused_view.as_points();
 
     auto msg = points_to_rosmsg(fused_points);
-    msg.header.frame_id = robot_frame_;
-
+    msg.header.frame_id = robot_frame;
     const auto & percs = fused_view.get_perceptions();
     if (!percs.empty() && percs[0]) {
       msg.header.stamp = percs[0]->stamp;
