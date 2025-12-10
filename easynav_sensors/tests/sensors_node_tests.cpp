@@ -546,6 +546,13 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
 
       laser1_pub->publish(get_scan_test_3(time1));
       sensors_node->cycle(nav_state);
+
+      transform.header.stamp = test_node->now();
+      transform.child_frame_id = "base_laser_1";
+
+      easynav::RTTFBuffer::getInstance()->setTransform(transform, "easynav", false);
+      tf_broadcaster->sendTransform(transform);
+
       exe.spin_some();
     }
 
@@ -557,7 +564,7 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
       0.0, 0.001);
     ASSERT_EQ(perceptions[0]->valid, true);
     ASSERT_EQ(perceptions[1]->data.size(), 16u);
-    ASSERT_EQ(perceptions[1]->valid, false);
+    ASSERT_EQ(perceptions[1]->valid, true);
 
     ASSERT_NE(fused_perception, nullptr);
 

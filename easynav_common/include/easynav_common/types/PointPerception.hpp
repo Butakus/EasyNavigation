@@ -47,6 +47,8 @@
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
 #include "easynav_common/types/Perceptions.hpp"
+#include "easynav_common/CircularBuffer.hpp"
+#include "easynav_common/RTTFBuffer.hpp"
 
 namespace std
 {
@@ -72,6 +74,13 @@ struct hash<std::tuple<int, int, int>>
 namespace easynav
 {
 
+struct PointPerceptionBufferType
+{
+  pcl::PointCloud<pcl::PointXYZ> data;
+  std::string frame;
+  rclcpp::Time stamp;
+};
+
 /// \class PointPerception
 /// \brief Concrete perception class for 3D point cloud data.
 ///
@@ -95,12 +104,154 @@ public:
   /// \brief The 3D point cloud data associated with this perception.
   pcl::PointCloud<pcl::PointXYZ> data;
 
+  bool pending_available_{false};
+  pcl::PointCloud<pcl::PointXYZ> pending_cloud_;
+  std::string pending_frame_;
+  rclcpp::Time pending_stamp_;
+
+
   /// \brief Resizes the internal point cloud storage.
   /// \param size Number of points to allocate in \ref data.
   void resize(std::size_t size)
   {
     data.points.resize(size);
   }
+
+  void flush_buffer()
+  {
+  // Access TF buffer singleton (already initialized somewhere with a clock)
+    auto tf_buffer_ptr = RTTFBuffer::getInstance();
+    auto & tf_buffer = *tf_buffer_ptr;
+    const auto tf_info = tf_buffer.get_tf_info();
+    const std::string & robot_frame = tf_info.robot_frame;
+
+  // ------------------------------------------------------------------
+  // 1. If there is a pending new perception from the subscriber, push
+  //    it into the circular buffer exactly once.
+  // ------------------------------------------------------------------
+    if (pending_available_) {
+      PointPerceptionBufferType pending_item;
+      pending_item.data = pending_cloud_;
+      pending_item.frame = pending_frame_;
+      pending_item.stamp = pending_stamp_;
+
+      buffer.push(pending_item);
+      pending_available_ = false;
+    }
+
+    const std::size_t count = buffer.size();
+    if (count == 0) {
+    // No candidates at all: keep current visible state as is.
+      return;
+    }
+
+  // ------------------------------------------------------------------
+  // 2. Drain the circular buffer into a temporary vector so that we
+  //    can inspect all items and then rebuild the buffer.
+  // ------------------------------------------------------------------
+    std::vector<PointPerceptionBufferType> items;
+    items.reserve(count);
+
+    for (std::size_t i = 0; i < count; ++i) {
+      PointPerceptionBufferType item;
+      if (!buffer.pop(item)) {
+        break; // Defensive guard if pop() fails unexpectedly.
+      }
+      items.push_back(std::move(item));
+    }
+
+    if (items.empty()) {
+    // Nothing recovered from buffer: keep visible state untouched.
+      return;
+    }
+
+  // ------------------------------------------------------------------
+  // 3. Find:
+  //    - newest_item: newest perception by timestamp (regardless of TF),
+  //    - newest_valid_item: newest perception that has a valid TF.
+  // ------------------------------------------------------------------
+    bool found_tf_valid = false;
+    PointPerceptionBufferType newest_valid_item = items.front();
+    PointPerceptionBufferType newest_item = items.front();
+
+    for (const auto & item : items) {
+    // Track the newest item overall (used when no TF is valid).
+      if (item.stamp > newest_item.stamp) {
+        newest_item = item;
+      }
+
+      bool has_tf = false;
+      try {
+        has_tf = tf_buffer.canTransform(
+        robot_frame,
+        item.frame,
+        tf2_ros::fromMsg(item.stamp),
+        tf2::durationFromSec(0.0));
+      } catch (...) {
+      // Any TF exception is treated as "no valid TF" for this item.
+        has_tf = false;
+      }
+
+      if (has_tf) {
+        if (!found_tf_valid || item.stamp > newest_valid_item.stamp) {
+          newest_valid_item = item;
+          found_tf_valid = true;
+        }
+      }
+    }
+
+  // We always rebuild the circular buffer from scratch.
+    buffer.clear();
+
+    if (found_tf_valid) {
+    // ----------------------------------------------------------------
+    // 3A. At least one buffered perception has a valid TF.
+    //     Let t* be the stamp of the newest valid item:
+    //       - Keep that item,
+    //       - Keep any item with stamp >= t* (newer, even if TF is
+    //         not yet available),
+    //       - Drop items with stamp < t*.
+    //     Visible state is updated with the newest valid perception.
+    // ----------------------------------------------------------------
+      const rclcpp::Time cutoff_stamp = newest_valid_item.stamp;
+
+      for (auto & item : items) {
+        if (item.stamp >= cutoff_stamp) {
+          buffer.push(std::move(item));
+        }
+      }
+
+      data = newest_valid_item.data;
+      frame_id = newest_valid_item.frame;
+      stamp = newest_valid_item.stamp;
+      valid = true;    // "valid" means "usable / not too old", not "TF ok"
+      new_data = true;
+
+    } else {
+    // ----------------------------------------------------------------
+    // 3B. No buffered perception has a valid TF.
+    //
+    //     We restore the buffer with all candidates, but we update the
+    //     visible state to the newest perception we have (newest_item),
+    //     marking it as valid. This way:
+    //       - Data always reflects the latest reading,
+    //       - We still keep older candidates in the buffer in case TF
+    //         information arrives later.
+    // ----------------------------------------------------------------
+      for (auto & item : items) {
+        buffer.push(std::move(item));
+      }
+
+      data = newest_item.data;
+      frame_id = newest_item.frame;
+      stamp = newest_item.stamp;
+      valid = true;
+      new_data = true;
+    }
+  }
+
+protected:
+  CircularBuffer<PointPerceptionBufferType> buffer{10};
 };
 
 /// \class PointPerceptionHandler
