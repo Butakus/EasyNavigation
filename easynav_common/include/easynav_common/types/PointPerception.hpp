@@ -117,6 +117,12 @@ public:
     data.points.resize(size);
   }
 
+  /// \brief Retrieves the most recent buffered perception (independently of it has a valid TF) without removing it from the buffer.
+  const PointPerceptionBufferType & get_last_perception() const
+  {
+    return buffer.latest_ref();
+  }
+
   void flush_buffer()
   {
   // Access TF buffer singleton (already initialized somewhere with a clock)
