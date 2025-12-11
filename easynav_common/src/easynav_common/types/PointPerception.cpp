@@ -580,7 +580,7 @@ PointPerceptionsOpsView::fuse(const std::string & target_frame)
       auto tf_msg = tf_buffer->lookupTransform(
         target_frame_, pptr->frame_id,
         tf2_ros::fromMsg(pptr->stamp),
-        tf2::durationFromSec(0.0));
+        tf2::durationFromSec(0.1));
 
       tf2::fromMsg(tf_msg.transform, tf_transforms_[i]);
       tf_valid_[i] = true;
