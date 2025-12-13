@@ -63,7 +63,7 @@ PointPerceptionHandler::create_subscription(
         typed->pending_stamp_ = msg->header.stamp;
         typed->pending_available_ = true;
 
-        typed->flush_buffer();
+        typed->integrate_pending_perceptions();
       },
       options);
   }
@@ -80,7 +80,7 @@ PointPerceptionHandler::create_subscription(
         typed->pending_stamp_ = msg->header.stamp;
         typed->pending_available_ = true;
 
-        typed->flush_buffer();
+        typed->integrate_pending_perceptions();
       },
       options);
   }
@@ -564,7 +564,7 @@ PointPerceptionsOpsView::fuse(const std::string & target_frame)
 
   for (std::size_t i = 0; i < n; ++i) {
     auto & pptr = perceptions_[i];
-    pptr->flush_buffer();
+    pptr->integrate_pending_perceptions();
 
     if (!pptr || !pptr->valid || pptr->data.empty()) {
       tf_valid_[i] = false;
@@ -580,7 +580,7 @@ PointPerceptionsOpsView::fuse(const std::string & target_frame)
       auto tf_msg = tf_buffer->lookupTransform(
         target_frame_, pptr->frame_id,
         tf2_ros::fromMsg(pptr->stamp),
-        tf2::durationFromSec(0.1));
+        tf2::durationFromSec(0.0));
 
       tf2::fromMsg(tf_msg.transform, tf_transforms_[i]);
       tf_valid_[i] = true;

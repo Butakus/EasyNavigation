@@ -123,7 +123,7 @@ public:
     return buffer.latest_ref();
   }
 
-  void flush_buffer()
+  void integrate_pending_perceptions()
   {
   // Access TF buffer singleton (already initialized somewhere with a clock)
     auto tf_buffer_ptr = RTTFBuffer::getInstance();
@@ -132,16 +132,15 @@ public:
     const std::string & robot_frame = tf_info.robot_frame;
 
   // ------------------------------------------------------------------
-  // 1. If there is a pending new perception from the subscriber, push
-  //    it into the circular buffer exactly once.
+  // 1. Push pending perception into the circular buffer exactly once.
   // ------------------------------------------------------------------
     if (pending_available_) {
       PointPerceptionBufferType pending_item;
-      pending_item.data = pending_cloud_;
+      pending_item.data = std::move(pending_cloud_); // avoid deep copy
       pending_item.frame = pending_frame_;
       pending_item.stamp = pending_stamp_;
 
-      buffer.push(pending_item);
+      buffer.push(std::move(pending_item));
       pending_available_ = false;
     }
 
@@ -152,8 +151,8 @@ public:
     }
 
   // ------------------------------------------------------------------
-  // 2. Drain the circular buffer into a temporary vector so that we
-  //    can inspect all items and then rebuild the buffer.
+  // 2. Drain the circular buffer into a temporary vector so we can
+  //    inspect all items and then rebuild the buffer.
   // ------------------------------------------------------------------
     std::vector<PointPerceptionBufferType> items;
     items.reserve(count);
@@ -172,18 +171,22 @@ public:
     }
 
   // ------------------------------------------------------------------
-  // 3. Find:
-  //    - newest_item: newest perception by timestamp (regardless of TF),
-  //    - newest_valid_item: newest perception that has a valid TF.
+  // 3. Find indices:
+  //    - newest_idx: newest perception by timestamp (regardless of TF),
+  //    - newest_valid_idx: newest perception that has a valid TF.
+  //
+  //    IMPORTANT: store only indices to avoid copying point clouds
+  //    during the scan.
   // ------------------------------------------------------------------
-    bool found_tf_valid = false;
-    PointPerceptionBufferType newest_valid_item = items.front();
-    PointPerceptionBufferType newest_item = items.front();
+    std::optional<std::size_t> newest_idx;
+    std::optional<std::size_t> newest_valid_idx;
 
-    for (const auto & item : items) {
-    // Track the newest item overall (used when no TF is valid).
-      if (item.stamp > newest_item.stamp) {
-        newest_item = item;
+    for (std::size_t i = 0; i < items.size(); ++i) {
+      const auto & item = items[i];
+
+    // Track newest item overall (used when no TF is valid).
+      if (!newest_idx || item.stamp > items[*newest_idx].stamp) {
+        newest_idx = i;
       }
 
       bool has_tf = false;
@@ -199,60 +202,56 @@ public:
       }
 
       if (has_tf) {
-        if (!found_tf_valid || item.stamp > newest_valid_item.stamp) {
-          newest_valid_item = item;
-          found_tf_valid = true;
+        if (!newest_valid_idx || item.stamp > items[*newest_valid_idx].stamp) {
+          newest_valid_idx = i;
         }
       }
     }
 
-  // We always rebuild the circular buffer from scratch.
+  // ------------------------------------------------------------------
+  // 4. Update visible state BEFORE moving items back into the buffer.
+  //    This guarantees that `data` corresponds to:
+  //      - the newest TF-valid item if any exists, otherwise
+  //      - the newest item overall.
+  // ------------------------------------------------------------------
+    if (newest_valid_idx) {
+      const auto & sel = items[*newest_valid_idx];
+      data = sel.data;        // single deep copy (intentional)
+      frame_id = sel.frame;
+      stamp = sel.stamp;
+      valid = true;           // "valid" means "usable / not too old", not "TF ok"
+      new_data = true;
+    } else if (newest_idx) {
+      const auto & sel = items[*newest_idx];
+      data = sel.data;        // single deep copy (intentional)
+      frame_id = sel.frame;
+      stamp = sel.stamp;
+      valid = true;
+      new_data = true;
+    } else {
+    // Defensive: should not happen because items is non-empty.
+      return;
+    }
+
+  // ------------------------------------------------------------------
+  // 5. Rebuild the circular buffer from scratch (move-only, no copies).
+  // ------------------------------------------------------------------
     buffer.clear();
 
-    if (found_tf_valid) {
-    // ----------------------------------------------------------------
-    // 3A. At least one buffered perception has a valid TF.
-    //     Let t* be the stamp of the newest valid item:
-    //       - Keep that item,
-    //       - Keep any item with stamp >= t* (newer, even if TF is
-    //         not yet available),
-    //       - Drop items with stamp < t*.
-    //     Visible state is updated with the newest valid perception.
-    // ----------------------------------------------------------------
-      const rclcpp::Time cutoff_stamp = newest_valid_item.stamp;
+    if (newest_valid_idx) {
+    // Keep the newest TF-valid item and any newer items (even if TF is not yet available).
+      const rclcpp::Time cutoff_stamp = items[*newest_valid_idx].stamp;
 
       for (auto & item : items) {
         if (item.stamp >= cutoff_stamp) {
           buffer.push(std::move(item));
         }
       }
-
-      data = newest_valid_item.data;
-      frame_id = newest_valid_item.frame;
-      stamp = newest_valid_item.stamp;
-      valid = true;    // "valid" means "usable / not too old", not "TF ok"
-      new_data = true;
-
     } else {
-    // ----------------------------------------------------------------
-    // 3B. No buffered perception has a valid TF.
-    //
-    //     We restore the buffer with all candidates, but we update the
-    //     visible state to the newest perception we have (newest_item),
-    //     marking it as valid. This way:
-    //       - Data always reflects the latest reading,
-    //       - We still keep older candidates in the buffer in case TF
-    //         information arrives later.
-    // ----------------------------------------------------------------
+      // No TF-valid items: keep everything in case TF arrives later.
       for (auto & item : items) {
         buffer.push(std::move(item));
       }
-
-      data = newest_item.data;
-      frame_id = newest_item.frame;
-      stamp = newest_item.stamp;
-      valid = true;
-      new_data = true;
     }
   }
 

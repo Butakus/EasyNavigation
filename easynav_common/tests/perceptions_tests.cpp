@@ -322,7 +322,7 @@ TEST_F(PerceptionsTestCase, PointPerceptionHandlerWorks)
 
   auto node = rclcpp_lifecycle::LifecycleNode::make_shared("test_handler_node");
 
-  // Use the same RTTFBuffer singleton that flush_buffer() uses
+  // Use the same RTTFBuffer singleton that integrate_pending_perceptions() uses
   auto tf_buffer = RTTFBuffer::getInstance();
   tf2_ros::TransformListener tf_listener(*tf_buffer);
 
@@ -425,13 +425,13 @@ TEST_F(PerceptionsTestCase, PointPerceptionBufferAndTFWorks)
   exe.add_callback_group(cb_group, node->get_node_base_interface());
 
   //
-  // 1) Initial state: flush_buffer keeps an "empty" perception visible.
+  // 1) Initial state: integrate_pending_perceptions keeps an "empty" perception visible.
   //    Since there is no pending data and the buffer is empty, the buffer
   //    should remain empty.
   //
   // std::cerr << "=== STEP 1: initial flush ===\n";
   // perception->debug_print_buffer("Before first flush");
-  perception->flush_buffer();
+  perception->integrate_pending_perceptions();
   // perception->debug_print_buffer("After first flush");
 
   EXPECT_FALSE(perception->valid);
@@ -440,7 +440,7 @@ TEST_F(PerceptionsTestCase, PointPerceptionBufferAndTFWorks)
 
   //
   // 2) Add TF base_link -> base_laser_1 and publish 20 scans with valid TFs.
-  //    Each time, we expect flush_buffer() to:
+  //    Each time, we expect integrate_pending_perceptions() to:
   //      - choose the newest item with a valid TF (the just received one),
   //      - drop older items,
   //      - keep only that candidate in the buffer.
@@ -479,7 +479,7 @@ TEST_F(PerceptionsTestCase, PointPerceptionBufferAndTFWorks)
     // perception->debug_print_buffer("Before flush after valid scan");
 
     // Now flush the buffer and check that the last perception is this one
-    perception->flush_buffer();
+    perception->integrate_pending_perceptions();
 
     // perception->debug_print_buffer("After flush after valid scan");
 
@@ -488,7 +488,7 @@ TEST_F(PerceptionsTestCase, PointPerceptionBufferAndTFWorks)
     EXPECT_EQ(perception->stamp.nanoseconds(), ts.nanoseconds());
     EXPECT_EQ(perception->data.size(), scan.ranges.size());
 
-    // With the current flush_buffer() semantics:
+    // With the current integrate_pending_perceptions() semantics:
     //  - one candidate with valid TF is kept,
     //  - there are no newer candidates yet,
     //  -> buffer must contain exactly 1 entry.
@@ -513,7 +513,7 @@ TEST_F(PerceptionsTestCase, PointPerceptionBufferAndTFWorks)
 
   //
   // 3) Publish 4 scans without adding their TFs.
-  //    We expect, after each flush_buffer():
+  //    We expect, after each integrate_pending_perceptions():
   //      - visible perception remains the last valid one from step 2,
   //      - buffer size grows by one per new invalid candidate
   //        (they are kept because they might become valid in the future).
@@ -537,7 +537,7 @@ TEST_F(PerceptionsTestCase, PointPerceptionBufferAndTFWorks)
     // perception->debug_print_buffer("Before flush after invalid scan");
 
     // No corresponding TF for this stamp yet
-    perception->flush_buffer();
+    perception->integrate_pending_perceptions();
 
     // perception->debug_print_buffer("After flush after invalid scan");
 
@@ -557,7 +557,7 @@ TEST_F(PerceptionsTestCase, PointPerceptionBufferAndTFWorks)
   //
   // 4) Now we publish TFs for those 4 previously invalid scans, one by one.
   //    Semantics:
-  //      - After adding a TF for invalid_stamps[i] and calling flush_buffer():
+  //      - After adding a TF for invalid_stamps[i] and calling integrate_pending_perceptions():
   //          * that candidate becomes the newest valid one,
   //          * all older entries are pruned,
   //          * newer entries (if any) are kept.
@@ -588,7 +588,7 @@ TEST_F(PerceptionsTestCase, PointPerceptionBufferAndTFWorks)
 
     // perception->debug_print_buffer("Before flush after TF");
 
-    perception->flush_buffer();
+    perception->integrate_pending_perceptions();
 
     // perception->debug_print_buffer("After flush after TF");
 
@@ -622,7 +622,7 @@ TEST_F(PerceptionsTestCase, PointPerceptionBufferAndTFWorks)
   //    Expected behavior:
   //      * After the 4 invalid scans, buffer size grows only for those scans
   //        whose stamp is >= cutoff_stamp (the last valid stamp from step 4).
-  //      * After adding TF for the latest scan and calling flush_buffer(),
+  //      * After adding TF for the latest scan and calling integrate_pending_perceptions(),
   //        only that latest scan remains in the buffer.
   //
   std::array<rclcpp::Time, 4> late_invalid_stamps;
@@ -643,7 +643,7 @@ TEST_F(PerceptionsTestCase, PointPerceptionBufferAndTFWorks)
     //           << " ts=" << ts.nanoseconds() << " ===\n";
     // perception->debug_print_buffer("Before flush after late invalid scan");
 
-    perception->flush_buffer();
+    perception->integrate_pending_perceptions();
 
     // perception->debug_print_buffer("After flush after late invalid scan");
 
@@ -653,7 +653,7 @@ TEST_F(PerceptionsTestCase, PointPerceptionBufferAndTFWorks)
     EXPECT_EQ(perception->frame_id, sensor_frame);
 
     // Only scans with stamp >= cutoff_ns_step5 will remain in the buffer
-    // after flush_buffer(); older ones are dropped.
+    // after integrate_pending_perceptions(); older ones are dropped.
     if (ts.nanoseconds() >= cutoff_ns_step5) {
       ++kept_newer_or_equal;
     }
@@ -684,7 +684,7 @@ TEST_F(PerceptionsTestCase, PointPerceptionBufferAndTFWorks)
 
   // perception->debug_print_buffer("Before flush after TF of latest late invalid");
 
-  perception->flush_buffer();
+  perception->integrate_pending_perceptions();
 
   // perception->debug_print_buffer("After flush after TF of latest late invalid");
 
