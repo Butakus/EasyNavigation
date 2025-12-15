@@ -17,28 +17,36 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-/// \file
-/// \brief Implementation of the abstract base class MapsManagerBase.
+#ifndef EASYNAV_COMMON__TYPES__TFINFO_HPP_
+#define EASYNAV_COMMON__TYPES__TFINFO_HPP_
 
-#include "easynav_common/types/NavState.hpp"
-#include "easynav_common/YTSession.hpp"
-
-#include "easynav_core/MapsManagerBase.hpp"
+#include <string>
 
 namespace easynav
 {
 
-void
-MapsManagerBase::internal_update(NavState & nav_state)
+/// @brief Aggregated TF configuration used across EasyNav.
+struct TFInfo
 {
-  if (isTime2Run()) {
-    EASYNAV_TRACE_NAMED_EVENT("MapsManagerBase::internal_update [" + get_plugin_name() + "]");
+  // These parameters are designed to enforce compliance with REP-105:
+  // http://www.ros.org/reps/rep-0105.html
 
-    // Save last execution time, even if triggered
-    setRun();
+  /// Optional TF prefix applied to frame names.
+  std::string tf_prefix {""};
 
-    update(nav_state);
-  }
-}
+  /// Global map frame.
+  std::string map_frame {"map"};
+
+  /// Odometry frame.
+  std::string odom_frame {"odom"};
+
+  /// Robot base frame (base_link/base_footprint equivalent).
+  std::string robot_frame {"base_link"};
+
+  /// World frame used by global estimators (e.g. earth-fixed frame).
+  std::string world_frame{"earth"};
+};
 
 }  // namespace easynav
+
+#endif  // EASYNAV_COMMON__TYPES__TFINFO_HPP_

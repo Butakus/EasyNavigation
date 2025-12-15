@@ -64,8 +64,7 @@ public:
   virtual std::expected<void, std::string>
   initialize(
     const std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node,
-    const std::string & plugin_name,
-    const std::string & tf_prefix = "");
+    const std::string & plugin_name);
 
   /**
    * @brief Helper to run the real-time control method if appropriate.
@@ -111,9 +110,6 @@ protected:
 
   /// @brief Leaf size used to downsample point clouds (m).
   double downsample_leaf_size_{0.1};
-
-  /// @brief Frame in which motion and collision checks are evaluated.
-  std::string motion_frame_{"base_footprint"};
 
   /// @brief Publisher for collision visualization markers.
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr collision_marker_pub_;

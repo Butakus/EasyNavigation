@@ -59,8 +59,7 @@ public:
   virtual std::expected<void, std::string>
   initialize(
     const std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node,
-    const std::string & plugin_name,
-    const std::string & tf_prefix = "");
+    const std::string & plugin_name);
 
   /**
    * @brief Hook for custom setup logic in derived classes.
@@ -86,14 +85,6 @@ public:
    */
   [[nodiscard]] const std::string &
   get_plugin_name() const;
-
-  /**
-   * @brief Get the TF namespace.
-   *
-   * @return TF namespace with a trailing "/".
-   */
-  [[nodiscard]] const std::string &
-  get_tf_prefix() const;
 
   /**
    * @brief Check whether it is time to run a real-time update.
@@ -153,9 +144,6 @@ private:
 
   /// @brief Name assigned to the plugin.
   std::string plugin_name_;
-
-  /// @brief TF Namespace.
-  std::string tf_prefix_;
 
   /// @brief Desired real-time and non-RT loop frequencies in Hz.
   float rt_frequency_, frequency_;

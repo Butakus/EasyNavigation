@@ -413,7 +413,7 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
 
   auto tf_broadcaster = std::make_shared<tf2_ros::TransformBroadcaster>(*test_node);
   geometry_msgs::msg::TransformStamped transform;
-  transform.header.frame_id = "odom";
+  transform.header.frame_id = "base_link";
   transform.transform.translation.x = 0.0;
   transform.transform.translation.y = 0.0;
   transform.transform.translation.z = 1.0;
@@ -428,6 +428,7 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
 
   std::vector<std::string> sensors = {"laser1", "laser2"};
   sensors_node->declare_parameter("laser1.topic", std::string("/scan1"));
+  sensors_node->declare_parameter("robot_frame", std::string("base_link"));
   sensors_node->declare_parameter("laser1.type", std::string("sensor_msgs/msg/LaserScan"));
   sensors_node->declare_parameter("laser1.group", std::string("points"));
   sensors_node->declare_parameter("laser2.topic", std::string("/scan2"));
@@ -436,6 +437,7 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
 
   sensors_node->set_parameter({"sensors", sensors});
   sensors_node->set_parameter({"forget_time", 0.5});
+  sensors_node->set_parameter({"robot_frame", std::string("base_link")});
   sensors_node->set_parameter({"laser1.topic", std::string("/scan1")});
   sensors_node->set_parameter({"laser1.type", std::string("sensor_msgs/msg/LaserScan")});
   sensors_node->set_parameter({"laser1.group", std::string("points")});
@@ -544,6 +546,13 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
 
       laser1_pub->publish(get_scan_test_3(time1));
       sensors_node->cycle(nav_state);
+
+      transform.header.stamp = test_node->now();
+      transform.child_frame_id = "base_laser_1";
+
+      easynav::RTTFBuffer::getInstance()->setTransform(transform, "easynav", false);
+      tf_broadcaster->sendTransform(transform);
+
       exe.spin_some();
     }
 
@@ -555,7 +564,7 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
       0.0, 0.001);
     ASSERT_EQ(perceptions[0]->valid, true);
     ASSERT_EQ(perceptions[1]->data.size(), 16u);
-    ASSERT_EQ(perceptions[1]->valid, false);
+    ASSERT_EQ(perceptions[1]->valid, true);
 
     ASSERT_NE(fused_perception, nullptr);
 

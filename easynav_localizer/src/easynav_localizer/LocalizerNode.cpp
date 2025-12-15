@@ -71,9 +71,6 @@ LocalizerNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & sta
   declare_parameter("localizer_types", localizer_types);
   get_parameter("localizer_types", localizer_types);
 
-  std::string tf_prefix;
-  get_parameter("tf_prefix", tf_prefix);
-
   if (localizer_types.size() > 1) {
     RCLCPP_ERROR(get_logger(),
       "You must instance one localizer.  [%lu] found", localizer_types.size());
@@ -91,8 +88,7 @@ LocalizerNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & sta
 
       localizer_method_ = localizer_loader_->createSharedInstance(plugin);
 
-      auto result = localizer_method_->initialize(shared_from_this(), localizer_type,
-        tf_prefix);
+      auto result = localizer_method_->initialize(shared_from_this(), localizer_type);
 
       if (!result) {
         RCLCPP_ERROR(get_logger(),

@@ -30,6 +30,7 @@
 #include "easynav_sensors/SensorsNode.hpp"
 #include "easynav_common/YTSession.hpp"
 #include "easynav_common/types/PointPerception.hpp"
+#include "easynav_common/RTTFBuffer.hpp"
 
 #include "easynav_system/SystemNode.hpp"
 
@@ -75,9 +76,14 @@ SystemNode::SystemNode(const rclcpp::NodeOptions & options)
   planner_node_ = PlannerNode::make_shared();
   sensors_node_ = SensorsNode::make_shared();
 
-  declare_parameter<std::string>("tf_prefix", "");
   declare_parameter<bool>("use_cmd_vel_stamped", use_cmd_vel_stamped_);
 
+  TFInfo tf_info;
+  declare_parameter<std::string>("tf_prefix", tf_info.tf_prefix);
+  declare_parameter<std::string>("robot_frame", tf_info.robot_frame);
+  declare_parameter<std::string>("odom_frame", tf_info.odom_frame);
+  declare_parameter<std::string>("map_frame", tf_info.map_frame);
+  declare_parameter<std::string>("world_frame", tf_info.world_frame);
   // get_logger().set_level(rclcpp::Logger::Level::Debug);
 }
 
@@ -101,18 +107,24 @@ SystemNode::on_configure(const rclcpp_lifecycle::State & state)
 {
   (void)state;
 
+  TFInfo tf_info;
   get_parameter<bool>("use_cmd_vel_stamped", use_cmd_vel_stamped_);
+  get_parameter("robot_frame", tf_info.robot_frame);
+  get_parameter("odom_frame", tf_info.odom_frame);
+  get_parameter("map_frame", tf_info.map_frame);
+  get_parameter("world_frame", tf_info.world_frame);
 
-  std::string tf_prefix;
-  get_parameter("tf_prefix", tf_prefix);
-  if (tf_prefix != "") {
-    tf_prefix = tf_prefix + "/";
-  }
+  get_parameter("tf_prefix", tf_info.tf_prefix);
+
+  RTTFBuffer::getInstance()->set_tf_info(tf_info);
+  RCLCPP_INFO(
+    get_logger(),
+      "EasyNav configured with TFInfo: prefix='%s', map='%s', odom='%s', robot='%s', world='%s'",
+    tf_info.tf_prefix.c_str(), tf_info.map_frame.c_str(),
+    tf_info.odom_frame.c_str(), tf_info.robot_frame.c_str(),
+    tf_info.world_frame.c_str());
 
   for (auto & system_node : get_system_nodes()) {
-    system_node.second.node_ptr->declare_parameter<std::string>("tf_prefix", "");
-    system_node.second.node_ptr->set_parameter({"tf_prefix", tf_prefix});
-
     RCLCPP_INFO(get_logger(), "Configuring [%s]", system_node.first.c_str());
     system_node.second.node_ptr->trigger_transition(
       lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);

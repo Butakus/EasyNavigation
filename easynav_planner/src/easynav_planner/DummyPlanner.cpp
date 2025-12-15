@@ -21,6 +21,7 @@
 /// \brief Implementation of the DummyPlanner class.
 
 #include "easynav_planner/DummyPlanner.hpp"
+#include "easynav_common/RTTFBuffer.hpp"
 
 namespace easynav
 {
@@ -35,7 +36,7 @@ std::expected<void, std::string> DummyPlanner::on_initialize()
 
   // Initialize the Path message
   path_.header.stamp = get_node()->now();
-  path_.header.frame_id = get_tf_prefix() + "map";
+  path_.header.frame_id = easynav::RTTFBuffer::getInstance()->get_tf_info().map_frame;
   path_.poses.clear();
 
   return {};

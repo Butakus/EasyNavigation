@@ -47,6 +47,8 @@
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
 #include "easynav_common/types/Perceptions.hpp"
+#include "easynav_common/CircularBuffer.hpp"
+#include "easynav_common/RTTFBuffer.hpp"
 
 namespace std
 {
@@ -72,6 +74,13 @@ struct hash<std::tuple<int, int, int>>
 namespace easynav
 {
 
+struct PointPerceptionBufferType
+{
+  pcl::PointCloud<pcl::PointXYZ> data;
+  std::string frame;
+  rclcpp::Time stamp;
+};
+
 /// \class PointPerception
 /// \brief Concrete perception class for 3D point cloud data.
 ///
@@ -95,12 +104,159 @@ public:
   /// \brief The 3D point cloud data associated with this perception.
   pcl::PointCloud<pcl::PointXYZ> data;
 
+  bool pending_available_{false};
+  pcl::PointCloud<pcl::PointXYZ> pending_cloud_;
+  std::string pending_frame_;
+  rclcpp::Time pending_stamp_;
+
+
   /// \brief Resizes the internal point cloud storage.
   /// \param size Number of points to allocate in \ref data.
   void resize(std::size_t size)
   {
     data.points.resize(size);
   }
+
+  /// \brief Retrieves the most recent buffered perception (independently of it has a valid TF) without removing it from the buffer.
+  const PointPerceptionBufferType & get_last_perception() const
+  {
+    return buffer.latest_ref();
+  }
+
+  void integrate_pending_perceptions()
+  {
+  // Access TF buffer singleton (already initialized somewhere with a clock)
+    auto tf_buffer_ptr = RTTFBuffer::getInstance();
+    auto & tf_buffer = *tf_buffer_ptr;
+    const auto tf_info = tf_buffer.get_tf_info();
+    const std::string & robot_frame = tf_info.robot_frame;
+
+  // ------------------------------------------------------------------
+  // 1. Push pending perception into the circular buffer exactly once.
+  // ------------------------------------------------------------------
+    if (pending_available_) {
+      PointPerceptionBufferType pending_item;
+      pending_item.data = std::move(pending_cloud_); // avoid deep copy
+      pending_item.frame = pending_frame_;
+      pending_item.stamp = pending_stamp_;
+
+      buffer.push(std::move(pending_item));
+      pending_available_ = false;
+    }
+
+    const std::size_t count = buffer.size();
+    if (count == 0) {
+    // No candidates at all: keep current visible state as is.
+      return;
+    }
+
+  // ------------------------------------------------------------------
+  // 2. Drain the circular buffer into a temporary vector so we can
+  //    inspect all items and then rebuild the buffer.
+  // ------------------------------------------------------------------
+    std::vector<PointPerceptionBufferType> items;
+    items.reserve(count);
+
+    for (std::size_t i = 0; i < count; ++i) {
+      PointPerceptionBufferType item;
+      if (!buffer.pop(item)) {
+        break; // Defensive guard if pop() fails unexpectedly.
+      }
+      items.push_back(std::move(item));
+    }
+
+    if (items.empty()) {
+    // Nothing recovered from buffer: keep visible state untouched.
+      return;
+    }
+
+  // ------------------------------------------------------------------
+  // 3. Find indices:
+  //    - newest_idx: newest perception by timestamp (regardless of TF),
+  //    - newest_valid_idx: newest perception that has a valid TF.
+  //
+  //    IMPORTANT: store only indices to avoid copying point clouds
+  //    during the scan.
+  // ------------------------------------------------------------------
+    std::optional<std::size_t> newest_idx;
+    std::optional<std::size_t> newest_valid_idx;
+
+    for (std::size_t i = 0; i < items.size(); ++i) {
+      const auto & item = items[i];
+
+    // Track newest item overall (used when no TF is valid).
+      if (!newest_idx || item.stamp > items[*newest_idx].stamp) {
+        newest_idx = i;
+      }
+
+      bool has_tf = false;
+      try {
+        has_tf = tf_buffer.canTransform(
+        robot_frame,
+        item.frame,
+        tf2_ros::fromMsg(item.stamp),
+        tf2::durationFromSec(0.0));
+      } catch (...) {
+      // Any TF exception is treated as "no valid TF" for this item.
+        has_tf = false;
+      }
+
+      if (has_tf) {
+        if (!newest_valid_idx || item.stamp > items[*newest_valid_idx].stamp) {
+          newest_valid_idx = i;
+        }
+      }
+    }
+
+  // ------------------------------------------------------------------
+  // 4. Update visible state BEFORE moving items back into the buffer.
+  //    This guarantees that `data` corresponds to:
+  //      - the newest TF-valid item if any exists, otherwise
+  //      - the newest item overall.
+  // ------------------------------------------------------------------
+    if (newest_valid_idx) {
+      const auto & sel = items[*newest_valid_idx];
+      data = sel.data;        // single deep copy (intentional)
+      frame_id = sel.frame;
+      stamp = sel.stamp;
+      valid = true;           // "valid" means "usable / not too old", not "TF ok"
+      new_data = true;
+    } else if (newest_idx) {
+      const auto & sel = items[*newest_idx];
+      data = sel.data;        // single deep copy (intentional)
+      frame_id = sel.frame;
+      stamp = sel.stamp;
+      valid = true;
+      new_data = true;
+    } else {
+    // Defensive: should not happen because items is non-empty.
+      return;
+    }
+
+  // ------------------------------------------------------------------
+  // 5. Rebuild the circular buffer from scratch (move-only, no copies).
+  // ------------------------------------------------------------------
+    buffer.clear();
+
+    if (newest_valid_idx) {
+    // Keep the newest TF-valid item and any newer items (even if TF is not yet available).
+      const rclcpp::Time cutoff_stamp = items[*newest_valid_idx].stamp;
+
+      for (auto & item : items) {
+        if (item.stamp >= cutoff_stamp) {
+          buffer.push(std::move(item));
+        }
+      }
+    } else {
+      // No TF-valid items: keep everything in case TF arrives later.
+      for (auto & item : items) {
+        buffer.push(std::move(item));
+      }
+    }
+  }
+
+protected:
+  CircularBuffer<PointPerceptionBufferType> buffer{10};
 };
 
 /// \class PointPerceptionHandler
