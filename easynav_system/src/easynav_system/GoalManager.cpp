@@ -51,11 +51,11 @@ double calculate_distance_xy(
 constexpr double norm_angle(const double angle)
 {
   using std::numbers::pi;
-  double angle = std::fmod(angle + pi, 2 * pi);
-  if (angle < 0.0) {
-    angle += 2 * pi;
+  double out_angle = std::fmod(angle + pi, 2 * pi);
+  if (out_angle < 0.0) {
+    out_angle += 2 * pi;
   }
-  return angle - pi;
+  return out_angle - pi;
 }
 
 /**
