@@ -29,15 +29,13 @@
 namespace easynav
 {
 
-std::expected<void, std::string> DummyController::on_initialize()
+void DummyController::on_initialize()
 {
   auto node = get_node();
   const auto & plugin_name = get_plugin_name();
 
   node->declare_parameter<double>(plugin_name + ".cycle_time_rt", 0.0);
   node->get_parameter<double>(plugin_name + ".cycle_time_rt", cycle_time_rt_);
-
-  return {};
 }
 
 void DummyController::update_rt([[maybe_unused]] NavState & nav_state)

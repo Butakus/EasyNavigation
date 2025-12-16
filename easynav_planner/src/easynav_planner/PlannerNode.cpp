@@ -87,11 +87,11 @@ PlannerNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & state
 
       planner_method_ = planner_loader_->createSharedInstance(plugin);
 
-      auto result = planner_method_->initialize(shared_from_this(), planner_type);
-
-      if (!result) {
+      try {
+        planner_method_->initialize(shared_from_this(), planner_type);
+      } catch (const std::runtime_error & e) {
         RCLCPP_ERROR(get_logger(),
-          "Unable to initialize [%s]. Error: %s", plugin.c_str(), result.error().c_str());
+          "Unable to initialize [%s]. Error: %s", plugin.c_str(), e.what());
         return CallbackReturnT::FAILURE;
       }
 

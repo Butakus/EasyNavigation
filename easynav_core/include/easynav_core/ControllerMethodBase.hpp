@@ -59,10 +59,9 @@ public:
    * @param parent_node Reference to the parent lifecycle node.
    * @param plugin_name Plugin identifier used for namespacing parameters.
    * @param tf_prefix Optional TF prefix for frame resolution.
-   * @return An empty value on success, or an error message otherwise.
+   * @throws std::runtime_error on initialization failure.
    */
-  virtual std::expected<void, std::string>
-  initialize(
+  virtual void initialize(
     const std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node,
     const std::string & plugin_name);
 

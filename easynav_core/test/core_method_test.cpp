@@ -18,7 +18,6 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 #include "gtest/gtest.h"
-#include <expected>
 
 #include "nav_msgs/msg/odometry.hpp"
 
@@ -48,10 +47,9 @@ public:
   MockMethod() = default;
   ~MockMethod() = default;
 
-  std::expected<void, std::string> on_initialize() override
+  void on_initialize() override
   {
     on_initialize_called_ = true;
-    return {};
   }
 
 public:
@@ -65,11 +63,10 @@ public:
   TestLocalizer() = default;
   ~TestLocalizer() = default;
 
-  std::expected<void, std::string> on_initialize() override
+  void on_initialize() override
   {
     odom_.header.frame_id = easynav::RTTFBuffer::getInstance()->get_tf_info().robot_frame;
     odom_.pose.pose.position.x = 5;
-    return {};
   }
 
   virtual void update_rt(easynav::NavState & nav_state) override
@@ -121,10 +118,9 @@ TEST_F(CoreMethodTestCase, TFInfoPropagatesToDerived)
   class TFInfoProbeMethod : public easynav::MethodBase
   {
 public:
-    std::expected<void, std::string> on_initialize() override
+    void on_initialize() override
     {
       seen_tf_info = easynav::RTTFBuffer::getInstance()->get_tf_info();
-      return {};
     }
 
     easynav::TFInfo seen_tf_info;

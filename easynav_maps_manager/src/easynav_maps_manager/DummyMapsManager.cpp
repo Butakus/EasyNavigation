@@ -25,15 +25,13 @@
 namespace easynav
 {
 
-std::expected<void, std::string> DummyMapsManager::on_initialize()
+void DummyMapsManager::on_initialize()
 {
   auto node = get_node();
   const auto & plugin_name = get_plugin_name();
 
   node->declare_parameter<double>(plugin_name + ".cycle_time_nort", 0.0);
   node->get_parameter<double>(plugin_name + ".cycle_time_nort", cycle_time_nort_);
-
-  return {};
 }
 
 void

@@ -83,11 +83,11 @@ MapsManagerNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & s
       std::shared_ptr<MapsManagerBase> instance;
       instance = maps_manager_loader_->createSharedInstance(plugin);
 
-      auto result = instance->initialize(shared_from_this(), map_type);
-
-      if (!result) {
+      try {
+        instance->initialize(shared_from_this(), map_type);
+      } catch (const std::runtime_error & e) {
         RCLCPP_ERROR(get_logger(),
-          "Unable to initialize [%s]. Error: %s", plugin.c_str(), result.error().c_str());
+          "Unable to initialize [%s]. Error: %s", plugin.c_str(), e.what());
         return CallbackReturnT::FAILURE;
       }
 

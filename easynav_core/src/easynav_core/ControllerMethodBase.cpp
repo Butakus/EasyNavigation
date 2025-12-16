@@ -35,7 +35,7 @@
 namespace easynav
 {
 
-std::expected<void, std::string>
+void
 ControllerMethodBase::initialize(
   const std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node,
   const std::string & plugin_name)
@@ -63,7 +63,7 @@ ControllerMethodBase::initialize(
   node->get_parameter("colision_checker.z_min_filter", z_min_filter_);
   node->get_parameter("colision_checker.downsample_leaf_size", downsample_leaf_size_);
 
-  return MethodBase::initialize(parent_node, plugin_name);
+  MethodBase::initialize(parent_node, plugin_name);
 }
 
 bool
