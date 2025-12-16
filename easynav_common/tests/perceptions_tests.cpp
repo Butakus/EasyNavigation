@@ -75,7 +75,7 @@ public:
   }
 
   // Debug helper: print buffer contents and current visible state
-  void debug_print_buffer(const std::string & header)
+  void debug_print_buffer([[maybe_unused]] const std::string & header)
   {
     // std::cerr << "-----------------------------\n";
     // std::cerr << "DEBUG: " << header << "\n";
@@ -85,8 +85,8 @@ public:
     //          << " valid=" << std::boolalpha << valid
     //          << " new_data=" << new_data << "\n";
 
-    const std::size_t cap = buffer.capacity();
     const std::size_t sz = buffer.size();
+    // const std::size_t cap = buffer.capacity();
     // std::cerr << "Buffer state: size=" << sz
     //          << " capacity=" << cap << "\n";
 

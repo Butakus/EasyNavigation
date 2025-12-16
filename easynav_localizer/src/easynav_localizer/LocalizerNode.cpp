@@ -88,11 +88,11 @@ LocalizerNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & sta
 
       localizer_method_ = localizer_loader_->createSharedInstance(plugin);
 
-      auto result = localizer_method_->initialize(shared_from_this(), localizer_type);
-
-      if (!result) {
+      try {
+        localizer_method_->initialize(shared_from_this(), localizer_type);
+      } catch (const std::runtime_error & e) {
         RCLCPP_ERROR(get_logger(),
-          "Unable to initialize [%s]. Error: %s", plugin.c_str(), result.error().c_str());
+          "Unable to initialize [%s]. Error: %s", plugin.c_str(), e.what());
         return CallbackReturnT::FAILURE;
       }
 

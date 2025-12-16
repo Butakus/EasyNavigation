@@ -26,7 +26,7 @@
 namespace easynav
 {
 
-std::expected<void, std::string> DummyPlanner::on_initialize()
+void DummyPlanner::on_initialize()
 {
   auto node = get_node();
   const auto & plugin_name = get_plugin_name();
@@ -38,8 +38,6 @@ std::expected<void, std::string> DummyPlanner::on_initialize()
   path_.header.stamp = get_node()->now();
   path_.header.frame_id = easynav::RTTFBuffer::getInstance()->get_tf_info().map_frame;
   path_.poses.clear();
-
-  return {};
 }
 
 void DummyPlanner::update([[maybe_unused]] NavState & nav_state)

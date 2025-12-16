@@ -24,7 +24,6 @@
 #define EASYNAV_CORE__METHODBASE_HPP_
 
 #include <memory>
-#include <expected>
 
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
@@ -54,10 +53,9 @@ public:
    *
    * @param parent_node Shared pointer to the parent lifecycle node.
    * @param plugin_name Name of the plugin (used for parameters and logging).
-   * @return std::expected<void, std::string> indicating success or failure.
+   * @throws std::runtime_error on initialization failure.
    */
-  virtual std::expected<void, std::string>
-  initialize(
+  virtual void initialize(
     const std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node,
     const std::string & plugin_name);
 
@@ -65,10 +63,9 @@ public:
    * @brief Hook for custom setup logic in derived classes.
    *
    * Called from initialize(). Can be overridden to implement extra initialization steps.
-   *
-   * @return std::expected<void, std::string> indicating success or failure.
+   * @throws std::runtime_error on initialization failure.
    */
-  virtual std::expected<void, std::string> on_initialize() {return {};}
+  virtual void on_initialize() {}
 
   /**
    * @brief Get a shared pointer to the parent lifecycle node.
