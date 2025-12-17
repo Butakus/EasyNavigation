@@ -2,8 +2,8 @@
 Changelog for package easynav_core
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.1 (2025-12-17)
+------------------
 * Downgrade from C++23 features
 * Remove std::expected from MethodBase::initialize interface
 * TF Refactor
