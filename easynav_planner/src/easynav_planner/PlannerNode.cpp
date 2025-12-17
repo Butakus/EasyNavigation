@@ -70,9 +70,6 @@ PlannerNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & state
   declare_parameter("planner_types", planner_types);
   get_parameter("planner_types", planner_types);
 
-  std::string tf_prefix;
-  get_parameter("tf_prefix", tf_prefix);
-
   if (planner_types.size() > 1) {
     RCLCPP_ERROR(get_logger(),
       "You must instance one planner.  [%lu] found", planner_types.size());
@@ -90,12 +87,11 @@ PlannerNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & state
 
       planner_method_ = planner_loader_->createSharedInstance(plugin);
 
-      auto result = planner_method_->initialize(shared_from_this(), planner_type,
-        tf_prefix);
-
-      if (!result) {
+      try {
+        planner_method_->initialize(shared_from_this(), planner_type);
+      } catch (const std::runtime_error & e) {
         RCLCPP_ERROR(get_logger(),
-          "Unable to initialize [%s]. Error: %s", plugin.c_str(), result.error().c_str());
+          "Unable to initialize [%s]. Error: %s", plugin.c_str(), e.what());
         return CallbackReturnT::FAILURE;
       }
 

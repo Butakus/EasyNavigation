@@ -87,7 +87,6 @@ Derived controllers usually expose these parameters (names may vary slightly per
 | `<plugin>.brake_acc` | `double` | `0.5` | Maximum braking deceleration used to compute stopping distance (m/s²). |
 | `<plugin>.safety_margin` | `double` | `0.1` | Extra margin added to the braking distance (m). |
 | `<plugin>.downsample_leaf_size` | `double` | `0.1` | Voxel leaf size for downsampling the collision point cloud (m). |
-| `<plugin>.motion_frame` | `string` | `"base_footprint"` | Frame where collision region and points are evaluated. |
 
 (Exact declaration and defaults live in each controller plugin; this section documents the shared semantics.)
 

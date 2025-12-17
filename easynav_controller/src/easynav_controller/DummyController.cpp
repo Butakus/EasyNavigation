@@ -24,29 +24,18 @@
 
 #include "easynav_controller/DummyController.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
+#include "easynav_common/RTTFBuffer.hpp"
 
 namespace easynav
 {
 
-std::expected<void, std::string> DummyController::on_initialize()
+void DummyController::on_initialize()
 {
   auto node = get_node();
   const auto & plugin_name = get_plugin_name();
 
   node->declare_parameter<double>(plugin_name + ".cycle_time_rt", 0.0);
   node->get_parameter<double>(plugin_name + ".cycle_time_rt", cycle_time_rt_);
-
-  // Initialize the odometry message
-  cmd_vel_.header.stamp = get_node()->now();
-  cmd_vel_.header.frame_id = get_tf_prefix() + "base_link";
-  cmd_vel_.twist.linear.x = 0.0;
-  cmd_vel_.twist.linear.y = 0.0;
-  cmd_vel_.twist.linear.z = 0.0;
-  cmd_vel_.twist.angular.x = 0.0;
-  cmd_vel_.twist.angular.y = 0.0;
-  cmd_vel_.twist.angular.z = 0.0;
-
-  return {};
 }
 
 void DummyController::update_rt([[maybe_unused]] NavState & nav_state)
@@ -54,7 +43,18 @@ void DummyController::update_rt([[maybe_unused]] NavState & nav_state)
   namespace chr = std::chrono;
   auto start = chr::steady_clock::now();
 
+  const auto & tf_info = easynav::RTTFBuffer::getInstance()->get_tf_info();
+
   // Compute the current command...
+  cmd_vel_.header.stamp = get_node()->now();
+  cmd_vel_.header.frame_id = tf_info.robot_frame;
+  cmd_vel_.twist.linear.x = 0.0;
+  cmd_vel_.twist.linear.y = 0.0;
+  cmd_vel_.twist.linear.z = 0.0;
+  cmd_vel_.twist.angular.x = 0.0;
+  cmd_vel_.twist.angular.y = 0.0;
+  cmd_vel_.twist.angular.z = 0.0;
+
   // cmd_vel_.angular.z = 1.0;
 
   // nav_state.set("cmd_vel", cmd_vel_);

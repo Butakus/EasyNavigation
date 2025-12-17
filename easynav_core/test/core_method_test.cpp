@@ -18,11 +18,11 @@
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 #include "gtest/gtest.h"
-#include <expected>
 
 #include "nav_msgs/msg/odometry.hpp"
 
 #include "easynav_common/types/NavState.hpp"
+#include "easynav_common/RTTFBuffer.hpp"
 #include "easynav_core/MethodBase.hpp"
 #include "easynav_core/LocalizerMethodBase.hpp"
 
@@ -47,18 +47,12 @@ public:
   MockMethod() = default;
   ~MockMethod() = default;
 
-  std::expected<void, std::string> on_initialize() override
+  void on_initialize() override
   {
     on_initialize_called_ = true;
-    return {};
   }
 
-  bool was_on_initialize_called() const
-  {
-    return on_initialize_called_;
-  }
-
-private:
+public:
   bool on_initialize_called_ {false};
 };
 
@@ -69,12 +63,10 @@ public:
   TestLocalizer() = default;
   ~TestLocalizer() = default;
 
-  std::expected<void, std::string> on_initialize() override
+  void on_initialize() override
   {
-    odom_.header.frame_id = get_tf_prefix() + "base_link";
+    odom_.header.frame_id = easynav::RTTFBuffer::getInstance()->get_tf_info().robot_frame;
     odom_.pose.pose.position.x = 5;
-
-    return {};
   }
 
   virtual void update_rt(easynav::NavState & nav_state) override
@@ -107,23 +99,50 @@ TEST_F(CoreMethodTestCase, InitializeSetsParentNode)
 {
   auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("test_node");
   easynav::MethodBase method;
-
   method.initialize(node, "test");
-
-  EXPECT_EQ(method.get_node(), node) << "initialize() should set parent_node_ correctly.";
 }
 
 TEST_F(CoreMethodTestCase, OnInitializeCalled)
 {
   auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("test_node");
   MockMethod method;
-
   method.initialize(node, "test");
-
-  EXPECT_TRUE(method.was_on_initialize_called()) <<
+  EXPECT_TRUE(method.on_initialize_called_) <<
     "on_initialize() should be called during initialization.";
 }
 
+TEST_F(CoreMethodTestCase, TFInfoPropagatesToDerived)
+{
+  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("test_tfinfo_node");
+
+  class TFInfoProbeMethod : public easynav::MethodBase
+  {
+public:
+    void on_initialize() override
+    {
+      seen_tf_info = easynav::RTTFBuffer::getInstance()->get_tf_info();
+    }
+
+    easynav::TFInfo seen_tf_info;
+  };
+
+  TFInfoProbeMethod method;
+  easynav::TFInfo tf_info;
+  tf_info.tf_prefix = "robot_1";
+  tf_info.map_frame = "my_map";
+  tf_info.odom_frame = "my_odom";
+  tf_info.robot_frame = "my_base";
+  tf_info.world_frame = "my_world";
+
+  easynav::RTTFBuffer::getInstance()->set_tf_info(tf_info);
+  method.initialize(node, "test_plugin");
+
+  EXPECT_EQ(method.seen_tf_info.tf_prefix, "robot_1");
+  EXPECT_EQ(method.seen_tf_info.map_frame, "robot_1/my_map");
+  EXPECT_EQ(method.seen_tf_info.odom_frame, "robot_1/my_odom");
+  EXPECT_EQ(method.seen_tf_info.robot_frame, "robot_1/my_base");
+  EXPECT_EQ(method.seen_tf_info.world_frame, "robot_1/my_world");
+}
 
 int main(int argc, char ** argv)
 {

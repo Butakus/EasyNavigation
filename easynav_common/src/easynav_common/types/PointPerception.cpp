@@ -56,13 +56,14 @@ PointPerceptionHandler::create_subscription(
       topic, rclcpp::QoS(1),
       [target](const sensor_msgs::msg::PointCloud2::SharedPtr msg)
       {
-        auto typed_target = std::dynamic_pointer_cast<PointPerception>(target);
+        auto typed = std::dynamic_pointer_cast<PointPerception>(target);
 
-        pcl::fromROSMsg(*msg, typed_target->data);
-        typed_target->frame_id = msg->header.frame_id;
-        typed_target->stamp = msg->header.stamp;
-        typed_target->valid = true;
-        typed_target->new_data = true;
+        pcl::fromROSMsg(*msg, typed->pending_cloud_);
+        typed->pending_frame_ = msg->header.frame_id;
+        typed->pending_stamp_ = msg->header.stamp;
+        typed->pending_available_ = true;
+
+        typed->integrate_pending_perceptions();
       },
       options);
   }
@@ -72,19 +73,22 @@ PointPerceptionHandler::create_subscription(
       topic, rclcpp::SensorDataQoS().reliable(),
       [target](const sensor_msgs::msg::LaserScan::SharedPtr msg)
       {
-        auto typed_target = std::dynamic_pointer_cast<PointPerception>(target);
+        auto typed = std::dynamic_pointer_cast<PointPerception>(target);
 
-        convert(*msg, typed_target->data);
-        typed_target->frame_id = msg->header.frame_id;
-        typed_target->stamp = msg->header.stamp;
-        typed_target->valid = true;
-        typed_target->new_data = true;
+        convert(*msg, typed->pending_cloud_);
+        typed->pending_frame_ = msg->header.frame_id;
+        typed->pending_stamp_ = msg->header.stamp;
+        typed->pending_available_ = true;
+
+        typed->integrate_pending_perceptions();
       },
       options);
   }
 
-  throw std::runtime_error("Unsupported message type for PointPerceptionHandler [" + type + "]");
+  throw std::runtime_error(
+    "Unsupported message type for PointPerceptionHandler [" + type + "]");
 }
+
 
 void
 convert(const sensor_msgs::msg::LaserScan & scan, pcl::PointCloud<pcl::PointXYZ> & pc)
@@ -559,7 +563,9 @@ PointPerceptionsOpsView::fuse(const std::string & target_frame)
   auto tf_buffer = easynav::RTTFBuffer::getInstance();
 
   for (std::size_t i = 0; i < n; ++i) {
-    const auto & pptr = perceptions_[i];
+    auto & pptr = perceptions_[i];
+    pptr->integrate_pending_perceptions();
+
     if (!pptr || !pptr->valid || pptr->data.empty()) {
       tf_valid_[i] = false;
       continue;

@@ -23,8 +23,6 @@
 #ifndef EASYNAV_PLANNER__DUMMYPLANNER_HPP_
 #define EASYNAV_PLANNER__DUMMYPLANNER_HPP_
 
-#include <expected>
-
 #include "nav_msgs/msg/path.hpp"
 #include "easynav_core/PlannerMethodBase.hpp"
 
@@ -48,9 +46,8 @@ public:
 
   /**
    * @brief Initialization hook.
-   * @return Success or error message.
    */
-  virtual std::expected<void, std::string> on_initialize() override;
+  virtual void on_initialize() override;
 
   /**
    * @brief Dummy update method.

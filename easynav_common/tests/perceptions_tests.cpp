@@ -27,6 +27,9 @@
 #include "easynav_common/types/PointPerception.hpp"
 #include "easynav_common/types/ImagePerception.hpp"
 
+#include "tf2_ros/transform_listener.hpp"
+#include "easynav_common/RTTFBuffer.hpp"
+
 #include "pcl/point_types.h"
 #include "pcl_conversions/pcl_conversions.h"
 
@@ -54,6 +57,65 @@ protected:
   }
 
   bool initialized {false};
+};
+
+// Helper subclass to inspect PointPerception internals in tests.
+class TestPointPerception : public easynav::PointPerception
+{
+public:
+  // Accessors to internal buffer state
+  std::size_t buffer_size() const {return buffer.size();}
+  bool buffer_empty() const {return buffer.empty();}
+  bool buffer_full() const {return buffer.full();}
+
+  // Get latest element stored in the circular buffer
+  bool buffer_latest(easynav::PointPerceptionBufferType & out) const
+  {
+    return buffer.latest(out);
+  }
+
+  // Debug helper: print buffer contents and current visible state
+  void debug_print_buffer([[maybe_unused]] const std::string & header)
+  {
+    // std::cerr << "-----------------------------\n";
+    // std::cerr << "DEBUG: " << header << "\n";
+    // std::cerr << "Visible state:\n";
+    // std::cerr << "  frame_id=" << frame_id
+    //          << " stamp=" << stamp.nanoseconds()
+    //          << " valid=" << std::boolalpha << valid
+    //          << " new_data=" << new_data << "\n";
+
+    const std::size_t sz = buffer.size();
+    // const std::size_t cap = buffer.capacity();
+    // std::cerr << "Buffer state: size=" << sz
+    //          << " capacity=" << cap << "\n";
+
+    // Dump logical content by popping all items and re-pushing them
+    std::vector<easynav::PointPerceptionBufferType> tmp;
+    tmp.reserve(sz);
+
+    for (std::size_t i = 0; i < sz; ++i) {
+      easynav::PointPerceptionBufferType item;
+      if (buffer.pop(item)) {
+        // std::cerr << "  [" << i << "] "
+        //           << "stamp=" << item.stamp.nanoseconds()
+        //           << " frame=" << item.frame
+        //           << " points=" << item.data.size()
+        //           << "\n";
+        tmp.push_back(std::move(item));
+      } else {
+        // std::cerr << "  [" << i << "] (pop failed)\n";
+        break;
+      }
+    }
+
+    // Restore buffer content
+    for (auto & item : tmp) {
+      buffer.push(std::move(item));
+    }
+
+    // std::cerr << "-----------------------------\n";
+  }
 };
 
 sensor_msgs::msg::LaserScan get_scan_test_1(rclcpp::Time ts)
@@ -256,12 +318,37 @@ using namespace std::chrono_literals;
 
 TEST_F(PerceptionsTestCase, PointPerceptionHandlerWorks)
 {
+  using easynav::RTTFBuffer;
+
   auto node = rclcpp_lifecycle::LifecycleNode::make_shared("test_handler_node");
+
+  // Use the same RTTFBuffer singleton that integrate_pending_perceptions() uses
+  auto tf_buffer = RTTFBuffer::getInstance();
+  tf2_ros::TransformListener tf_listener(*tf_buffer);
+
+  // Robot and sensor frames
+  const std::string robot_frame = tf_buffer->get_tf_info().robot_frame;
+  const std::string sensor_frame = "base_laser";
+
+  // Common timestamp for TF and scan
+  rclcpp::Time ts = node->get_clock()->now();
+
+  // Insert TF: robot_frame -> base_laser
+  geometry_msgs::msg::TransformStamped tf;
+  tf.header.stamp = ts;
+  tf.header.frame_id = robot_frame;
+  tf.child_frame_id = sensor_frame;
+  tf.transform.translation.x = 0.0;
+  tf.transform.translation.y = 0.0;
+  tf.transform.translation.z = 0.0;
+  tf.transform.rotation.w = 1.0;  // identity
+  tf_buffer->setTransform(tf, "test_authority", false);
 
   auto handler = std::make_shared<easynav::PointPerceptionHandler>();
   auto perception = handler->create("laser1");
 
-  auto cb_group = node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+  auto cb_group =
+    node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
   auto sub = handler->create_subscription(
     *node,
     "/test_scan",
@@ -270,19 +357,18 @@ TEST_F(PerceptionsTestCase, PointPerceptionHandlerWorks)
     cb_group);
 
   rclcpp::Publisher<sensor_msgs::msg::LaserScan>::SharedPtr laser_pub =
-    node->create_publisher<sensor_msgs::msg::LaserScan>("/test_scan",
-    rclcpp::SensorDataQoS().reliable());
+    node->create_publisher<sensor_msgs::msg::LaserScan>(
+      "/test_scan",
+      rclcpp::SensorDataQoS().reliable());
 
   rclcpp::executors::SingleThreadedExecutor exe;
   exe.add_node(node->get_node_base_interface());
   exe.add_callback_group(cb_group, node->get_node_base_interface());
 
-
-  auto now = node->get_clock()->now();
-  const auto & data = get_scan_test_2(now);
+  const auto data = get_scan_test_2(ts);
   laser_pub->publish(data);
 
-  auto start = now;
+  auto start = node->get_clock()->now();
   while (node->get_clock()->now() - start < 100ms) {
     exe.spin_some();
   }
@@ -292,6 +378,8 @@ TEST_F(PerceptionsTestCase, PointPerceptionHandlerWorks)
 
   ASSERT_TRUE(loaded->valid);
   ASSERT_TRUE(loaded->new_data);
+  ASSERT_EQ(loaded->frame_id, sensor_frame);
+  ASSERT_EQ(loaded->stamp.nanoseconds(), ts.nanoseconds());
   ASSERT_EQ(loaded->data.size(), data.ranges.size());
 
   double angle = data.angle_min;
@@ -304,9 +392,343 @@ TEST_F(PerceptionsTestCase, PointPerceptionHandlerWorks)
   }
 }
 
+TEST_F(PerceptionsTestCase, PointPerceptionBufferAndTFWorks)
+{
+  using easynav::RTTFBuffer;
+  using easynav::PointPerceptionHandler;
+
+  auto node = rclcpp_lifecycle::LifecycleNode::make_shared("test_point_perception_buffer");
+
+  // Initialize RTTFBuffer singleton with this node clock
+  auto tf_buffer = RTTFBuffer::getInstance(node->get_clock());
+  tf2_ros::TransformListener tf_listener(*tf_buffer);
+
+  // Perception and handler
+  auto perception = std::make_shared<TestPointPerception>();
+  auto handler = std::make_shared<PointPerceptionHandler>();
+
+  auto cb_group =
+    node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+  auto sub = handler->create_subscription(
+    *node,
+    "/test_scan3",
+    "sensor_msgs/msg/LaserScan",
+    perception,
+    cb_group);
+
+  auto laser_pub = node->create_publisher<sensor_msgs::msg::LaserScan>(
+    "/test_scan3", rclcpp::SensorDataQoS().reliable());
+  laser_pub->on_activate();  // lifecycle publisher must be activated
+
+  rclcpp::executors::SingleThreadedExecutor exe;
+  exe.add_node(node->get_node_base_interface());
+  exe.add_callback_group(cb_group, node->get_node_base_interface());
+
+  //
+  // 1) Initial state: integrate_pending_perceptions keeps an "empty" perception visible.
+  //    Since there is no pending data and the buffer is empty, the buffer
+  //    should remain empty.
+  //
+  // std::cerr << "=== STEP 1: initial flush ===\n";
+  // perception->debug_print_buffer("Before first flush");
+  perception->integrate_pending_perceptions();
+  // perception->debug_print_buffer("After first flush");
+
+  EXPECT_FALSE(perception->valid);
+  EXPECT_EQ(perception->data.size(), 0u);
+  EXPECT_EQ(perception->buffer_size(), 0u);  // buffer must remain empty
+
+  //
+  // 2) Add TF base_link -> base_laser_1 and publish 20 scans with valid TFs.
+  //    Each time, we expect integrate_pending_perceptions() to:
+  //      - choose the newest item with a valid TF (the just received one),
+  //      - drop older items,
+  //      - keep only that candidate in the buffer.
+  //
+  std::vector<rclcpp::Time> valid_stamps;
+  valid_stamps.reserve(20);
+
+  const std::string robot_frame = "base_link";
+  const std::string sensor_frame = "base_laser_1";
+
+  for (int i = 0; i < 20; ++i) {
+    // Time for this scan
+    rclcpp::Time ts = node->get_clock()->now();
+    valid_stamps.push_back(ts);
+
+    // Add corresponding TF to RTTFBuffer: base_link -> base_laser_1
+    geometry_msgs::msg::TransformStamped tf;
+    tf.header.stamp = ts;
+    tf.header.frame_id = robot_frame;
+    tf.child_frame_id = sensor_frame;
+    tf.transform.translation.x = 0.0;
+    tf.transform.translation.y = 0.0;
+    tf.transform.translation.z = 0.0;
+    tf.transform.rotation.w = 1.0;  // identity
+    tf_buffer->setTransform(tf, "test_authority", false);
+
+    // Publish scan in frame base_laser_1 with that stamp
+    auto scan = get_scan_test_3(ts);
+    laser_pub->publish(scan);
+
+    // Spin until callback runs
+    exe.spin_some(std::chrono::milliseconds(50));
+
+    // std::cerr << "=== STEP 2: valid scan #" << i
+    //          << " ts=" << ts.nanoseconds() << " ===\n";
+    // perception->debug_print_buffer("Before flush after valid scan");
+
+    // Now flush the buffer and check that the last perception is this one
+    perception->integrate_pending_perceptions();
+
+    // perception->debug_print_buffer("After flush after valid scan");
+
+    EXPECT_TRUE(perception->valid);
+    EXPECT_EQ(perception->frame_id, sensor_frame);
+    EXPECT_EQ(perception->stamp.nanoseconds(), ts.nanoseconds());
+    EXPECT_EQ(perception->data.size(), scan.ranges.size());
+
+    // With the current integrate_pending_perceptions() semantics:
+    //  - one candidate with valid TF is kept,
+    //  - there are no newer candidates yet,
+    //  -> buffer must contain exactly 1 entry.
+    EXPECT_EQ(perception->buffer_size(), 1u);
+
+    easynav::PointPerceptionBufferType latest_item;
+    ASSERT_TRUE(perception->buffer_latest(latest_item));
+    EXPECT_EQ(latest_item.stamp.nanoseconds(), perception->stamp.nanoseconds());
+    EXPECT_EQ(latest_item.frame, sensor_frame);
+  }
+
+  // std::cerr << "=== STEP 2: after all 20 valid scans ===\n";
+  // perception->debug_print_buffer("End of step 2");
+
+  // After 20 valid insertions with current behavior, buffer still holds only
+  // the newest valid candidate.
+  EXPECT_FALSE(perception->buffer_full());
+  EXPECT_EQ(perception->buffer_size(), 1u);
+  EXPECT_EQ(
+    perception->stamp.nanoseconds(),
+    valid_stamps.back().nanoseconds());
+
+  //
+  // 3) Publish 4 scans without adding their TFs.
+  //    We expect, after each integrate_pending_perceptions():
+  //      - visible perception remains the last valid one from step 2,
+  //      - buffer size grows by one per new invalid candidate
+  //        (they are kept because they might become valid in the future).
+  //
+  std::array<rclcpp::Time, 4> invalid_stamps;
+
+  const auto last_valid_stamp_ns = perception->stamp.nanoseconds();
+  const std::size_t base_size_step3 = perception->buffer_size();  // should be 1
+
+  for (int i = 0; i < 4; ++i) {
+    rclcpp::Time ts =
+      node->get_clock()->now() + rclcpp::Duration(0, 10'000'000 * i);
+    invalid_stamps[i] = ts;
+
+    auto scan = get_scan_test_3(ts);
+    laser_pub->publish(scan);
+    exe.spin_some(std::chrono::milliseconds(50));
+
+    // std::cerr << "=== STEP 3: invalid scan #" << i
+    //          << " ts=" << ts.nanoseconds() << " ===\n";
+    // perception->debug_print_buffer("Before flush after invalid scan");
+
+    // No corresponding TF for this stamp yet
+    perception->integrate_pending_perceptions();
+
+    // perception->debug_print_buffer("After flush after invalid scan");
+
+    EXPECT_TRUE(perception->valid);
+    EXPECT_EQ(perception->frame_id, sensor_frame);
+    EXPECT_EQ(perception->stamp.nanoseconds(), last_valid_stamp_ns);
+
+    // Buffer size should have increased by one for each new invalid candidate
+    // while still keeping the last valid one from step 2.
+    std::size_t expected_size = base_size_step3 + static_cast<std::size_t>(i + 1);
+    EXPECT_EQ(perception->buffer_size(), expected_size);
+  }
+
+  // std::cerr << "=== STEP 3: after 4 invalid scans ===\n";
+  // perception->debug_print_buffer("End of step 3");
+
+  //
+  // 4) Now we publish TFs for those 4 previously invalid scans, one by one.
+  //    Semantics:
+  //      - After adding a TF for invalid_stamps[i] and calling integrate_pending_perceptions():
+  //          * that candidate becomes the newest valid one,
+  //          * all older entries are pruned,
+  //          * newer entries (if any) are kept.
+  //      - In our setup at this point:
+  //          buffer has: [last valid from step 2, invalid0, invalid1, invalid2, invalid3]
+  //        so sizes after each flush should be:
+  //          i=0 -> 4, i=1 -> 3, i=2 -> 2, i=3 -> 1.
+  //
+  std::size_t buffer_size_step3_end = perception->buffer_size();  // should be 5
+  ASSERT_EQ(buffer_size_step3_end, 5u);
+  std::size_t expected_size_step4 = buffer_size_step3_end;
+
+  for (int i = 0; i < 4; ++i) {
+    geometry_msgs::msg::TransformStamped tf;
+    tf.header.stamp = invalid_stamps[i];
+    tf.header.frame_id = robot_frame;
+    tf.child_frame_id = sensor_frame;
+    tf.transform.translation.x = 0.0;
+    tf.transform.translation.y = 0.0;
+    tf.transform.translation.z = 0.0;
+    tf.transform.rotation.w = 1.0;
+
+    // std::cerr << "=== STEP 4: adding TF for invalid_stamps[" << i
+    //          << "] ts=" << invalid_stamps[i].nanoseconds() << " ===\n";
+    // perception->debug_print_buffer("Before setTransform");
+
+    tf_buffer->setTransform(tf, "test_authority", false);
+
+    // perception->debug_print_buffer("Before flush after TF");
+
+    perception->integrate_pending_perceptions();
+
+    // perception->debug_print_buffer("After flush after TF");
+
+    EXPECT_TRUE(perception->valid);
+    EXPECT_EQ(perception->frame_id, sensor_frame);
+    EXPECT_EQ(
+      perception->stamp.nanoseconds(),
+      invalid_stamps[i].nanoseconds());
+
+    // After choosing invalid_stamps[i] as newest valid:
+    //   - older entries are pruned,
+    //   - newer ones are kept.
+    // With our pattern, sizes must go 4,3,2,1.
+    expected_size_step4 -= 1;
+    EXPECT_EQ(perception->buffer_size(), expected_size_step4);
+
+    easynav::PointPerceptionBufferType latest_item;
+    ASSERT_TRUE(perception->buffer_latest(latest_item));
+    EXPECT_EQ(latest_item.stamp.nanoseconds(), invalid_stamps[3].nanoseconds());
+    EXPECT_EQ(latest_item.frame, sensor_frame);
+  }
+
+  // std::cerr << "=== STEP 4: end of step 4 ===\n";
+  // perception->debug_print_buffer("End of step 4");
+  EXPECT_EQ(perception->buffer_size(), 1u);
+
+  //
+  // 5) Final scenario:
+  //    - Publish 4 new scans without TFs.
+  //    - Then publish TF only for the latest of those 4.
+  //    Expected behavior:
+  //      * After the 4 invalid scans, buffer size grows only for those scans
+  //        whose stamp is >= cutoff_stamp (the last valid stamp from step 4).
+  //      * After adding TF for the latest scan and calling integrate_pending_perceptions(),
+  //        only that latest scan remains in the buffer.
+  //
+  std::array<rclcpp::Time, 4> late_invalid_stamps;
+  const auto base_stamp = perception->stamp;
+  const std::size_t base_size_step5 = perception->buffer_size();  // should be 1
+  const auto cutoff_ns_step5 = perception->stamp.nanoseconds();
+  std::size_t kept_newer_or_equal = 0;
+
+  for (int i = 0; i < 4; ++i) {
+    rclcpp::Time ts = base_stamp + rclcpp::Duration(0, (i + 1) * 10'000'000);
+    late_invalid_stamps[i] = ts;
+
+    auto scan = get_scan_test_3(ts);
+    laser_pub->publish(scan);
+    exe.spin_some(std::chrono::milliseconds(50));
+
+    // // std::cerr << "=== STEP 5: late invalid scan #" << i
+    //           << " ts=" << ts.nanoseconds() << " ===\n";
+    // perception->debug_print_buffer("Before flush after late invalid scan");
+
+    perception->integrate_pending_perceptions();
+
+    // perception->debug_print_buffer("After flush after late invalid scan");
+
+    // Visible perception must remain the last valid one from step 4
+    // (until there is a TF for one of these new scans).
+    EXPECT_TRUE(perception->valid);
+    EXPECT_EQ(perception->frame_id, sensor_frame);
+
+    // Only scans with stamp >= cutoff_ns_step5 will remain in the buffer
+    // after integrate_pending_perceptions(); older ones are dropped.
+    if (ts.nanoseconds() >= cutoff_ns_step5) {
+      ++kept_newer_or_equal;
+    }
+
+    std::size_t expected_size = base_size_step5 + (i + 1);
+    EXPECT_EQ(perception->buffer_size(), expected_size);
+  }
+
+  // std::cerr << "=== STEP 5: before adding TF for the latest late invalid ===\n";
+  // perception->debug_print_buffer("Before adding TF for latest late invalid");
+
+  std::size_t expected_size_before_tf = base_size_step5 + 4u;
+  EXPECT_EQ(perception->buffer_size(), expected_size_before_tf);
+
+  // Add TF only for the latest of the 4 late invalid scans
+  geometry_msgs::msg::TransformStamped tf_latest;
+  tf_latest.header.stamp = late_invalid_stamps[3];
+  tf_latest.header.frame_id = robot_frame;
+  tf_latest.child_frame_id = sensor_frame;
+  tf_latest.transform.translation.x = 0.0;
+  tf_latest.transform.translation.y = 0.0;
+  tf_latest.transform.translation.z = 0.0;
+  tf_latest.transform.rotation.w = 1.0;
+
+  // std::cerr << "=== STEP 5: adding TF for latest late invalid "
+  //          << late_invalid_stamps[3].nanoseconds() << " ===\n";
+  tf_buffer->setTransform(tf_latest, "test_authority", false);
+
+  // perception->debug_print_buffer("Before flush after TF of latest late invalid");
+
+  perception->integrate_pending_perceptions();
+
+  // perception->debug_print_buffer("After flush after TF of latest late invalid");
+
+  // Now the newest valid candidate is the latest late invalid,
+  // and all older entries should be pruned, leaving exactly one entry.
+  EXPECT_TRUE(perception->valid);
+  EXPECT_EQ(perception->frame_id, sensor_frame);
+  EXPECT_EQ(perception->stamp.nanoseconds(), late_invalid_stamps[3].nanoseconds());
+  EXPECT_EQ(perception->buffer_size(), 1u);
+
+  easynav::PointPerceptionBufferType final_latest;
+  ASSERT_TRUE(perception->buffer_latest(final_latest));
+  EXPECT_EQ(final_latest.stamp.nanoseconds(), late_invalid_stamps[3].nanoseconds());
+  EXPECT_EQ(final_latest.frame, sensor_frame);
+
+  // std::cerr << "=== STEP 5: end of test ===\n";
+  // perception->debug_print_buffer("Final buffer state");
+}
+
+
 TEST_F(PerceptionsTestCase, PointPerceptionHandlerPC2Works)
 {
+  using easynav::RTTFBuffer;
+
   auto node = rclcpp_lifecycle::LifecycleNode::make_shared("test_pc2_handler_node");
+
+  // Initialize RTTFBuffer singleton with this node clock
+  auto tf_buffer = RTTFBuffer::getInstance(node->get_clock());
+  tf2_ros::TransformListener tf_listener(*tf_buffer);
+
+  const std::string robot_frame = tf_buffer->get_tf_info().robot_frame;
+  const std::string sensor_frame = "lidar_frame";
+
+  rclcpp::Time ts = node->get_clock()->now();
+
+  geometry_msgs::msg::TransformStamped tf;
+  tf.header.stamp = ts;
+  tf.header.frame_id = robot_frame;
+  tf.child_frame_id = sensor_frame;
+  tf.transform.translation.x = 0.0;
+  tf.transform.translation.y = 0.0;
+  tf.transform.translation.z = 0.0;
+  tf.transform.rotation.w = 1.0;  // identity
+  tf_buffer->setTransform(tf, "test_authority", false);
 
   auto handler = std::make_shared<easynav::PointPerceptionHandler>();
   auto perception = handler->create("lidar1");
@@ -321,14 +743,14 @@ TEST_F(PerceptionsTestCase, PointPerceptionHandlerPC2Works)
 
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub =
     node->create_publisher<sensor_msgs::msg::PointCloud2>(
-    "/test_pc2", rclcpp::SensorDataQoS().reliable());
+      "/test_pc2", rclcpp::SensorDataQoS().reliable());
 
   rclcpp::executors::SingleThreadedExecutor exe;
   exe.add_node(node->get_node_base_interface());
   exe.add_callback_group(cb_group, node->get_node_base_interface());
 
   pcl::PointCloud<pcl::PointXYZ> pcl_cloud;
-  pcl_cloud.header.frame_id = "lidar_frame";
+  pcl_cloud.header.frame_id = sensor_frame;
   pcl_cloud.width = 3;
   pcl_cloud.height = 1;
   pcl_cloud.is_dense = true;
@@ -339,8 +761,8 @@ TEST_F(PerceptionsTestCase, PointPerceptionHandlerPC2Works)
 
   sensor_msgs::msg::PointCloud2 msg;
   pcl::toROSMsg(pcl_cloud, msg);
-  msg.header.frame_id = "lidar_frame";
-  msg.header.stamp = node->now();
+  msg.header.frame_id = sensor_frame;
+  msg.header.stamp = ts;
 
   pub->publish(msg);
 
@@ -353,7 +775,7 @@ TEST_F(PerceptionsTestCase, PointPerceptionHandlerPC2Works)
   ASSERT_NE(loaded, nullptr);
   ASSERT_TRUE(loaded->valid);
   ASSERT_TRUE(loaded->new_data);
-  ASSERT_EQ(loaded->frame_id, "lidar_frame");
+  ASSERT_EQ(loaded->frame_id, sensor_frame);
   ASSERT_EQ(loaded->data.size(), 3u);
 
   ASSERT_NEAR(loaded->data[0].x, 1.0, 0.001);
