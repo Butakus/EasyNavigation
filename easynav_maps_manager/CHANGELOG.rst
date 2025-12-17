@@ -2,6 +2,14 @@
 Changelog for package easynav_maps_manager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Downgrade from C++23 features
+* Remove std::expected from MethodBase::initialize interface
+* TF Refactor
+* Unify TF configuration
+* Contributors: Francisco Martín Rico, Francisco Miguel Moreno
+
 0.3.0 (2025-12-01)
 ------------------
 * Merge rolling features into kilted
