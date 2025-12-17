@@ -2,8 +2,8 @@
 Changelog for package easynav_system
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.1 (2025-12-17)
+------------------
 * Goal tolerances to the nav_state
 * TF Refactor
 * Unify TF configuration
