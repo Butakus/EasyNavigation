@@ -85,9 +85,6 @@ ControllerNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & st
   declare_parameter("controller_types", controller_types);
   get_parameter("controller_types", controller_types);
 
-  std::string tf_prefix;
-  get_parameter("tf_prefix", tf_prefix);
-
   if (controller_types.size() > 1) {
     RCLCPP_ERROR(get_logger(),
       "You must instance one controller.  [%lu] found", controller_types.size());
@@ -105,12 +102,11 @@ ControllerNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & st
 
       controller_method_ = controller_loader_->createSharedInstance(plugin);
 
-      auto result = controller_method_->initialize(shared_from_this(), controller_type,
-        tf_prefix);
-
-      if (!result) {
+      try {
+        controller_method_->initialize(shared_from_this(), controller_type);
+      } catch (const std::runtime_error & e) {
         RCLCPP_ERROR(get_logger(),
-          "Unable to initialize [%s]. Error: %s", plugin.c_str(), result.error().c_str());
+          "Unable to initialize [%s]. Error: %s", plugin.c_str(), e.what());
         return CallbackReturnT::FAILURE;
       }
 

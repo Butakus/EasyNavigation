@@ -30,15 +30,15 @@
 #include "easynav_core/ControllerMethodBase.hpp"
 
 #include "easynav_common/types/PointPerception.hpp"
+#include "easynav_common/RTTFBuffer.hpp"
 
 namespace easynav
 {
 
-std::expected<void, std::string>
+void
 ControllerMethodBase::initialize(
   const std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node,
-  const std::string & plugin_name,
-  const std::string & tf_prefix)
+  const std::string & plugin_name)
 {
   auto node = parent_node;
 
@@ -53,7 +53,6 @@ ControllerMethodBase::initialize(
   node->declare_parameter("colision_checker.safety_margin", safety_margin_);
   node->declare_parameter("colision_checker.z_min_filter", z_min_filter_);
   node->declare_parameter("colision_checker.downsample_leaf_size", downsample_leaf_size_);
-  node->declare_parameter("colision_checker.motion_frame", motion_frame_);
 
   node->get_parameter("colision_checker.active", collision_checker_active_);
   node->get_parameter("colision_checker.debug_markers", debug_markers_);
@@ -63,9 +62,8 @@ ControllerMethodBase::initialize(
   node->get_parameter("colision_checker.safety_margin", safety_margin_);
   node->get_parameter("colision_checker.z_min_filter", z_min_filter_);
   node->get_parameter("colision_checker.downsample_leaf_size", downsample_leaf_size_);
-  node->get_parameter("colision_checker.motion_frame", motion_frame_);
 
-  return MethodBase::initialize(parent_node, plugin_name, tf_prefix);
+  MethodBase::initialize(parent_node, plugin_name);
 }
 
 bool
@@ -110,6 +108,8 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
 
   const auto & twist = nav_state.get<geometry_msgs::msg::TwistStamped>("cmd_vel");
   const auto & perceptions = nav_state.get<PointPerceptions>("points");
+  const auto & tf_info = easynav::RTTFBuffer::getInstance()->get_tf_info();
+  const auto & robot_frame = tf_info.robot_frame;
 
   if (perceptions.empty()) {return false;}
 
@@ -135,7 +135,7 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
   const auto & cloud = PointPerceptionsOpsView(perceptions)
     .downsample(downsample_leaf_size_)
     .filter({-2.0, -2.0, -2.0}, {2.0, 2.0, 2.0}, false)
-    .fuse(motion_frame_)
+    .fuse(robot_frame)
     .filter(min, max)
     .as_points();
 
@@ -200,9 +200,12 @@ ControllerMethodBase::publish_collision_zone_marker(
 
   visualization_msgs::msg::MarkerArray array;
 
+  const auto & tf_info = easynav::RTTFBuffer::getInstance()->get_tf_info();
+  const auto & robot_frame = tf_info.robot_frame;
+
   {
     visualization_msgs::msg::Marker clear;
-    clear.header.frame_id = motion_frame_;
+    clear.header.frame_id = robot_frame;
     clear.header.stamp = get_node()->now();
     clear.ns = "collision_zone";
     clear.id = 0;
@@ -220,7 +223,7 @@ ControllerMethodBase::publish_collision_zone_marker(
 
   {
     visualization_msgs::msg::Marker box;
-    box.header.frame_id = motion_frame_;
+    box.header.frame_id = robot_frame;
     box.header.stamp = stamp;
     box.ns = "collision_zone";
     box.id = 1;
@@ -252,7 +255,7 @@ ControllerMethodBase::publish_collision_zone_marker(
 
   {
     visualization_msgs::msg::Marker pts;
-    pts.header.frame_id = motion_frame_;
+    pts.header.frame_id = robot_frame;
     pts.header.stamp = stamp;
     pts.ns = "collision_zone";
     pts.id = 2;

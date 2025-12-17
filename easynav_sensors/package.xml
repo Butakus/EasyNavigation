@@ -22,7 +22,6 @@
   <depend>rclcpp_lifecycle</depend>
   <depend>tf2_ros</depend>
   <depend>sensor_msgs</depend>
-
   <depend>easynav_common</depend>
 
   <test_depend>ament_lint_auto</test_depend>

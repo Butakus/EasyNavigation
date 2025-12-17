@@ -51,8 +51,11 @@ double calculate_distance_xy(
 constexpr double norm_angle(const double angle)
 {
   using std::numbers::pi;
-  double norm_angle = std::fmod(angle + pi, 2 * pi);
-  return norm_angle < 0 ? norm_angle + pi : norm_angle - pi;
+  double out_angle = std::fmod(angle + pi, 2 * pi);
+  if (out_angle < 0.0) {
+    out_angle += 2 * pi;
+  }
+  return out_angle - pi;
 }
 
 /**
@@ -86,6 +89,11 @@ GoalManager::GoalManager(
   parent_node_->get_parameter("position_tolerance", goal_tolerance_.position);
   parent_node_->get_parameter("height_tolerance", goal_tolerance_.height);
   parent_node_->get_parameter("angle_tolerance", goal_tolerance_.yaw);
+
+  // Expose initial goal tolerances in NavState so controllers can reuse them
+  nav_state.set("goal_tolerance.position", goal_tolerance_.position);
+  nav_state.set("goal_tolerance.height", goal_tolerance_.height);
+  nav_state.set("goal_tolerance.yaw", goal_tolerance_.yaw);
 
   control_sub_ = parent_node_->create_subscription<easynav_interfaces::msg::NavigationControl>(
     "easynav_control", 100,
@@ -310,6 +318,11 @@ GoalManager::update(NavState & nav_state)
     nav_state.set("navigation_state", state_);
   }
 
+   // Keep published tolerances in sync with current parameters
+  nav_state.set("goal_tolerance.position", goal_tolerance_.position);
+  nav_state.set("goal_tolerance.height", goal_tolerance_.height);
+  nav_state.set("goal_tolerance.yaw", goal_tolerance_.yaw);
+
   if (state_ == State::IDLE) {
     goals_ = nav_msgs::msg::Goals();
     nav_state.set("goals", goals_);
@@ -397,7 +410,7 @@ GoalManager::check_goals(
 
   const double angle_diff = calculate_angle(current_pose, first_goal);
 
-  if (angle_diff <= goal_tolerance.yaw) {
+  if (std::fabs(angle_diff) <= goal_tolerance.yaw) {
     goals_.goals.erase(goals_.goals.begin());
   }
 }

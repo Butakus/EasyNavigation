@@ -21,7 +21,6 @@
 /// \brief Implementation of the base class MethodBase used in plugin-based EasyNav method components.
 
 #include <memory>
-#include <expected>
 
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
@@ -30,16 +29,13 @@
 namespace easynav
 {
 
-std::expected<void, std::string>
+void
 MethodBase::initialize(
   const std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node,
-  const std::string & plugin_name,
-  const std::string & tf_prefix
-)
+  const std::string & plugin_name)
 {
   parent_node_ = parent_node;
   plugin_name_ = plugin_name;
-  tf_prefix_ = tf_prefix;
 
   rt_frequency_ = 10.0;
   frequency_ = 10.0;
@@ -52,7 +48,7 @@ MethodBase::initialize(
   last_ts_ = parent_node_->now();
   rt_last_ts_ = parent_node_->now();
 
-  return on_initialize();
+  on_initialize();
 }
 
 std::shared_ptr<rclcpp_lifecycle::LifecycleNode>
@@ -65,12 +61,6 @@ const std::string &
 MethodBase::get_plugin_name() const
 {
   return plugin_name_;
-}
-
-const std::string &
-MethodBase::get_tf_prefix() const
-{
-  return tf_prefix_;
 }
 
 bool
