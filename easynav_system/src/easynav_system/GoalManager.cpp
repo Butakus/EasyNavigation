@@ -20,7 +20,7 @@
 /// \file
 /// \brief Implementation of the GoalManager class.
 
-#include <numbers>
+#include <cmath>
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "tf2/utils.hpp"
 #include "nav_msgs/msg/odometry.hpp"
@@ -50,12 +50,11 @@ double calculate_distance_xy(
 /** Angle normalization to [-pi, pi) range (in radians) */
 constexpr double norm_angle(const double angle)
 {
-  using std::numbers::pi;
-  double out_angle = std::fmod(angle + pi, 2 * pi);
+  double out_angle = std::fmod(angle + M_PI, 2 * M_PI);
   if (out_angle < 0.0) {
-    out_angle += 2 * pi;
+    out_angle += 2 * M_PI;
   }
-  return out_angle - pi;
+  return out_angle - M_PI;
 }
 
 /**
