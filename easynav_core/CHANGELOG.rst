@@ -2,8 +2,8 @@
 Changelog for package easynav_core
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.2 (2025-12-18)
+------------------
 * Hotfix: Remove remaining C++20/23 features
 * Contributors: Francisco Miguel Moreno
 
