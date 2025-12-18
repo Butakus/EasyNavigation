@@ -2,6 +2,11 @@
 Changelog for package easynav_interfaces
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Hotfix: Remove remaining C++20/23 features
+* Contributors: Francisco Miguel Moreno
+
 0.2.1 (2025-12-17)
 ------------------
 
