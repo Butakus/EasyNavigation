@@ -20,8 +20,6 @@
 /// \file
 /// \brief Implementation of the DummyController class.
 
-#include <expected>
-
 #include "easynav_controller/DummyController.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "easynav_common/RTTFBuffer.hpp"
