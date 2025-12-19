@@ -109,7 +109,7 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
   const auto & twist = nav_state.get<geometry_msgs::msg::TwistStamped>("cmd_vel");
   const auto & perceptions = nav_state.get<PointPerceptions>("points");
   const auto & tf_info = easynav::RTTFBuffer::getInstance()->get_tf_info();
-  const auto & robot_frame = tf_info.robot_frame;
+  const auto & robot_footprint_frame = tf_info.robot_footprint_frame;
 
   if (perceptions.empty()) {return false;}
 
@@ -135,7 +135,7 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
   const auto & cloud = PointPerceptionsOpsView(perceptions)
     .downsample(downsample_leaf_size_)
     .filter({-2.0, -2.0, -2.0}, {2.0, 2.0, 2.0}, false)
-    .fuse(robot_frame)
+    .fuse(robot_footprint_frame)
     .filter(min, max)
     .as_points();
 
@@ -201,11 +201,11 @@ ControllerMethodBase::publish_collision_zone_marker(
   visualization_msgs::msg::MarkerArray array;
 
   const auto & tf_info = easynav::RTTFBuffer::getInstance()->get_tf_info();
-  const auto & robot_frame = tf_info.robot_frame;
+  const auto & robot_footprint_frame = tf_info.robot_footprint_frame;
 
   {
     visualization_msgs::msg::Marker clear;
-    clear.header.frame_id = robot_frame;
+    clear.header.frame_id = robot_footprint_frame;
     clear.header.stamp = get_node()->now();
     clear.ns = "collision_zone";
     clear.id = 0;
@@ -223,7 +223,7 @@ ControllerMethodBase::publish_collision_zone_marker(
 
   {
     visualization_msgs::msg::Marker box;
-    box.header.frame_id = robot_frame;
+    box.header.frame_id = robot_footprint_frame;
     box.header.stamp = stamp;
     box.ns = "collision_zone";
     box.id = 1;
@@ -255,7 +255,7 @@ ControllerMethodBase::publish_collision_zone_marker(
 
   {
     visualization_msgs::msg::Marker pts;
-    pts.header.frame_id = robot_frame;
+    pts.header.frame_id = robot_footprint_frame;
     pts.header.stamp = stamp;
     pts.ns = "collision_zone";
     pts.id = 2;
