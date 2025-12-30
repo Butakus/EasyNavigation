@@ -129,7 +129,7 @@ public:
     auto tf_buffer_ptr = RTTFBuffer::getInstance();
     auto & tf_buffer = *tf_buffer_ptr;
     const auto tf_info = tf_buffer.get_tf_info();
-    const std::string & robot_footprint_frame = tf_info.robot_footprint_frame;
+    const std::string & robot_frame = tf_info.robot_frame;
 
   // ------------------------------------------------------------------
   // 1. Push pending perception into the circular buffer exactly once.
@@ -192,7 +192,7 @@ public:
       bool has_tf = false;
       try {
         has_tf = tf_buffer.canTransform(
-        robot_footprint_frame,
+        robot_frame,
         item.frame,
         tf2_ros::fromMsg(item.stamp),
         tf2::durationFromSec(0.0));
