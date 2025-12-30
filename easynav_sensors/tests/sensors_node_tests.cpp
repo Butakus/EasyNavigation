@@ -413,7 +413,7 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
 
   auto tf_broadcaster = std::make_shared<tf2_ros::TransformBroadcaster>(*test_node);
   geometry_msgs::msg::TransformStamped transform;
-  transform.header.frame_id = "base_link";
+  transform.header.frame_id = "base_footprint";
   transform.transform.translation.x = 0.0;
   transform.transform.translation.y = 0.0;
   transform.transform.translation.z = 1.0;

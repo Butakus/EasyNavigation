@@ -327,16 +327,16 @@ TEST_F(PerceptionsTestCase, PointPerceptionHandlerWorks)
   tf2_ros::TransformListener tf_listener(*tf_buffer);
 
   // Robot and sensor frames
-  const std::string robot_footprint_frame = tf_buffer->get_tf_info().robot_footprint_frame;
+  const std::string robot_frame = tf_buffer->get_tf_info().robot_frame;
   const std::string sensor_frame = "base_laser";
 
   // Common timestamp for TF and scan
   rclcpp::Time ts = node->get_clock()->now();
 
-  // Insert TF: robot_footprint_frame -> base_laser
+  // Insert TF: robot_frame -> base_laser
   geometry_msgs::msg::TransformStamped tf;
   tf.header.stamp = ts;
-  tf.header.frame_id = robot_footprint_frame;
+  tf.header.frame_id = robot_frame;
   tf.child_frame_id = sensor_frame;
   tf.transform.translation.x = 0.0;
   tf.transform.translation.y = 0.0;
@@ -448,7 +448,7 @@ TEST_F(PerceptionsTestCase, PointPerceptionBufferAndTFWorks)
   std::vector<rclcpp::Time> valid_stamps;
   valid_stamps.reserve(20);
 
-  const std::string robot_footprint_frame = "base_footprint";
+  const std::string robot_frame = "base_link";
   const std::string sensor_frame = "base_laser_1";
 
   for (int i = 0; i < 20; ++i) {
@@ -459,7 +459,7 @@ TEST_F(PerceptionsTestCase, PointPerceptionBufferAndTFWorks)
     // Add corresponding TF to RTTFBuffer: base_link -> base_laser_1
     geometry_msgs::msg::TransformStamped tf;
     tf.header.stamp = ts;
-    tf.header.frame_id = robot_footprint_frame;
+    tf.header.frame_id = robot_frame;
     tf.child_frame_id = sensor_frame;
     tf.transform.translation.x = 0.0;
     tf.transform.translation.y = 0.0;
@@ -573,7 +573,7 @@ TEST_F(PerceptionsTestCase, PointPerceptionBufferAndTFWorks)
   for (int i = 0; i < 4; ++i) {
     geometry_msgs::msg::TransformStamped tf;
     tf.header.stamp = invalid_stamps[i];
-    tf.header.frame_id = robot_footprint_frame;
+    tf.header.frame_id = robot_frame;
     tf.child_frame_id = sensor_frame;
     tf.transform.translation.x = 0.0;
     tf.transform.translation.y = 0.0;
@@ -671,7 +671,7 @@ TEST_F(PerceptionsTestCase, PointPerceptionBufferAndTFWorks)
   // Add TF only for the latest of the 4 late invalid scans
   geometry_msgs::msg::TransformStamped tf_latest;
   tf_latest.header.stamp = late_invalid_stamps[3];
-  tf_latest.header.frame_id = robot_footprint_frame;
+  tf_latest.header.frame_id = robot_frame;
   tf_latest.child_frame_id = sensor_frame;
   tf_latest.transform.translation.x = 0.0;
   tf_latest.transform.translation.y = 0.0;
@@ -715,14 +715,14 @@ TEST_F(PerceptionsTestCase, PointPerceptionHandlerPC2Works)
   auto tf_buffer = RTTFBuffer::getInstance(node->get_clock());
   tf2_ros::TransformListener tf_listener(*tf_buffer);
 
-  const std::string robot_footprint_frame = tf_buffer->get_tf_info().robot_footprint_frame;
+  const std::string robot_frame = tf_buffer->get_tf_info().robot_frame;
   const std::string sensor_frame = "lidar_frame";
 
   rclcpp::Time ts = node->get_clock()->now();
 
   geometry_msgs::msg::TransformStamped tf;
   tf.header.stamp = ts;
-  tf.header.frame_id = robot_footprint_frame;
+  tf.header.frame_id = robot_frame;
   tf.child_frame_id = sensor_frame;
   tf.transform.translation.x = 0.0;
   tf.transform.translation.y = 0.0;
