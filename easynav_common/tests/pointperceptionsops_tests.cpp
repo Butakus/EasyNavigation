@@ -350,16 +350,23 @@ TEST_F(PerceptionsOpsTest, FromSinglePerception_AddAndFuseWithTF)
   auto & view2 = view.add(other, "sensorB", stamp);
 
   // Register TFs
-  geometry_msgs::msg::TransformStamped tA, tB;
+  geometry_msgs::msg::TransformStamped tOdom, tA, tB;
+
+  tOdom.header.stamp = stamp;
+  tOdom.header.frame_id = "odom";
+  tOdom.child_frame_id = "base_link";
+  tf_buffer->setTransform(tOdom, "default_authority", false);
+
+
   tA.header.stamp = stamp;
-  tA.header.frame_id = "odom";
+  tA.header.frame_id = "base_link";
   tA.child_frame_id = "sensorA";
   tA.transform.translation.x = 1.0;
   tA.transform.rotation.w = 1.0;
   tf_buffer->setTransform(tA, "default_authority", false);
 
   tB.header.stamp = stamp;
-  tB.header.frame_id = "odom";
+  tB.header.frame_id = "base_link";
   tB.child_frame_id = "sensorB";
   tB.transform.translation.x = -2.0;
   tB.transform.rotation.w = 1.0;

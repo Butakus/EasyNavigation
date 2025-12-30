@@ -386,13 +386,13 @@ SensorsNode::cycle(std::shared_ptr<NavState> nav_state)
     PointPerceptionsOpsView fused_view(std::move(points_perceptions));
 
     const auto & tf_info = easynav::RTTFBuffer::getInstance()->get_tf_info();
-    const std::string & robot_frame = tf_info.robot_frame;
+    const std::string & robot_footprint_frame = tf_info.robot_footprint_frame;
 
-    fused_view.fuse(robot_frame);
+    fused_view.fuse(robot_footprint_frame);
     auto fused_points = fused_view.as_points();
 
     auto msg = points_to_rosmsg(fused_points);
-    msg.header.frame_id = robot_frame;
+    msg.header.frame_id = robot_footprint_frame;
     const auto & percs = fused_view.get_perceptions();
     if (!percs.empty() && percs[0]) {
       msg.header.stamp = percs[0]->stamp;

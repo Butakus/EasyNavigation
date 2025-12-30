@@ -65,7 +65,7 @@ public:
 
   void on_initialize() override
   {
-    odom_.header.frame_id = easynav::RTTFBuffer::getInstance()->get_tf_info().robot_frame;
+    odom_.header.frame_id = easynav::RTTFBuffer::getInstance()->get_tf_info().robot_footprint_frame;
     odom_.pose.pose.position.x = 5;
   }
 
@@ -132,6 +132,7 @@ public:
   tf_info.map_frame = "my_map";
   tf_info.odom_frame = "my_odom";
   tf_info.robot_frame = "my_base";
+  tf_info.robot_footprint_frame = "my_base_footprint";
   tf_info.world_frame = "my_world";
 
   easynav::RTTFBuffer::getInstance()->set_tf_info(tf_info);
@@ -141,6 +142,7 @@ public:
   EXPECT_EQ(method.seen_tf_info.map_frame, "robot_1/my_map");
   EXPECT_EQ(method.seen_tf_info.odom_frame, "robot_1/my_odom");
   EXPECT_EQ(method.seen_tf_info.robot_frame, "robot_1/my_base");
+  EXPECT_EQ(method.seen_tf_info.robot_footprint_frame, "robot_1/my_base_footprint");
   EXPECT_EQ(method.seen_tf_info.world_frame, "robot_1/my_world");
 }
 

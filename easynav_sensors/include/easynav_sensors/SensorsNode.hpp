@@ -146,9 +146,6 @@ private:
   double forget_time_;
 
   /// @brief Target frame for perception fusion.
-  std::string robot_frame_ {"base_link"};
-
-  /// @brief Target frame for perception fusion.
   std::string tf_prefix_;
 
   /// @brief Shared pointer to the navigation state structure.
