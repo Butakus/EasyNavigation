@@ -635,4 +635,20 @@ PointPerceptions get_point_perceptions(std::vector<PerceptionPtr> & perceptionpt
   return get_perceptions<PointPerception>(perceptionptr);
 }
 
+rclcpp::Time
+PointPerceptionsOpsView::get_latest_stamp() const
+{
+  rclcpp::Time latest_stamp(0, 0, RCL_ROS_TIME);
+
+  for (const auto & pptr : perceptions_) {
+    if (pptr && pptr->valid) {
+      if (pptr->stamp > latest_stamp) {
+        latest_stamp = pptr->stamp;
+      }
+    }
+  }
+
+  return latest_stamp;
+}
+
 }  // namespace easynav

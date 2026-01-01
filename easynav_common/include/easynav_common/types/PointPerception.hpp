@@ -483,6 +483,10 @@ public:
   /// \return Constant reference to the container.
   const PointPerceptions & get_perceptions() const {return perceptions_;}
 
+  /// \brief Retrieves the latest timestamp across all perceptions.
+  /// \return The most recent timestamp.
+  rclcpp::Time get_latest_stamp() const;
+
 private:
   std::optional<PointPerceptions> owned_;      ///< Owned container if moved in.
   const PointPerceptions & perceptions_;       ///< Reference to perception container.
