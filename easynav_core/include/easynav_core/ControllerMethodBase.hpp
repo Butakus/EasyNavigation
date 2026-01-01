@@ -150,7 +150,8 @@ protected:
     const std::vector<double> & min,
     const std::vector<double> & max,
     const pcl::PointCloud<pcl::PointXYZ> & cloud,
-    bool imminent_collision);
+    bool imminent_collision,
+    const rclcpp::Time & stamp);
 };
 
 }  // namespace easynav
