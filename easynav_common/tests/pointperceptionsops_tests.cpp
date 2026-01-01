@@ -85,14 +85,16 @@ public:
   {
     if (with_listener) {
       // Disable TransformListener internal thread; tests control spinning explicitly if needed.
-      tf_listener_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_, node_, /*spin_thread=*/false);
+      tf_listener_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_, node_,
+                                                                                      /*spin_thread=*/
+          false);
       exec_ = std::make_unique<rclcpp::executors::SingleThreadedExecutor>();
       exec_->add_node(node_->get_node_base_interface());
     }
   }
 
-  std::shared_ptr<rclcpp_lifecycle::LifecycleNode> node() const { return node_; }
-  std::shared_ptr<easynav::RTTFBuffer> buffer() const { return tf_buffer_; }
+  std::shared_ptr<rclcpp_lifecycle::LifecycleNode> node() const {return node_;}
+  std::shared_ptr<easynav::RTTFBuffer> buffer() const {return tf_buffer_;}
 
   /// Spin callbacks for a bounded time (only useful when constructed with with_listener=true).
   void spin_some_for(std::chrono::milliseconds max_duration)

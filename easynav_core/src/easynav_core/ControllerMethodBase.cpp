@@ -94,7 +94,12 @@ ControllerMethodBase::on_inminent_collision(NavState & nav_state)
   RCLCPP_WARN_THROTTLE(
     get_node()->get_logger(), *get_node()->get_clock(), 1000,
     "ControllerMethodBase::on_inminent_collision: Inminent collision!! Stopping");
-  nav_state.set("cmd_vel", geometry_msgs::msg::TwistStamped());
+
+  geometry_msgs::msg::TwistStamped zero_speed;
+  zero_speed.header.stamp = collision_stamp_;
+  zero_speed.header.frame_id = RTTFBuffer::getInstance()->get_tf_info().robot_frame;
+
+  nav_state.set("cmd_vel", zero_speed);
 }
 
 bool
@@ -135,11 +140,11 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
 
   auto view = PointPerceptionsOpsView(perceptions);
   view.downsample(downsample_leaf_size_)
-    .filter({-2.0, -2.0, -2.0}, {2.0, 2.0, 2.0}, false)
-    .fuse(robot_frame)
-    .filter(min, max);
+  .filter({-2.0, -2.0, -2.0}, {2.0, 2.0, 2.0}, false)
+  .fuse(robot_frame)
+  .filter(min, max);
 
-  const auto stamp = view.get_latest_stamp(); 
+  collision_stamp_ = view.get_latest_stamp();
   const auto & cloud = view.as_points();
 
   geometry_msgs::msg::Pose base_pose;
@@ -175,13 +180,13 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
 
     if (d_min_sq <= r_sq) {
       imminent = true;
-      publish_collision_zone_marker(min, max, cloud, imminent, stamp);
+      publish_collision_zone_marker(min, max, cloud, imminent, collision_stamp_);
 
       return true;
     }
   }
 
-  publish_collision_zone_marker(min, max, cloud, imminent, stamp);
+  publish_collision_zone_marker(min, max, cloud, imminent, collision_stamp_);
   return imminent;
 }
 

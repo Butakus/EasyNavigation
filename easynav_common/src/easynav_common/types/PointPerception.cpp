@@ -638,12 +638,14 @@ PointPerceptions get_point_perceptions(std::vector<PerceptionPtr> & perceptionpt
 rclcpp::Time
 PointPerceptionsOpsView::get_latest_stamp() const
 {
-  rclcpp::Time latest_stamp(0, 0, RCL_ROS_TIME);
+  rclcpp::Time latest_stamp;
+  bool inited = false;
 
   for (const auto & pptr : perceptions_) {
     if (pptr && pptr->valid) {
-      if (pptr->stamp > latest_stamp) {
+      if (!inited || pptr->stamp > latest_stamp) {
         latest_stamp = pptr->stamp;
+        inited = true;
       }
     }
   }
