@@ -21,6 +21,13 @@
 #include <vector>
 #include <optional>
 
+#include <execinfo.h>
+
+#include <cxxabi.h>
+
+#include <cstdlib>
+#include <sstream>
+
 #include "pcl_conversions/pcl_conversions.h"
 
 #include "pcl/point_cloud.h"
@@ -39,6 +46,52 @@
 
 namespace easynav
 {
+
+std::string
+backtrace_to_string(std::size_t max_frames = 64, std::size_t skip = 0)
+{
+  std::ostringstream oss;
+
+  if (max_frames == 0) {
+    return {};
+  }
+
+  std::vector<void *> frames(max_frames);
+  const int count = ::backtrace(frames.data(), static_cast<int>(frames.size()));
+  if (count <= 0) {
+    return {};
+  }
+
+  char ** symbols = ::backtrace_symbols(frames.data(), count);
+  if (!symbols) {
+    return {};
+  }
+
+  const std::size_t start = std::min<std::size_t>(skip, static_cast<std::size_t>(count));
+  for (std::size_t i = start; i < static_cast<std::size_t>(count); ++i) {
+    // Try to demangle a function name if present in the symbol string.
+    // Typical format: <binary>(<mangled>+0x...)[0x...]
+    std::string line = symbols[i] ? symbols[i] : "";
+
+    const auto lparen = line.find('(');
+    const auto plus = line.find('+', lparen == std::string::npos ? 0 : lparen);
+    if (lparen != std::string::npos && plus != std::string::npos && lparen + 1 < plus) {
+      const std::string mangled = line.substr(lparen + 1, plus - (lparen + 1));
+
+      int status = 0;
+      char * demangled = abi::__cxa_demangle(mangled.c_str(), nullptr, nullptr, &status);
+      if (status == 0 && demangled) {
+        line.replace(lparen + 1, mangled.size(), demangled);
+      }
+      std::free(demangled);
+    }
+
+    oss << "  [" << (i - start) << "] " << line << "\n";
+  }
+
+  std::free(symbols);
+  return oss.str();
+}
 
 rclcpp::SubscriptionBase::SharedPtr
 PointPerceptionHandler::create_subscription(
@@ -547,7 +600,7 @@ PointPerceptionsOpsView::as_points(int idx) const
 
 
 PointPerceptionsOpsView &
-PointPerceptionsOpsView::fuse(const std::string & target_frame)
+PointPerceptionsOpsView::fuse(const std::string & target_frame, bool exact_time)
 {
   has_target_frame_ = true;
   target_frame_ = target_frame;
@@ -579,15 +632,23 @@ PointPerceptionsOpsView::fuse(const std::string & target_frame)
     try {
       auto tf_msg = tf_buffer->lookupTransform(
         target_frame_, pptr->frame_id,
-        tf2_ros::fromMsg(pptr->stamp),
+        exact_time ? tf2_ros::fromMsg(pptr->stamp) : tf2::TimePointZero,
         tf2::durationFromSec(0.0));
 
       tf2::fromMsg(tf_msg.transform, tf_transforms_[i]);
       tf_valid_[i] = true;
     } catch (const tf2::TransformException & ex) {
-      RCLCPP_WARN(
-        rclcpp::get_logger("PointPerceptionsOpsView"),
-        "TF lookup failed in fuse(): %s", ex.what());
+      auto logger = rclcpp::get_logger("PointPerceptionsOpsView");
+
+      const std::string bt = backtrace_to_string(64, 1);
+      if (!bt.empty()) {
+        RCLCPP_WARN(
+          logger,
+          "TF lookup failed in fuse(): %s\nBacktrace:\n%s",
+          ex.what(), bt.c_str());
+      } else {
+        RCLCPP_WARN(logger, "TF lookup failed in fuse(): %s", ex.what());
+      }
       tf_valid_[i] = false;
     }
   }
@@ -635,22 +696,24 @@ PointPerceptions get_point_perceptions(std::vector<PerceptionPtr> & perceptionpt
   return get_perceptions<PointPerception>(perceptionptr);
 }
 
-rclcpp::Time
-PointPerceptionsOpsView::get_latest_stamp() const
+rclcpp::Time get_latest_point_perceptions_stamp(const PointPerceptions & perceptions)
 {
   rclcpp::Time latest_stamp;
   bool inited = false;
 
-  for (const auto & pptr : perceptions_) {
-    if (pptr && pptr->valid) {
-      if (!inited || pptr->stamp > latest_stamp) {
-        latest_stamp = pptr->stamp;
-        inited = true;
-      }
+  for (const auto & perception : perceptions) {
+    if (!inited || perception->stamp > latest_stamp) {
+      latest_stamp = perception->stamp;
+      inited = true;
     }
   }
-
   return latest_stamp;
+}
+
+rclcpp::Time
+PointPerceptionsOpsView::get_latest_stamp() const
+{
+  return get_latest_point_perceptions_stamp(perceptions_);
 }
 
 }  // namespace easynav

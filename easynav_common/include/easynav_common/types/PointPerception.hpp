@@ -324,6 +324,11 @@ using PointPerceptions =
 /// \return A vector with the subset of perceptions that are \ref PointPerception.
 PointPerceptions get_point_perceptions(std::vector<PerceptionPtr> & perceptionptr);
 
+/// \brief Retrieves the latest timestamp among a set of point-based perceptions.
+/// \param perceptions Container of point-based perceptions.
+/// \return The most recent timestamp found in \p perceptions, or a default-constructed \c rclcpp::Time if \p perceptions is empty.
+rclcpp::Time get_latest_point_perceptions_stamp(const PointPerceptions & perceptions);
+
 /// \class PointPerceptionsOpsView
 /// \brief Provides efficient, non-destructive, chainable operations over a set of point-based perceptions.
 ///
@@ -456,8 +461,10 @@ public:
   /// materialization (as_points()) work in \p target_frame without duplicating the underlying data.
   ///
   /// \param target_frame Frame ID to which all clouds are conceptually transformed.
+  /// \param exact_time If \c true, TF lookups use the exact timestamp of each perception;
+  ///        if \c false (default), the most recent available transform is used.
   /// \return Reference to \c *this to allow chaining.
-  PointPerceptionsOpsView & fuse(const std::string & target_frame);
+  PointPerceptionsOpsView & fuse(const std::string & target_frame, bool exact_time = true);
 
   /// \brief Adds a new perception to the current view.
   ///
