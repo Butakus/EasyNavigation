@@ -108,6 +108,11 @@ public:
 using IMUPerceptions =
   std::vector<std::shared_ptr<IMUPerception>>;
 
+/// \brief Retrieves the latest timestamp among a set of IMU perceptions.
+/// \param perceptions Container of IMU perceptions.
+/// \return The most recent timestamp found in \p perceptions, or a default-constructed \c rclcpp::Time if \p perceptions is empty.
+rclcpp::Time get_latest_imu_perceptions_stamp(const IMUPerceptions & perceptions);
+
 }  // namespace easynav
 
 #endif  // EASYNAV_COMMON_TYPES__IMUPERCEPTIONS_HPP_

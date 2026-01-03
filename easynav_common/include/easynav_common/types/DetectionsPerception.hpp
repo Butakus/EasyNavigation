@@ -109,6 +109,11 @@ public:
 using DetectionsPerceptions =
   std::vector<std::shared_ptr<DetectionsPerception>>;
 
+/// \brief Retrieves the latest timestamp among a set of detection-based perceptions.
+/// \param perceptions Container of detection-based perceptions.
+/// \return The most recent timestamp found in \p perceptions, or a default-constructed \c rclcpp::Time if \p perceptions is empty.
+rclcpp::Time get_latest_detections_perceptions_stamp(const DetectionsPerceptions & perceptions);
+
 }  // namespace easynav
 
 #endif  // EASYNAV_COMMON_TYPES__DETECTIONSPERCEPTIONS_HPP_

@@ -46,7 +46,9 @@ ControllerNode::ControllerNode(
     [](const geometry_msgs::msg::TwistStamped & twist) {
       std::ostringstream ret;
 
-      ret << "Twist with (" << twist.twist.linear.x << ", " << twist.twist.linear.y << ", " <<
+      ret << "{ " << rclcpp::Time(twist.header.stamp).seconds() << "} Twist with (" <<
+        twist.twist.linear.x << ", " <<
+        twist.twist.linear.y << ", " <<
         twist.twist.linear.z << ") (" << twist.twist.angular.x << ", " <<
         twist.twist.angular.y << ", " << twist.twist.angular.z << ")";
 

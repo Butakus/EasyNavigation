@@ -46,28 +46,15 @@ SystemNode::SystemNode(const rclcpp::NodeOptions & options)
 
   nav_state_ = std::make_shared<NavState>();
 
-  NavState::register_printer<PointPerceptions>(
-    [](const PointPerceptions & perceptions) {
-      std::ostringstream ret;
-      ret << "PointPerception " << perceptions.size() << " with:\n";
-      for (const auto & perception : perceptions) {
-        ret << "\t[" << static_cast<const void *>(perception.get()) << "] --> "
-            << perception->data.size() << " points in frame [" << perception->frame_id
-            << "] with ts " << perception->stamp.seconds() << "\n";
-      }
-      return ret.str();
-    });
-
-
   NavState::register_printer<nav_msgs::msg::Goals>(
     [](const nav_msgs::msg::Goals & goals) {
-      std::string ret = "Goals " + std::to_string(goals.goals.size()) + " with :\n";
+      std::ostringstream ret;
+      ret << "{ " << rclcpp::Time(goals.header.stamp).seconds() << " } Goals " <<
+        goals.goals.size() << " with :\n";
       for (const auto & goal : goals.goals) {
-        std::string p_str = "\t--> (" + std::to_string(goal.pose.position.x) + ", " +
-        std::to_string(goal.pose.position.y) + ")\n";
-        ret = ret + p_str;
+        ret << "\t--> (" << goal.pose.position.x << ", " << goal.pose.position.y << ")\n";
       }
-      return ret;
+      return ret.str();
     });
 
   controller_node_ = ControllerNode::make_shared();

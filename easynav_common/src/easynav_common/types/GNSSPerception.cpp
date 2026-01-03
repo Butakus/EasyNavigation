@@ -60,4 +60,19 @@ GNSSPerceptionHandler::create_subscription(
     options);
 }
 
+rclcpp::Time get_latest_gnss_perceptions_stamp(const GNSSPerceptions & perceptions)
+{
+  rclcpp::Time latest_stamp;
+  bool inited = false;
+
+  for (const auto & perception : perceptions) {
+    if (!inited || perception->stamp > latest_stamp) {
+      latest_stamp = perception->stamp;
+      inited = true;
+    }
+  }
+
+  return latest_stamp;
+}
+
 }  // namespace easynav
