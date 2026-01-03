@@ -602,6 +602,15 @@ PointPerceptionsOpsView::as_points(int idx) const
 PointPerceptionsOpsView &
 PointPerceptionsOpsView::fuse(const std::string & target_frame, bool exact_time)
 {
+  rclcpp::Time unused_stamp;
+  return fuse(target_frame, unused_stamp, exact_time);
+}
+
+PointPerceptionsOpsView &
+PointPerceptionsOpsView::fuse(
+  const std::string & target_frame, rclcpp::Time & stamp,
+  bool exact_time)
+{
   has_target_frame_ = true;
   target_frame_ = target_frame;
 
@@ -634,6 +643,8 @@ PointPerceptionsOpsView::fuse(const std::string & target_frame, bool exact_time)
         target_frame_, pptr->frame_id,
         exact_time ? tf2_ros::fromMsg(pptr->stamp) : tf2::TimePointZero,
         tf2::durationFromSec(0.0));
+
+      stamp = tf_msg.header.stamp;
 
       tf2::fromMsg(tf_msg.transform, tf_transforms_[i]);
       tf_valid_[i] = true;

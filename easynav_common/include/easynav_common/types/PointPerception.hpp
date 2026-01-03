@@ -461,10 +461,31 @@ public:
   /// materialization (as_points()) work in \p target_frame without duplicating the underlying data.
   ///
   /// \param target_frame Frame ID to which all clouds are conceptually transformed.
+  /// \param stamp Effective timestamp for the TF lookup.
   /// \param exact_time If \c true, TF lookups use the exact timestamp of each perception;
   ///        if \c false (default), the most recent available transform is used.
   /// \return Reference to \c *this to allow chaining.
   PointPerceptionsOpsView & fuse(const std::string & target_frame, bool exact_time = true);
+
+  /// \brief Configures fusion of all perceptions into a common frame, returning the effective stamp.
+  ///
+  /// This method does not immediately build a fused point cloud. Instead, it stores the target frame
+  /// and the required transforms so that subsequent operations (for example filter) and final
+  /// materialization (as_points()) work in \p target_frame without duplicating the underlying data.
+  ///
+  /// The effective timestamp used for TF lookups is returned via the \p stamp parameter.
+  ///
+  /// If \p exact_time is \c true, \p stamp is set to the timestamp of the most recent perception
+  /// among those being fused; otherwise, it is set to the time at which the TF lookup is performed.
+  /// \param target_frame Frame ID to which all clouds are conceptually transformed.
+  /// \param stamp Reference to a \c rclcpp::Time variable where the effective timestamp will be stored.
+  /// \param exact_time If \c true, TF lookups use the exact timestamp of each perception;
+  ///        if \c false (default), the most recent available transform is used.
+  /// \return Reference to \c *this to allow chaining.
+  PointPerceptionsOpsView & fuse(
+    const std::string & target_frame,
+    rclcpp::Time & stamp,
+    bool exact_time = true);
 
   /// \brief Adds a new perception to the current view.
   ///
