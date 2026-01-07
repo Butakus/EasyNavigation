@@ -110,6 +110,8 @@ protected:
   /// @brief Leaf size used to downsample point clouds (m).
   double downsample_leaf_size_{0.1};
 
+  rclcpp::Time collision_stamp_;
+
   /// @brief Publisher for collision visualization markers.
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr collision_marker_pub_;
 
@@ -150,7 +152,8 @@ protected:
     const std::vector<double> & min,
     const std::vector<double> & max,
     const pcl::PointCloud<pcl::PointXYZ> & cloud,
-    bool imminent_collision);
+    bool imminent_collision,
+    const rclcpp::Time & stamp);
 };
 
 }  // namespace easynav

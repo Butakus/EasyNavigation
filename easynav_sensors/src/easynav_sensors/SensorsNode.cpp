@@ -148,7 +148,8 @@ SensorsNode::SensorsNode(const rclcpp::NodeOptions & options)
   ::easynav::NavState::register_printer<easynav::PointPerceptions>(
     [](const easynav::PointPerceptions & perceptions) {
       std::ostringstream ret;
-      ret << "PointPerception " << perceptions.size() << " with:\n";
+      ret << "{ " << easynav::get_latest_point_perceptions_stamp(perceptions).seconds() <<
+        " } PointPerception " << perceptions.size() << " with:\n";
       for (const auto & perception : perceptions) {
         ret   << "\t[" << static_cast<const void *>(perception.get()) << "] --> "
               << perception->data.size() << " points in frame [" << perception->frame_id
@@ -160,7 +161,8 @@ SensorsNode::SensorsNode(const rclcpp::NodeOptions & options)
   ::easynav::NavState::register_printer<easynav::ImagePerceptions>(
     [](const easynav::ImagePerceptions & perceptions) {
       std::ostringstream ret;
-      ret << "ImagePerceptions " << perceptions.size() << " with:\n";
+      ret << "{ " << easynav::get_latest_image_perceptions_stamp(perceptions).seconds() <<
+        " } ImagePerception " << perceptions.size() << " with:\n";
       for (const auto & perception : perceptions) {
         ret   << "\t[" << static_cast<const void *>(perception.get()) << "] --> "
               << "Image (" << perception->data.cols << " x  " << perception->data.rows << ")"
@@ -172,7 +174,8 @@ SensorsNode::SensorsNode(const rclcpp::NodeOptions & options)
   ::easynav::NavState::register_printer<easynav::DetectionsPerceptions>(
     [](const easynav::DetectionsPerceptions & perceptions) {
       std::ostringstream ret;
-      ret << "DetectionsPerceptions " << perceptions.size() << " with:\n";
+      ret << "{ " << easynav::get_latest_detections_perceptions_stamp(perceptions).seconds() <<
+        " } DetectionsPerceptions " << perceptions.size() << " with:\n";
       for (const auto & perception : perceptions) {
         ret   << "\t[" << static_cast<const void *>(perception.get()) << " --> "
               << "Detections: " << perception->data.detections.size()
@@ -184,7 +187,8 @@ SensorsNode::SensorsNode(const rclcpp::NodeOptions & options)
   ::easynav::NavState::register_printer<easynav::IMUPerceptions>(
     [](const easynav::IMUPerceptions & perceptions) {
       std::ostringstream ret;
-      ret << "IMUPerceptions " << perceptions.size() << " with:\n";
+      ret << "{ " << easynav::get_latest_imu_perceptions_stamp(perceptions).seconds() <<
+        " } IMUPerceptions " << perceptions.size() << " with:\n";
       for (const auto & perception : perceptions) {
         ret   << "\t[" << static_cast<const void *>(perception.get()) << "] --> "
               << "IMUPerception linear acc = (" <<
@@ -198,7 +202,8 @@ SensorsNode::SensorsNode(const rclcpp::NodeOptions & options)
   ::easynav::NavState::register_printer<easynav::GNSSPerceptions>(
     [](const easynav::GNSSPerceptions & perceptions) {
       std::ostringstream ret;
-      ret << "GNSSPerceptions " << perceptions.size() << " with:\n";
+      ret << "{ " << easynav::get_latest_gnss_perceptions_stamp(perceptions).seconds() <<
+        " } GNSSPerceptions " << perceptions.size() << " with:\n";
       for (const auto & perception : perceptions) {
         const auto & fix = perception->data;
         ret << "\t[" << static_cast<const void *>(perception.get()) << "] --> "

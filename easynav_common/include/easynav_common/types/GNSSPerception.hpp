@@ -108,6 +108,11 @@ public:
 using GNSSPerceptions =
   std::vector<std::shared_ptr<GNSSPerception>>;
 
+/// @brief  Retrieves the latest timestamp among a set of GNSS perceptions.
+/// @param perceptions Container of GNSS perceptions.
+/// @return  The most recent timestamp found in \p perceptions, or a default-constructed \c rclcpp::Time if \p perceptions is empty.
+rclcpp::Time get_latest_gnss_perceptions_stamp(const GNSSPerceptions & perceptions);
+
 }  // namespace easynav
 
 #endif  // EASYNAV_COMMON_TYPES__GNSSPERCEPTIONS_HPP_

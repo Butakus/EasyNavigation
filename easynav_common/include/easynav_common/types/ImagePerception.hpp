@@ -112,6 +112,11 @@ public:
 using ImagePerceptions =
   std::vector<std::shared_ptr<ImagePerception>>;
 
+/// \brief Retrieves the latest timestamp among a set of image-based perceptions.
+/// \param perceptions Container of image-based perceptions.
+/// \return The most recent timestamp found in \p perceptions, or a default-constructed \c rclcpp::Time if \p perceptions is empty.
+rclcpp::Time get_latest_image_perceptions_stamp(const ImagePerceptions & perceptions);
+
 }  // namespace easynav
 
 #endif  // EASYNAV_COMMON_TYPES__IMAGEPERCEPTIONS_HPP_
