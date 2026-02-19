@@ -10,7 +10,7 @@
   <maintainer email="juan.cely@urjc.es">Juan Sebastián Cely Gutiérrez</maintainer>
   <maintainer email="josemiguel.guerrero@urjc.es">José Miguel Guerrero Hernández</maintainer>
 
-  <license>GPL-3.0-or-later</license>
+  <license>Apache-2.0</license>
 
   <author>Francisco Martín Rico</author>
   <author>Francisco Miguel Moreno Olivo</author>
