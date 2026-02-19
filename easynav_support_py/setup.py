@@ -16,7 +16,7 @@ setup(
     maintainer='Francisco Martín Rico',
     maintainer_email='fmrico@gmail.com',
     description='Support utilities for EasyNav in Python: GoalManagerClient and tests.',
-    license='GPL-3.0-or-later',
+    license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [

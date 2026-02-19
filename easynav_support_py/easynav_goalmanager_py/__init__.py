@@ -1,3 +1,3 @@
 # Copyright 2025 Intelligent Robotics Lab
-# GPL-3.0-or-later
+# Apache-2.0
 from .goal_manager_client import ClientState, GoalManagerClient  # noqa: F401

@@ -3,7 +3,7 @@
 ## Things to decide
 
 1. Name: I propose "EasyNavigation"
-2. License: GPLv3
+2. License: Apache-2.0
   1. Pro: It lets to include Apache 2.0 and BSD
   2. Pro: It lets to create a bussines model based on selling versions with privative license
   3. Contra: Some people could have concerns to use the software
