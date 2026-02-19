@@ -21,7 +21,7 @@ setup(
     maintainer='Francisco Martín Rico',
     maintainer_email='fmrico@gmail.com',
     description='ROS 2 Navigation tools: TUI (Textual) + ros2cli commands for EasyNav.',
-    license='GPL-3.0-or-later',
+    license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
