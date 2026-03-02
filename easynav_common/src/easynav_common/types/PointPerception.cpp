@@ -22,6 +22,7 @@
 
 #include <cstdlib>
 #include <sstream>
+#include <chrono>
 
 #include "pcl_conversions/pcl_conversions.h"
 
@@ -99,16 +100,18 @@ PointPerceptionHandler::create_subscription(
   auto options = rclcpp::SubscriptionOptions();
   options.callback_group = cb_group;
 
+  const auto clock_type = node.get_clock()->get_clock_type();
+
   if (type == "sensor_msgs/msg/PointCloud2") {
     return node.create_subscription<sensor_msgs::msg::PointCloud2>(
       topic, rclcpp::QoS(1),
-      [target](const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+      [target, clock_type](const sensor_msgs::msg::PointCloud2::SharedPtr msg)
       {
         auto typed = std::dynamic_pointer_cast<PointPerception>(target);
 
         pcl::fromROSMsg(*msg, typed->pending_cloud_);
         typed->pending_frame_ = msg->header.frame_id;
-        typed->pending_stamp_ = msg->header.stamp;
+        typed->pending_stamp_ = rclcpp::Time(msg->header.stamp, clock_type);
         typed->pending_available_ = true;
 
         typed->integrate_pending_perceptions();
@@ -119,13 +122,13 @@ PointPerceptionHandler::create_subscription(
   if (type == "sensor_msgs/msg/LaserScan") {
     return node.create_subscription<sensor_msgs::msg::LaserScan>(
       topic, rclcpp::SensorDataQoS().reliable(),
-      [target](const sensor_msgs::msg::LaserScan::SharedPtr msg)
+      [target, clock_type](const sensor_msgs::msg::LaserScan::SharedPtr msg)
       {
         auto typed = std::dynamic_pointer_cast<PointPerception>(target);
 
         convert(*msg, typed->pending_cloud_);
         typed->pending_frame_ = msg->header.frame_id;
-        typed->pending_stamp_ = msg->header.stamp;
+        typed->pending_stamp_ = rclcpp::Time(msg->header.stamp, clock_type);
         typed->pending_available_ = true;
 
         typed->integrate_pending_perceptions();
@@ -606,6 +609,44 @@ PointPerceptionsOpsView::fuse(
   const std::string & target_frame, rclcpp::Time & stamp,
   bool exact_time)
 {
+  auto update_latest_stamp = [&](const rclcpp::Time & candidate) {
+      if (candidate.nanoseconds() == 0) {
+        return;
+      }
+
+      if (stamp.nanoseconds() == 0) {
+        stamp = rclcpp::Time(candidate.nanoseconds(), candidate.get_clock_type());
+        return;
+      }
+
+      if (stamp.get_clock_type() == candidate.get_clock_type()) {
+        if (candidate > stamp) {
+          stamp = candidate;
+        }
+        return;
+      }
+
+      // Mixed clock types: avoid throwing. We cannot strictly order times from
+      // different time sources, but we still want a stable “latest” stamp output.
+      if (candidate.nanoseconds() > stamp.nanoseconds()) {
+        stamp = rclcpp::Time(candidate.nanoseconds(), stamp.get_clock_type());
+      }
+    };
+
+  auto allow_backtrace_now = []() {
+      static std::chrono::steady_clock::time_point last_bt =
+        std::chrono::steady_clock::time_point{};
+
+      const auto now = std::chrono::steady_clock::now();
+      constexpr auto min_period = std::chrono::seconds(5);
+
+      if (last_bt.time_since_epoch().count() == 0 || (now - last_bt) > min_period) {
+        last_bt = now;
+        return true;
+      }
+      return false;
+    };
+
   has_target_frame_ = true;
   target_frame_ = target_frame;
 
@@ -634,19 +675,40 @@ PointPerceptionsOpsView::fuse(
     }
 
     try {
-      auto tf_msg = tf_buffer->lookupTransform(
-        target_frame_, pptr->frame_id,
-        exact_time ? tf2_ros::fromMsg(pptr->stamp) : tf2::TimePointZero,
-        tf2::durationFromSec(0.0));
+      bool used_fallback_latest_tf = false;
+      const auto query_time = exact_time ? tf2_ros::fromMsg(pptr->stamp) : tf2::TimePointZero;
 
-      if (exact_time) {
-        if (stamp < rclcpp::Time(pptr->stamp, stamp.get_clock_type())) {
-          stamp = rclcpp::Time(pptr->stamp, stamp.get_clock_type());
+      geometry_msgs::msg::TransformStamped tf_msg;
+      try {
+        tf_msg = tf_buffer->lookupTransform(
+          target_frame_, pptr->frame_id,
+          query_time,
+          tf2::durationFromSec(0.0));
+      } catch (const tf2::TransformException & ex) {
+        // Common in RT loops: exact-time request is a few ms ahead of the latest TF.
+        // Fall back to latest TF rather than dropping the perception.
+        if (exact_time) {
+          const std::string what = ex.what();
+          if (what.find("extrapolation") != std::string::npos &&
+            what.find("future") != std::string::npos)
+          {
+            tf_msg = tf_buffer->lookupTransform(
+              target_frame_, pptr->frame_id,
+              tf2::TimePointZero,
+              tf2::durationFromSec(0.0));
+            used_fallback_latest_tf = true;
+          } else {
+            throw;
+          }
+        } else {
+          throw;
         }
+      }
+
+      if (exact_time && !used_fallback_latest_tf) {
+        update_latest_stamp(pptr->stamp);
       } else {
-        if (stamp < rclcpp::Time(tf_msg.header.stamp, stamp.get_clock_type())) {
-          stamp = rclcpp::Time(tf_msg.header.stamp, stamp.get_clock_type());
-        }
+        update_latest_stamp(rclcpp::Time(tf_msg.header.stamp, pptr->stamp.get_clock_type()));
       }
 
       tf2::fromMsg(tf_msg.transform, tf_transforms_[i]);
@@ -654,12 +716,16 @@ PointPerceptionsOpsView::fuse(
     } catch (const tf2::TransformException & ex) {
       auto logger = rclcpp::get_logger("PointPerceptionsOpsView");
 
-      const std::string bt = backtrace_to_string(64, 1);
-      if (!bt.empty()) {
-        RCLCPP_WARN(
-          logger,
-          "TF lookup failed in fuse(): %s\nBacktrace:\n%s",
-          ex.what(), bt.c_str());
+      if (allow_backtrace_now()) {
+        const std::string bt = backtrace_to_string(64, 1);
+        if (!bt.empty()) {
+          RCLCPP_WARN(
+            logger,
+            "TF lookup failed in fuse(): %s\nBacktrace:\n%s",
+            ex.what(), bt.c_str());
+        } else {
+          RCLCPP_WARN(logger, "TF lookup failed in fuse(): %s", ex.what());
+        }
       } else {
         RCLCPP_WARN(logger, "TF lookup failed in fuse(): %s", ex.what());
       }
@@ -712,11 +778,19 @@ PointPerceptions get_point_perceptions(std::vector<PerceptionPtr> & perceptionpt
 
 rclcpp::Time get_latest_point_perceptions_stamp(const PointPerceptions & perceptions)
 {
+  auto is_newer = [](const rclcpp::Time & a, const rclcpp::Time & b) {
+      if (a.get_clock_type() == b.get_clock_type()) {
+        return a > b;
+      }
+      // Fall back to raw nanoseconds ordering to avoid throwing when clocks differ.
+      return a.nanoseconds() > b.nanoseconds();
+    };
+
   rclcpp::Time latest_stamp;
   bool inited = false;
 
   for (const auto & perception : perceptions) {
-    if (!inited || perception->stamp > latest_stamp) {
+    if (!inited || is_newer(perception->stamp, latest_stamp)) {
       latest_stamp = perception->stamp;
       inited = true;
     }
