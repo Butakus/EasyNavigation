@@ -19,8 +19,8 @@
 /// and the GNSSPerceptionHandler class, which handles subscriptions to GNSS messages and transforms them into
 /// GNSSPerception instances. It also defines an alias for a collection of such perceptions.
 
-#ifndef EASYNAV_COMMON_TYPES__GNSSPERCEPTIONS_HPP_
-#define EASYNAV_COMMON_TYPES__GNSSPERCEPTIONS_HPP_
+#ifndef EASYNAV_SENSORS_TYPES__GNSSPERCEPTIONS_HPP_
+#define EASYNAV_SENSORS_TYPES__GNSSPERCEPTIONS_HPP_
 
 #include <string>
 #include <vector>
@@ -29,7 +29,7 @@
 
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
-#include "easynav_common/types/Perceptions.hpp"
+#include "easynav_sensors/types/Perceptions.hpp"
 
 namespace easynav
 {
@@ -110,4 +110,4 @@ rclcpp::Time get_latest_gnss_perceptions_stamp(const GNSSPerceptions & perceptio
 
 }  // namespace easynav
 
-#endif  // EASYNAV_COMMON_TYPES__GNSSPERCEPTIONS_HPP_
+#endif  // EASYNAV_SENSORS_TYPES__GNSSPERCEPTIONS_HPP_

@@ -19,8 +19,8 @@
 /// and the IMUPerceptionHandler class, which handles subscriptions to IMU messages and transforms them into
 /// IMUPerception instances. It also defines an alias for a collection of such perceptions.
 
-#ifndef EASYNAV_COMMON_TYPES__IMUPERCEPTIONS_HPP_
-#define EASYNAV_COMMON_TYPES__IMUPERCEPTIONS_HPP_
+#ifndef EASYNAV_SENSORS_TYPES__IMUPERCEPTIONS_HPP_
+#define EASYNAV_SENSORS_TYPES__IMUPERCEPTIONS_HPP_
 
 #include <string>
 #include <vector>
@@ -29,7 +29,7 @@
 
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
-#include "easynav_common/types/Perceptions.hpp"
+#include "easynav_sensors/types/Perceptions.hpp"
 
 namespace easynav
 {
@@ -110,4 +110,4 @@ rclcpp::Time get_latest_imu_perceptions_stamp(const IMUPerceptions & perceptions
 
 }  // namespace easynav
 
-#endif  // EASYNAV_COMMON_TYPES__IMUPERCEPTIONS_HPP_
+#endif  // EASYNAV_SENSORS_TYPES__IMUPERCEPTIONS_HPP_

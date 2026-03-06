@@ -17,7 +17,7 @@
 #include "easynav_sensors/SensorsNode.hpp"
 #include "easynav_common/RTTFBuffer.hpp"
 #include "easynav_common/types/NavState.hpp"
-#include "easynav_common/types/PointPerception.hpp"
+#include "easynav_sensors/types/PointPerception.hpp"
 
 #include "lifecycle_msgs/msg/transition.hpp"
 #include "lifecycle_msgs/msg/state.hpp"

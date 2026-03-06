@@ -15,36 +15,37 @@
 
 #include <string>
 
-#include "sensor_msgs/msg/nav_sat_fix.hpp"
+#include "sensor_msgs/msg/imu.hpp"
 
 #include "rclcpp/time.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
 
-#include "easynav_common/types/GNSSPerception.hpp"
+#include "easynav_sensors/types/IMUPerception.hpp"
 
 namespace easynav
 {
 
 
 rclcpp::SubscriptionBase::SharedPtr
-GNSSPerceptionHandler::create_subscription(
+IMUPerceptionHandler::create_subscription(
   rclcpp_lifecycle::LifecycleNode & node,
   const std::string & topic,
   const std::string & type,
   std::shared_ptr<PerceptionBase> target,
   rclcpp::CallbackGroup::SharedPtr cb_group)
 {
-  if (type != "sensor_msgs/msg/NavSatFix") {
-    throw std::runtime_error("Unsupported message type for GNSSPerceptionHandler: " + type);
+  if (type != "sensor_msgs/msg/Imu") {
+    throw std::runtime_error("Unsupported message type for IMUPerceptionHandler: " + type);
   }
 
   auto options = rclcpp::SubscriptionOptions();
   options.callback_group = cb_group;
 
-  return node.create_subscription<sensor_msgs::msg::NavSatFix>(
+  return node.create_subscription<sensor_msgs::msg::Imu>(
     topic, rclcpp::QoS(1),
-    [target](const sensor_msgs::msg::NavSatFix::SharedPtr msg)
+    [target](const sensor_msgs::msg::Imu::SharedPtr msg)
     {
-      auto typed_target = std::dynamic_pointer_cast<GNSSPerception>(target);
+      auto typed_target = std::dynamic_pointer_cast<IMUPerception>(target);
 
       typed_target->stamp = msg->header.stamp;
       typed_target->frame_id = msg->header.frame_id;
@@ -55,7 +56,7 @@ GNSSPerceptionHandler::create_subscription(
     options);
 }
 
-rclcpp::Time get_latest_gnss_perceptions_stamp(const GNSSPerceptions & perceptions)
+rclcpp::Time get_latest_imu_perceptions_stamp(const IMUPerceptions & perceptions)
 {
   rclcpp::Time latest_stamp;
   bool inited = false;
@@ -66,8 +67,8 @@ rclcpp::Time get_latest_gnss_perceptions_stamp(const GNSSPerceptions & perceptio
       inited = true;
     }
   }
-
   return latest_stamp;
 }
+
 
 }  // namespace easynav

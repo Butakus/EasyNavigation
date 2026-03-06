@@ -15,49 +15,47 @@
 
 #include <string>
 
-#include "cv_bridge/cv_bridge.hpp"
-#include "vision_msgs/msg/detection3_d_array.hpp"
+#include "sensor_msgs/msg/nav_sat_fix.hpp"
 
 #include "rclcpp/time.hpp"
-#include "rclcpp_lifecycle/lifecycle_node.hpp"
 
-#include "easynav_common/types/DetectionsPerception.hpp"
+#include "easynav_sensors/types/GNSSPerception.hpp"
 
 namespace easynav
 {
 
 
 rclcpp::SubscriptionBase::SharedPtr
-DetectionsPerceptionsHandler::create_subscription(
+GNSSPerceptionHandler::create_subscription(
   rclcpp_lifecycle::LifecycleNode & node,
   const std::string & topic,
   const std::string & type,
   std::shared_ptr<PerceptionBase> target,
   rclcpp::CallbackGroup::SharedPtr cb_group)
 {
-  if (type != "vision_msgs/msg/Detection3DArray") {
-    throw std::runtime_error("Unsupported message type for DetectionsPerceptionsHandler: " + type);
+  if (type != "sensor_msgs/msg/NavSatFix") {
+    throw std::runtime_error("Unsupported message type for GNSSPerceptionHandler: " + type);
   }
 
   auto options = rclcpp::SubscriptionOptions();
   options.callback_group = cb_group;
 
-  return node.create_subscription<vision_msgs::msg::Detection3DArray>(
+  return node.create_subscription<sensor_msgs::msg::NavSatFix>(
     topic, rclcpp::QoS(1),
-    [target](const vision_msgs::msg::Detection3DArray::SharedPtr msg)
+    [target](const sensor_msgs::msg::NavSatFix::SharedPtr msg)
     {
-      auto typed_target = std::dynamic_pointer_cast<DetectionsPerception>(target);
+      auto typed_target = std::dynamic_pointer_cast<GNSSPerception>(target);
 
       typed_target->stamp = msg->header.stamp;
       typed_target->frame_id = msg->header.frame_id;
       typed_target->new_data = true;
-
-      typed_target->data = *msg;  // Copy the Detection3DArray message
+      typed_target->data = *msg;
       typed_target->valid = true;
-    }, options);
+    },
+    options);
 }
 
-rclcpp::Time get_latest_detections_perceptions_stamp(const DetectionsPerceptions & perceptions)
+rclcpp::Time get_latest_gnss_perceptions_stamp(const GNSSPerceptions & perceptions)
 {
   rclcpp::Time latest_stamp;
   bool inited = false;
@@ -68,6 +66,7 @@ rclcpp::Time get_latest_detections_perceptions_stamp(const DetectionsPerceptions
       inited = true;
     }
   }
+
   return latest_stamp;
 }
 

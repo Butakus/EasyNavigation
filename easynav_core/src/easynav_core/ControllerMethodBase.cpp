@@ -24,7 +24,7 @@
 #include "easynav_core/MethodBase.hpp"
 #include "easynav_core/ControllerMethodBase.hpp"
 
-#include "easynav_common/types/PointPerception.hpp"
+#include "easynav_sensors/types/PointPerception.hpp"
 #include "easynav_common/RTTFBuffer.hpp"
 
 namespace easynav

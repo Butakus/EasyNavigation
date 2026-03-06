@@ -21,8 +21,8 @@
 /// - `get_perceptions`: helper to extract typed collections from a heterogeneous container.
 /// - `PerceptionHandler`: abstract base class for group-specific sensor handlers.
 
-#ifndef EASYNAV_COMMON_TYPES__PERCEPTIONS_HPP_
-#define EASYNAV_COMMON_TYPES__PERCEPTIONS_HPP_
+#ifndef EASYNAV_SENSORS_TYPES__PERCEPTIONS_HPP_
+#define EASYNAV_SENSORS_TYPES__PERCEPTIONS_HPP_
 
 #include <string>
 
@@ -151,4 +151,4 @@ public:
 
 }  // namespace easynav
 
-#endif  // EASYNAV_COMMON_TYPES__PERCEPTIONS_HPP_
+#endif  // EASYNAV_SENSORS_TYPES__PERCEPTIONS_HPP_

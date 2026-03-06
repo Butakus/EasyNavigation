@@ -18,9 +18,9 @@
 #include "std_msgs/msg/string.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
-#include "easynav_common/types/Perceptions.hpp"
-#include "easynav_common/types/PointPerception.hpp"
-#include "easynav_common/types/ImagePerception.hpp"
+#include "easynav_sensors/types/Perceptions.hpp"
+#include "easynav_sensors/types/PointPerception.hpp"
+#include "easynav_sensors/types/ImagePerception.hpp"
 
 #include "tf2_ros/transform_listener.hpp"
 #include "easynav_common/RTTFBuffer.hpp"

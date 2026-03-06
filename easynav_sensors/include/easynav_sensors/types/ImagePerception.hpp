@@ -19,8 +19,8 @@
 /// and the ImagePerceptionHandler class, which handles subscriptions to image messages and transforms them into
 /// ImagePerception instances. It also defines an alias for a collection of such perceptions.
 
-#ifndef EASYNAV_COMMON_TYPES__IMAGEPERCEPTIONS_HPP_
-#define EASYNAV_COMMON_TYPES__IMAGEPERCEPTIONS_HPP_
+#ifndef EASYNAV_SENSORS_TYPES__IMAGEPERCEPTIONS_HPP_
+#define EASYNAV_SENSORS_TYPES__IMAGEPERCEPTIONS_HPP_
 
 #include <string>
 #include <vector>
@@ -29,7 +29,7 @@
 
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
-#include "easynav_common/types/Perceptions.hpp"
+#include "easynav_sensors/types/Perceptions.hpp"
 
 namespace easynav
 {
@@ -114,4 +114,4 @@ rclcpp::Time get_latest_image_perceptions_stamp(const ImagePerceptions & percept
 
 }  // namespace easynav
 
-#endif  // EASYNAV_COMMON_TYPES__IMAGEPERCEPTIONS_HPP_
+#endif  // EASYNAV_SENSORS_TYPES__IMAGEPERCEPTIONS_HPP_

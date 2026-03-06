@@ -22,7 +22,7 @@
 
 #include "tf2_ros/transform_listener.hpp"
 
-#include "easynav_common/types/PointPerception.hpp"
+#include "easynav_sensors/types/PointPerception.hpp"
 #include "easynav_common/RTTFBuffer.hpp"
 
 #include "rclcpp/rclcpp.hpp"

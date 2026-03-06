@@ -26,7 +26,7 @@
 
 #include "sensor_msgs/msg/point_cloud2.hpp"
 
-#include "easynav_common/types/Perceptions.hpp"
+#include "easynav_sensors/types/Perceptions.hpp"
 #include "easynav_common/types/NavState.hpp"
 
 namespace easynav

@@ -23,8 +23,8 @@
 ///   (filtering, downsampling, fusion, and collapsing) without duplicating memory.
 /// - Conversion utilities between ROS messages and PCL point clouds.
 
-#ifndef EASYNAV_COMMON_TYPES__POINTPERCEPTIONS_HPP_
-#define EASYNAV_COMMON_TYPES__POINTPERCEPTIONS_HPP_
+#ifndef EASYNAV_SENSORS_TYPES__POINTPERCEPTIONS_HPP_
+#define EASYNAV_SENSORS_TYPES__POINTPERCEPTIONS_HPP_
 
 #include <string>
 #include <vector>
@@ -41,7 +41,7 @@
 #include "rclcpp/time.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
-#include "easynav_common/types/Perceptions.hpp"
+#include "easynav_sensors/types/Perceptions.hpp"
 #include "easynav_common/CircularBuffer.hpp"
 #include "easynav_common/RTTFBuffer.hpp"
 
@@ -541,4 +541,4 @@ private:
 
 }  // namespace easynav
 
-#endif  // EASYNAV_COMMON_TYPES__POINTPERCEPTIONS_HPP_
+#endif  // EASYNAV_SENSORS_TYPES__POINTPERCEPTIONS_HPP_

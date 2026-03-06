@@ -30,11 +30,11 @@
 
 #include "easynav_sensors/SensorsNode.hpp"
 
-#include "easynav_common/types/ImagePerception.hpp"
-#include "easynav_common/types/PointPerception.hpp"
-#include "easynav_common/types/IMUPerception.hpp"
-#include "easynav_common/types/GNSSPerception.hpp"
-#include "easynav_common/types/DetectionsPerception.hpp"
+#include "easynav_sensors/types/ImagePerception.hpp"
+#include "easynav_sensors/types/PointPerception.hpp"
+#include "easynav_sensors/types/IMUPerception.hpp"
+#include "easynav_sensors/types/GNSSPerception.hpp"
+#include "easynav_sensors/types/DetectionsPerception.hpp"
 #include "easynav_common/RTTFBuffer.hpp"
 
 namespace easynav
