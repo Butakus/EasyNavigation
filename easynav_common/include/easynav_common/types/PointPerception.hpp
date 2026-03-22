@@ -460,7 +460,7 @@ public:
   /// \param exact_time If \c true, TF lookups use the exact timestamp of each perception;
   ///        if \c false (default), the most recent available transform is used.
   /// \return Reference to \c *this to allow chaining.
-  PointPerceptionsOpsView & fuse(const std::string & target_frame, bool exact_time = true);
+  PointPerceptionsOpsView & fuse(const std::string & target_frame, bool exact_time = false);
 
   /// \brief Configures fusion of all perceptions into a common frame, returning the effective stamp.
   ///
@@ -480,7 +480,7 @@ public:
   PointPerceptionsOpsView & fuse(
     const std::string & target_frame,
     rclcpp::Time & stamp,
-    bool exact_time = true);
+    bool exact_time = false);
 
   /// \brief Adds a new perception to the current view.
   ///
