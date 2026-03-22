@@ -40,13 +40,15 @@ GNSSPerceptionHandler::create_subscription(
   auto options = rclcpp::SubscriptionOptions();
   options.callback_group = cb_group;
 
+  const auto clock_type = node.get_clock()->get_clock_type();
+
   return node.create_subscription<sensor_msgs::msg::NavSatFix>(
     topic, rclcpp::QoS(1),
-    [target](const sensor_msgs::msg::NavSatFix::SharedPtr msg)
+    [target, clock_type](const sensor_msgs::msg::NavSatFix::SharedPtr msg)
     {
       auto typed_target = std::dynamic_pointer_cast<GNSSPerception>(target);
 
-      typed_target->stamp = msg->header.stamp;
+      typed_target->stamp = rclcpp::Time(msg->header.stamp, clock_type);
       typed_target->frame_id = msg->header.frame_id;
       typed_target->new_data = true;
       typed_target->data = *msg;
@@ -57,11 +59,18 @@ GNSSPerceptionHandler::create_subscription(
 
 rclcpp::Time get_latest_gnss_perceptions_stamp(const GNSSPerceptions & perceptions)
 {
+  auto is_newer = [](const rclcpp::Time & a, const rclcpp::Time & b) {
+      if (a.get_clock_type() == b.get_clock_type()) {
+        return a > b;
+      }
+      return a.nanoseconds() > b.nanoseconds();
+    };
+
   rclcpp::Time latest_stamp;
   bool inited = false;
 
   for (const auto & perception : perceptions) {
-    if (!inited || perception->stamp > latest_stamp) {
+    if (!inited || is_newer(perception->stamp, latest_stamp)) {
       latest_stamp = perception->stamp;
       inited = true;
     }
