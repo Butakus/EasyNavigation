@@ -4,7 +4,7 @@
 [![kilted](https://github.com/EasyNavigation/EasyNavigation/actions/workflows/kilted.yaml/badge.svg?branch=kilted)](https://github.com/EasyNavigation/EasyNavigation/actions/workflows/kilted.yaml)
 [![jazzy](https://github.com/EasyNavigation/EasyNavigation/actions/workflows/jazzy.yaml/badge.svg?branch=jazzy)](https://github.com/EasyNavigation/EasyNavigation/actions/workflows/jazzy.yaml)
 [![humble](https://github.com/EasyNavigation/EasyNavigation/actions/workflows/humble.yaml/badge.svg?branch=humble)](https://github.com/EasyNavigation/EasyNavigation/actions/workflows/humble.yaml)
-[![codecov](https://codecov.io/gh/EasyNavigation/EasyNavigation/graph/badge.svg)](https://codecov.io/gh/EasyNavigation/EasyNavigation)
+[![codecov](https://codecov.io/github/fmrico/EasyNavigation/graph/badge.svg?token=SHG3PH6CBJ)](https://codecov.io/github/fmrico/EasyNavigation)
 
 Web: [https://easynavigation.github.io](https://easynavigation.github.io/)
 
