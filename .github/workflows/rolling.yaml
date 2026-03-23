@@ -39,12 +39,16 @@ jobs:
           colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
       - name: Debug coverage
         run: |
-          echo "=== .gcda files ==="
-          find $GITHUB_WORKSPACE/ros_ws -name "*.gcda" | head -30 || echo "No .gcda files found"
+          echo "=== .gcno files (exist if build was instrumented) ==="
+          find $GITHUB_WORKSPACE/ros_ws -name "*.gcno" | head -10
+          echo "=== .gcda files (exist if tests wrote coverage) ==="
+          find $GITHUB_WORKSPACE/ros_ws -name "*.gcda" | head -30
+          echo "=== CMake CXX flags for easynav_sensors ==="
+          grep -r "CXX_FLAGS\|coverage" $GITHUB_WORKSPACE/ros_ws/build/easynav_sensors/CMakeCache.txt 2>/dev/null | head -20 || echo "CMakeCache not found"
+          echo "=== easynav_sensors build dir permissions ==="
+          ls -la $GITHUB_WORKSPACE/ros_ws/build/easynav_sensors/ | head -10
           echo "=== coverage.info sizes ==="
           find $GITHUB_WORKSPACE/ros_ws -name "coverage.info" -exec wc -l {} \;
-          echo "=== coverage_base.info sizes ==="
-          find $GITHUB_WORKSPACE/ros_ws -name "coverage_base.info" -exec wc -l {} \;
       - name: Codecov
         uses: codecov/codecov-action@v5.5.3
         with:
