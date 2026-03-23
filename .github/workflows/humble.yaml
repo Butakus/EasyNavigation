@@ -36,6 +36,7 @@ jobs:
       - name: Codecov
         uses: codecov/codecov-action@v5.4.0
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ github.workspace }}/ros_ws/lcov/total_coverage.info
           flags: unittests
           name: codecov-umbrella
