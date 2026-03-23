@@ -14,11 +14,12 @@
 
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
+#include "sensor_msgs/msg/imu.hpp"
 #include "easynav_sensors/SensorsNode.hpp"
 #include "easynav_common/RTTFBuffer.hpp"
 #include "easynav_common/types/NavState.hpp"
 #include "easynav_sensors/types/PointPerception.hpp"
-
+#include "easynav_sensors/types/IMUPerception.hpp"
 #include "lifecycle_msgs/msg/transition.hpp"
 #include "lifecycle_msgs/msg/state.hpp"
 
@@ -28,6 +29,19 @@
 #include "tf2_ros/transform_listener.hpp"
 
 #include "gtest/gtest.h"
+
+/// \brief Subclass of SensorsNode that exposes the protected perceptions_ map for unit testing.
+/// Not part of the production API: only instantiated in test code.
+class SensorsNodeForTesting : public easynav::SensorsNode
+{
+public:
+  explicit SensorsNodeForTesting(
+    const rclcpp::NodeOptions & options = rclcpp::NodeOptions())
+  : easynav::SensorsNode(options) {}
+
+  const std::map<std::string, std::vector<easynav::PerceptionPtr>> &
+  perceptions_for_testing() const {return perceptions_;}
+};
 
 
 class SensorsNodeTestCase : public ::testing::Test
@@ -655,6 +669,162 @@ TEST_F(SensorsNodeTestCase, percept_pc2)
   ASSERT_EQ(perceptions[0]->data.size(), 16u);
   ASSERT_EQ(perceptions[0]->frame_id, "base_lidar3d");
   ASSERT_EQ(perceptions[0]->valid, false);
+}
+
+// ---------------------------------------------------------------------------
+// Test: two sensors of different underlying ROS types (LaserScan + PointCloud2)
+// placed in the same group "points".
+//
+// Verifies both the structural invariant (each PerceptionPtr carries the correct
+// concrete handler type) and the functional outcome (both perceptions arrive in
+// NavState after a cycle).
+// ---------------------------------------------------------------------------
+TEST_F(SensorsNodeTestCase, per_sensor_handler_mixed_types_same_group)
+{
+  auto nav_state = std::make_shared<easynav::NavState>();
+
+  auto sensors_node = std::make_shared<SensorsNodeForTesting>();
+  auto test_node = rclcpp::Node::make_shared("test_node_mixed");
+
+  auto laser_pub = test_node->create_publisher<sensor_msgs::msg::LaserScan>(
+    "/scan_mixed", rclcpp::SensorDataQoS().reliable());
+  auto pc2_pub = test_node->create_publisher<sensor_msgs::msg::PointCloud2>(
+    "/pc_mixed", rclcpp::SensorDataQoS().reliable());
+
+  rclcpp::executors::SingleThreadedExecutor exe;
+  exe.add_node(sensors_node->get_node_base_interface());
+  exe.add_callback_group(sensors_node->get_real_time_cbg(),
+    sensors_node->get_node_base_interface());
+  exe.add_node(test_node);
+
+  sensors_node->declare_parameter("scan_sensor.topic", std::string("/scan_mixed"));
+  sensors_node->declare_parameter("scan_sensor.type", std::string("sensor_msgs/msg/LaserScan"));
+  sensors_node->declare_parameter("scan_sensor.group", std::string("points"));
+  sensors_node->declare_parameter("pc2_sensor.topic", std::string("/pc_mixed"));
+  sensors_node->declare_parameter("pc2_sensor.type", std::string("sensor_msgs/msg/PointCloud2"));
+  sensors_node->declare_parameter("pc2_sensor.group", std::string("points"));
+  sensors_node->set_parameter({"sensors", std::vector<std::string>{"scan_sensor", "pc2_sensor"}});
+  sensors_node->set_parameter({"forget_time", 2.0});
+
+  sensors_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
+  ASSERT_EQ(sensors_node->get_current_state().id(),
+    lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+
+  // ---- Structural assertion: each PerceptionPtr must carry a PointPerceptionHandler ----
+  // Both LaserScan and PointCloud2 map to PointPerceptionHandler, so every entry
+  // in the "points" group must have that exact concrete type.
+  {
+    const auto & pmap = sensors_node->perceptions_for_testing();
+    ASSERT_TRUE(pmap.count("points")) << "Group 'points' missing after configure";
+    const auto & pts = pmap.at("points");
+    ASSERT_EQ(pts.size(), 2u) << "Both sensors must appear in group 'points'";
+
+    for (std::size_t i = 0; i < pts.size(); ++i) {
+      SCOPED_TRACE("PerceptionPtr index " + std::to_string(i));
+      ASSERT_NE(pts[i].handler, nullptr)
+        << "PerceptionPtr[" << i << "].handler must not be null";
+      EXPECT_NE(
+        std::dynamic_pointer_cast<easynav::PointPerceptionHandler>(pts[i].handler), nullptr)
+        << "PerceptionPtr[" << i << "] must hold a PointPerceptionHandler";
+    }
+  }
+
+  sensors_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE);
+  ASSERT_EQ(sensors_node->get_current_state().id(),
+    lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE);
+
+  const auto ts = test_node->now();
+
+  geometry_msgs::msg::TransformStamped tf_scan;
+  tf_scan.header.stamp = ts;
+  tf_scan.header.frame_id = "base_link";
+  tf_scan.child_frame_id = "base_laser";
+  tf_scan.transform.rotation.w = 1.0;
+  easynav::RTTFBuffer::getInstance()->setTransform(tf_scan, "easynav", false);
+
+  geometry_msgs::msg::TransformStamped tf_pc2;
+  tf_pc2.header.stamp = ts;
+  tf_pc2.header.frame_id = "base_link";
+  tf_pc2.child_frame_id = "base_lidar3d";
+  tf_pc2.transform.rotation.w = 1.0;
+  easynav::RTTFBuffer::getInstance()->setTransform(tf_pc2, "easynav", false);
+
+  using namespace std::chrono_literals;
+  {
+    auto start = test_node->now();
+    while (test_node->now() - start < 1s) {
+      laser_pub->publish(get_scan_test_2(test_node->now()));
+      pc2_pub->publish(get_pc2_test_0(test_node->now()));
+      sensors_node->cycle(nav_state);
+      exe.spin_some();
+    }
+  }
+
+  // ---- Functional assertion: both perceptions must arrive in NavState ----
+  ASSERT_TRUE(nav_state->has("points"));
+  const auto & perceptions = nav_state->get<easynav::PointPerceptions>("points");
+  ASSERT_EQ(perceptions.size(), 2u);
+  EXPECT_TRUE(perceptions[0]->valid);
+  EXPECT_TRUE(perceptions[1]->valid);
+}
+
+// ---------------------------------------------------------------------------
+// Test: LaserScan ("points") + IMU ("imu") sensors — each PerceptionPtr must
+// carry the handler of the correct concrete type for its own message type,
+// independently of the other sensor.
+// ---------------------------------------------------------------------------
+TEST_F(SensorsNodeTestCase, per_sensor_handler_correct_type_per_sensor)
+{
+  auto sensors_node = std::make_shared<SensorsNodeForTesting>();
+
+  sensors_node->declare_parameter("scan_s.topic", std::string("/scan_typ"));
+  sensors_node->declare_parameter("scan_s.type", std::string("sensor_msgs/msg/LaserScan"));
+  sensors_node->declare_parameter("imu_s.topic", std::string("/imu_typ"));
+  sensors_node->declare_parameter("imu_s.type", std::string("sensor_msgs/msg/Imu"));
+  sensors_node->set_parameter({"sensors", std::vector<std::string>{"scan_s", "imu_s"}});
+
+  ASSERT_NO_THROW(
+    sensors_node->trigger_transition(
+      lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE));
+  ASSERT_EQ(
+    sensors_node->get_current_state().id(),
+    lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+
+  const auto & pmap = sensors_node->perceptions_for_testing();
+
+  // --- "points" group: LaserScan → PointPerceptionHandler ---
+  {
+    ASSERT_TRUE(pmap.count("points")) << "Group 'points' missing";
+    const auto & pts = pmap.at("points");
+    ASSERT_EQ(pts.size(), 1u);
+
+    ASSERT_NE(pts[0].handler, nullptr)
+      << "scan_s PerceptionPtr.handler must not be null";
+    EXPECT_EQ(pts[0].handler->group(), "points");
+    EXPECT_NE(
+      std::dynamic_pointer_cast<easynav::PointPerceptionHandler>(pts[0].handler), nullptr)
+      << "scan_s handler must be PointPerceptionHandler, not "
+      << (pts[0].handler ? pts[0].handler->group() : "<null>");
+  }
+
+  // --- "imu" group: Imu → IMUPerceptionHandler ---
+  {
+    ASSERT_TRUE(pmap.count("imu")) << "Group 'imu' missing";
+    const auto & imus = pmap.at("imu");
+    ASSERT_EQ(imus.size(), 1u);
+
+    ASSERT_NE(imus[0].handler, nullptr)
+      << "imu_s PerceptionPtr.handler must not be null";
+    EXPECT_EQ(imus[0].handler->group(), "imu");
+    EXPECT_NE(
+      std::dynamic_pointer_cast<easynav::IMUPerceptionHandler>(imus[0].handler), nullptr)
+      << "imu_s handler must be IMUPerceptionHandler, not "
+      << (imus[0].handler ? imus[0].handler->group() : "<null>");
+    // Extra: must NOT be a PointPerceptionHandler (the classic wrong-type bug)
+    EXPECT_EQ(
+      std::dynamic_pointer_cast<easynav::PointPerceptionHandler>(imus[0].handler), nullptr)
+      << "imu_s handler must NOT be a PointPerceptionHandler";
+  }
 }
 
 /*

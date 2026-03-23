@@ -33,6 +33,9 @@
 namespace easynav
 {
 
+// Forward declaration needed by PerceptionPtr.
+class PerceptionHandler;
+
 /// \class PerceptionBase
 /// \brief Abstract base class for representing a single sensor perception.
 ///
@@ -60,10 +63,11 @@ public:
 using PerceptionBasePtr = std::shared_ptr<PerceptionBase>;
 
 /// \struct PerceptionPtr
-/// \brief Represents a perception entry with its state and ROS subscription.
+/// \brief Represents a perception entry with its state, ROS subscription, and owning handler.
 ///
-/// Holds a pointer to a perception object (\ref PerceptionBase) and the associated subscription.
-/// Used internally by perception managers to update and access sensor data.
+/// Holds a pointer to a perception object (\ref PerceptionBase), the associated subscription,
+/// and the \ref PerceptionHandler that created it. The handler is used to populate the NavState
+/// with the correctly typed collection for this sensor's group.
 struct PerceptionPtr
 {
   /// \brief Shared pointer to the current perception object.
@@ -71,6 +75,9 @@ struct PerceptionPtr
 
   /// \brief ROS 2 subscription to the sensor topic that provides data.
   rclcpp::SubscriptionBase::SharedPtr subscription;
+
+  /// \brief Handler that owns this perception and knows how to cast it into NavState.
+  std::shared_ptr<PerceptionHandler> handler{nullptr};
 };
 
 /// \brief Extracts a homogeneous collection of perceptions of type \p T from a heterogeneous vector.

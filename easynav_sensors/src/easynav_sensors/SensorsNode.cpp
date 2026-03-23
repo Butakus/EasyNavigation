@@ -216,28 +216,10 @@ SensorsNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & state
     }
     get_parameter(sensor_id + ".group", group);
 
-    // Store one handler per group for NavState dispatch (first one wins)
-    if (handlers_.find(group) == handlers_.end()) {
-      if (group != canonical_group) {
-        // Load a second instance to represent this (possibly aliased) group
-        try {
-          auto group_handler = handler_loader_->createSharedInstance(plugin);
-          group_handler->initialize(shared_from_this(), sensor_id);
-          handlers_[group] = group_handler;
-        } catch (...) {
-          handlers_[group] = handler;
-        }
-      } else {
-        handlers_[group] = handler;
-      }
-      RCLCPP_INFO(get_logger(),
-        "Registered handler [%s] for group [%s]", plugin.c_str(), group.c_str());
-    }
-
     const auto perception_ptr = handler->create();
     const auto sub = handler->create_subscription(topic, msg_type, perception_ptr, realtime_cbg_);
 
-    perceptions_[group].emplace_back(PerceptionPtr{perception_ptr, sub});
+    perceptions_[group].emplace_back(PerceptionPtr{perception_ptr, sub, handler});
 
     RCLCPP_INFO(get_logger(),
       "Configured sensor [%s] with plugin [%s] on topic [%s] in group [%s]",
@@ -301,6 +283,15 @@ SensorsNode::set_by_group(
   const std::vector<easynav::PerceptionPtr> & perceptions,
   ::easynav::NavState & ns)
 {
+  // Use the handler stored in the first perception of the group.
+  // Each sensor carries its own handler, so there is no "first wins" ambiguity.
+  for (const auto & p : perceptions) {
+    if (p.handler) {
+      p.handler->populate_nav_state(group, perceptions, ns);
+      return true;
+    }
+  }
+  // Fallback: handlers registered externally via register_handler().
   auto it = handlers_.find(group);
   if (it == handlers_.end()) {
     return false;

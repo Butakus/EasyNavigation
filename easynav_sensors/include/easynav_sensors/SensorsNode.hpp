@@ -118,6 +118,9 @@ public:
 
   void register_handler(std::shared_ptr<PerceptionHandler> handler);
 
+protected:
+  std::map<std::string, std::vector<PerceptionPtr>> perceptions_;
+
 private:
   /// @brief Callback group for real-time operations.
   rclcpp::CallbackGroup::SharedPtr realtime_cbg_;
@@ -137,7 +140,6 @@ private:
   /// @brief Shared pointer to the navigation state structure.
   std::shared_ptr<NavState> nav_state_;
 
-  std::map<std::string, std::vector<PerceptionPtr>> perceptions_;
   std::map<std::string, std::shared_ptr<PerceptionHandler>> handlers_;
 
   /// @brief Pluginlib class loader for PerceptionHandler plugins.

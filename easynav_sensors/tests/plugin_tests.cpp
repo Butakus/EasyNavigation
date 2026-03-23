@@ -36,6 +36,14 @@
 #include "easynav_sensors/types/DetectionsPerception.hpp"
 #include "easynav_common/types/NavState.hpp"
 
+// Concrete handler types needed for dynamic_cast checks.
+// These headers expose the handler class definitions.
+#include "easynav_sensors/types/PointPerception.hpp"
+#include "easynav_sensors/types/IMUPerception.hpp"
+#include "easynav_sensors/types/GNSSPerception.hpp"
+#include "easynav_sensors/types/ImagePerception.hpp"
+#include "easynav_sensors/types/DetectionsPerception.hpp"
+
 #include "gtest/gtest.h"
 
 using easynav::PerceptionHandler;
@@ -48,6 +56,19 @@ static const std::vector<std::string> kAllPlugins = {
   "easynav_sensors/GNSSPerceptionHandler",
   "easynav_sensors/ImagePerceptionHandler",
   "easynav_sensors/DetectionsPerceptionHandler",
+};
+
+/// \brief Subclass of SensorsNode that exposes the protected perceptions_ map for unit testing.
+/// Not part of the production API: only instantiated in test code.
+class SensorsNodeForTesting : public easynav::SensorsNode
+{
+public:
+  explicit SensorsNodeForTesting(
+    const rclcpp::NodeOptions & options = rclcpp::NodeOptions())
+  : easynav::SensorsNode(options) {}
+
+  const std::map<std::string, std::vector<easynav::PerceptionPtr>> &
+  perceptions_for_testing() const {return perceptions_;}
 };
 
 class PluginTestCase : public ::testing::Test
@@ -216,4 +237,184 @@ TEST_F(PluginTestCase, explicit_plugin_does_not_override_default_for_other_senso
   EXPECT_EQ(
     sensors_node->get_current_state().id(),
     lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+}
+
+// ---------------------------------------------------------------------------
+// 6. Every PerceptionPtr created by on_configure carries a non-null handler
+//    of the correct concrete type for that sensor.
+//
+//    This is the core invariant introduced by the per-sensor handler fix:
+//    set_by_group() dispatches via the handler stored in the PerceptionPtr,
+//    not via a shared "first-wins" handlers_ map.  We verify:
+//      a) handler pointer is not null.
+//      b) handler->group() matches the configured group.
+//      c) dynamic_cast to the expected concrete handler type succeeds.
+// ---------------------------------------------------------------------------
+
+TEST_F(PluginTestCase, perception_ptr_stores_correct_handler_type)
+{
+  // Configure three sensors: LaserScan→points, IMU→imu, GNSS→gnss.
+  // Each must end up with the corresponding concrete handler type in its PerceptionPtr.
+  auto sensors_node = std::make_shared<SensorsNodeForTesting>();
+
+  sensors_node->declare_parameter("scan1.topic", std::string("/scanH"));
+  sensors_node->declare_parameter("scan1.type", std::string("sensor_msgs/msg/LaserScan"));
+  sensors_node->declare_parameter("imu1.topic", std::string("/imuH"));
+  sensors_node->declare_parameter("imu1.type", std::string("sensor_msgs/msg/Imu"));
+  sensors_node->declare_parameter("gnss1.topic", std::string("/gnssH"));
+  sensors_node->declare_parameter("gnss1.type", std::string("sensor_msgs/msg/NavSatFix"));
+  sensors_node->set_parameter({"sensors",
+      std::vector<std::string>{"scan1", "imu1", "gnss1"}});
+
+  ASSERT_NO_THROW(
+    sensors_node->trigger_transition(
+      lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE));
+  ASSERT_EQ(
+    sensors_node->get_current_state().id(),
+    lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+
+  const auto & perceptions_map = sensors_node->perceptions_for_testing();
+
+  // --- "points" group: must have one LaserScan sensor with PointPerceptionHandler ---
+  {
+    ASSERT_TRUE(perceptions_map.count("points")) << "Group 'points' missing";
+    const auto & pts = perceptions_map.at("points");
+    ASSERT_EQ(pts.size(), 1u);
+
+    const auto & pptr = pts[0];
+    ASSERT_NE(pptr.handler, nullptr)
+      << "PerceptionPtr.handler must not be null for scan1";
+    EXPECT_EQ(pptr.handler->group(), "points")
+      << "handler->group() should be 'points' for LaserScan";
+    EXPECT_NE(
+      std::dynamic_pointer_cast<easynav::PointPerceptionHandler>(pptr.handler), nullptr)
+      << "scan1 handler must be a PointPerceptionHandler";
+  }
+
+  // --- "imu" group: must have one IMU sensor with IMUPerceptionHandler ---
+  {
+    ASSERT_TRUE(perceptions_map.count("imu")) << "Group 'imu' missing";
+    const auto & imus = perceptions_map.at("imu");
+    ASSERT_EQ(imus.size(), 1u);
+
+    const auto & pptr = imus[0];
+    ASSERT_NE(pptr.handler, nullptr)
+      << "PerceptionPtr.handler must not be null for imu1";
+    EXPECT_EQ(pptr.handler->group(), "imu")
+      << "handler->group() should be 'imu' for Imu";
+    EXPECT_NE(
+      std::dynamic_pointer_cast<easynav::IMUPerceptionHandler>(pptr.handler), nullptr)
+      << "imu1 handler must be an IMUPerceptionHandler";
+  }
+
+  // --- "gnss" group: must have one GNSS sensor with GNSSPerceptionHandler ---
+  {
+    ASSERT_TRUE(perceptions_map.count("gnss")) << "Group 'gnss' missing";
+    const auto & gnsss = perceptions_map.at("gnss");
+    ASSERT_EQ(gnsss.size(), 1u);
+
+    const auto & pptr = gnsss[0];
+    ASSERT_NE(pptr.handler, nullptr)
+      << "PerceptionPtr.handler must not be null for gnss1";
+    EXPECT_EQ(pptr.handler->group(), "gnss")
+      << "handler->group() should be 'gnss' for NavSatFix";
+    EXPECT_NE(
+      std::dynamic_pointer_cast<easynav::GNSSPerceptionHandler>(pptr.handler), nullptr)
+      << "gnss1 handler must be a GNSSPerceptionHandler";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 7. Two sensors of the SAME type with a user-defined custom group each carry
+//    their own handler with the correct type and group name.  This covers the
+//    canonical "first wins" regression: with the old shared handlers_ map a
+//    second sensor in the same group would not register its handler; with the
+//    new per-PerceptionPtr design every sensor is independently self-contained.
+// ---------------------------------------------------------------------------
+
+TEST_F(PluginTestCase, two_sensors_same_custom_group_have_independent_handlers)
+{
+  auto sensors_node = std::make_shared<SensorsNodeForTesting>();
+
+  sensors_node->declare_parameter("lidar_front.topic", std::string("/scan_front"));
+  sensors_node->declare_parameter("lidar_front.type", std::string("sensor_msgs/msg/LaserScan"));
+  sensors_node->declare_parameter("lidar_front.group", std::string("my_lidars"));
+  sensors_node->declare_parameter("lidar_rear.topic", std::string("/scan_rear"));
+  sensors_node->declare_parameter("lidar_rear.type", std::string("sensor_msgs/msg/LaserScan"));
+  sensors_node->declare_parameter("lidar_rear.group", std::string("my_lidars"));
+  sensors_node->set_parameter({"sensors",
+      std::vector<std::string>{"lidar_front", "lidar_rear"}});
+
+  ASSERT_NO_THROW(
+    sensors_node->trigger_transition(
+      lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE));
+  ASSERT_EQ(
+    sensors_node->get_current_state().id(),
+    lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+
+  const auto & perceptions_map = sensors_node->perceptions_for_testing();
+
+  ASSERT_TRUE(perceptions_map.count("my_lidars")) << "Group 'my_lidars' missing";
+  const auto & lidars = perceptions_map.at("my_lidars");
+  ASSERT_EQ(lidars.size(), 2u) << "Both sensors must be present in group 'my_lidars'";
+
+  for (std::size_t i = 0; i < lidars.size(); ++i) {
+    SCOPED_TRACE("PerceptionPtr index " + std::to_string(i));
+    const auto & pptr = lidars[i];
+
+    // (a) handler is non-null
+    ASSERT_NE(pptr.handler, nullptr)
+      << "PerceptionPtr[" << i << "].handler must not be null";
+
+    // (b) handler reports the custom group name
+    EXPECT_EQ(pptr.handler->group(), "points")
+      << "Underlying handler->group() should always be 'points' (canonical) for LaserScan";
+
+    // (c) handler is the correct concrete type
+    EXPECT_NE(
+      std::dynamic_pointer_cast<easynav::PointPerceptionHandler>(pptr.handler), nullptr)
+      << "PerceptionPtr[" << i << "] handler must be a PointPerceptionHandler";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 7. Two sensors of different message types (LaserScan + PointCloud2) in the
+//    same group both get their handler stored in PerceptionPtr and both
+//    populate the NavState correctly (no "first handler wins" truncation).
+// ---------------------------------------------------------------------------
+
+TEST_F(PluginTestCase, two_sensor_types_same_group_both_populate_nav_state)
+{
+  auto sensors_node = easynav::SensorsNode::make_shared();
+
+  // laser: LaserScan -> group "points"
+  sensors_node->declare_parameter("laser.topic", std::string("/scan_mix"));
+  sensors_node->declare_parameter("laser.type", std::string("sensor_msgs/msg/LaserScan"));
+  sensors_node->declare_parameter("laser.group", std::string("points"));
+
+  // cloud: PointCloud2 -> same group "points"
+  sensors_node->declare_parameter("cloud.topic", std::string("/pc_mix"));
+  sensors_node->declare_parameter("cloud.type", std::string("sensor_msgs/msg/PointCloud2"));
+  sensors_node->declare_parameter("cloud.group", std::string("points"));
+
+  sensors_node->set_parameter({"sensors", std::vector<std::string>{"laser", "cloud"}});
+
+  ASSERT_NO_THROW(
+    sensors_node->trigger_transition(
+      lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE));
+
+  ASSERT_EQ(
+    sensors_node->get_current_state().id(),
+    lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+
+  sensors_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE);
+
+  // A cycle must write a PointPerceptions vector with exactly 2 entries
+  // (one per sensor, regardless of which handler "won" in the old map).
+  auto nav_state = std::make_shared<easynav::NavState>();
+  EXPECT_NO_THROW(sensors_node->cycle_rt(nav_state));
+
+  ASSERT_TRUE(nav_state->has("points"));
+  const auto & perceptions = nav_state->get<easynav::PointPerceptions>("points");
+  EXPECT_EQ(perceptions.size(), 2u);
 }
