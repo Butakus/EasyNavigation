@@ -35,6 +35,14 @@ jobs:
             }
           colcon-mixin-name: coverage-gcc
           colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
+      - name: Debug coverage
+        run: |
+          echo "=== .gcda files ==="
+          find ${{ github.workspace }}/ros_ws -name "*.gcda" | head -30 || echo "No .gcda files found"
+          echo "=== coverage.info sizes ==="
+          find ${{ github.workspace }}/ros_ws -name "coverage.info" -exec wc -l {} \;
+          echo "=== coverage_base.info sizes ==="
+          find ${{ github.workspace }}/ros_ws -name "coverage_base.info" -exec wc -l {} \;
       - name: Codecov
         uses: codecov/codecov-action@v5.5.3
         with:
