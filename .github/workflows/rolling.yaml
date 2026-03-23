@@ -40,5 +40,6 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: unittests
+          slug: fmrico/EasyNavigation
           name: codecov-umbrella
           fail_ci_if_error: false
