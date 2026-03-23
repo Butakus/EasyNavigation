@@ -38,7 +38,7 @@ jobs:
       - name: Codecov
         uses: codecov/codecov-action@v5.4.0
         with:
-          files: ros_ws/lcov/total_coverage.info
+          files: ${{ github.workspace }}/ros_ws/lcov/total_coverage.info
           flags: unittests
           name: codecov-umbrella
           # yml: ./codecov.yml
