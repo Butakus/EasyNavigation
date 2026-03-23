@@ -19,8 +19,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: rolling
-      - name: Fix workspace permissions for gcov
-        run: chmod -R 777 $GITHUB_WORKSPACE
       - name: Setup ROS 2
         uses: ros-tooling/setup-ros@0.7.15
       - name: build and test
@@ -31,28 +29,20 @@ jobs:
           vcs-repo-file-url: ${GITHUB_WORKSPACE}/.github/thirdparty.repos
           colcon-defaults: |
             {
+              "build": {
+                "mixin": ["coverage-gcc", "coverage-pytest"]
+              },
               "test": {
-                "parallel-workers" : 1
+                "mixin": ["coverage-pytest"],
+                "parallel-workers": 1
               }
             }
-          colcon-mixin-name: coverage-gcc
-          colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml
-      - name: Debug coverage
-        run: |
-          echo "=== .gcno files (exist if build was instrumented) ==="
-          find $GITHUB_WORKSPACE/ros_ws -name "*.gcno" | head -10
-          echo "=== .gcda files (exist if tests wrote coverage) ==="
-          find $GITHUB_WORKSPACE/ros_ws -name "*.gcda" | head -30
-          echo "=== CMake CXX flags for easynav_sensors ==="
-          grep -r "CXX_FLAGS\|coverage" $GITHUB_WORKSPACE/ros_ws/build/easynav_sensors/CMakeCache.txt 2>/dev/null | head -20 || echo "CMakeCache not found"
-          echo "=== easynav_sensors build dir permissions ==="
-          ls -la $GITHUB_WORKSPACE/ros_ws/build/easynav_sensors/ | head -10
-          echo "=== coverage.info sizes ==="
-          find $GITHUB_WORKSPACE/ros_ws -name "coverage.info" -exec wc -l {} \;
+          colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/b8436aa16c0bdbc01081b12caa253cbf16e0fb82/index.yaml
       - name: Codecov
         uses: codecov/codecov-action@v5.5.3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: ros_ws/lcov/total_coverage.info,ros_ws/coveragepy/.coverage
           flags: unittests
           slug: fmrico/EasyNavigation
           name: codecov-umbrella

@@ -9,4 +9,4 @@ coverage:
         target: auto
 
 fixes:
-  - "/_w/EasyNavigation/EasyNavigation/::"
+  - "ros_ws/src/EasyNavigation/::"
