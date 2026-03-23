@@ -192,7 +192,7 @@ SensorsNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & state
         "Cannot configure sensor [%s]: no 'plugin' parameter and type [%s] is not recognized. "
         "Add 'plugin: <plugin_name>' to the sensor parameters.",
         sensor_id.c_str(), msg_type.c_str());
-      continue;
+      return CallbackReturnT::FAILURE;
     }
 
     // Load the handler plugin for this sensor
@@ -203,7 +203,7 @@ SensorsNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & state
       RCLCPP_ERROR(get_logger(),
         "Failed to load perception handler plugin [%s] for sensor [%s]: %s",
         plugin.c_str(), sensor_id.c_str(), ex.what());
-      continue;
+      return CallbackReturnT::FAILURE;
     }
 
     handler->initialize(shared_from_this(), sensor_id);

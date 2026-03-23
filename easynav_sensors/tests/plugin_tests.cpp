@@ -418,3 +418,57 @@ TEST_F(PluginTestCase, two_sensor_types_same_group_both_populate_nav_state)
   const auto & perceptions = nav_state->get<easynav::PointPerceptions>("points");
   EXPECT_EQ(perceptions.size(), 2u);
 }
+
+// ---------------------------------------------------------------------------
+// 8. on_configure returns FAILURE when the message type is unknown and no
+//    explicit 'plugin:' parameter is provided.  The node must remain in the
+//    UNCONFIGURED state (transition did not complete successfully).
+// ---------------------------------------------------------------------------
+
+TEST_F(PluginTestCase, configure_fails_on_unknown_message_type)
+{
+  auto sensors_node = easynav::SensorsNode::make_shared();
+
+  sensors_node->declare_parameter("bad_sensor.topic", std::string("/unknown_topic"));
+  sensors_node->declare_parameter("bad_sensor.type",
+    std::string("unknown_pkg/msg/UnknownType"));
+  sensors_node->set_parameter({"sensors", std::vector<std::string>{"bad_sensor"}});
+
+  // The transition must NOT throw but must return a non-SUCCESS result.
+  ASSERT_NO_THROW(
+    sensors_node->trigger_transition(
+      lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE));
+
+  // Node must NOT have reached INACTIVE — it should be in UNCONFIGURED or ERROR.
+  EXPECT_NE(
+    sensors_node->get_current_state().id(),
+    lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+}
+
+// ---------------------------------------------------------------------------
+// 9. on_configure returns FAILURE when an explicit 'plugin:' names a plugin
+//    that does not exist in the pluginlib registry.  The node must remain in
+//    UNCONFIGURED / ERROR state.
+// ---------------------------------------------------------------------------
+
+TEST_F(PluginTestCase, configure_fails_on_nonexistent_plugin)
+{
+  auto sensors_node = easynav::SensorsNode::make_shared();
+
+  sensors_node->declare_parameter("bad_sensor.topic", std::string("/scan_bad"));
+  sensors_node->declare_parameter("bad_sensor.type",
+    std::string("sensor_msgs/msg/LaserScan"));
+  sensors_node->declare_parameter("bad_sensor.plugin",
+    std::string("easynav_sensors/NonExistentHandler"));
+  sensors_node->set_parameter({"sensors", std::vector<std::string>{"bad_sensor"}});
+
+  // pluginlib throws internally; on_configure must catch it and return FAILURE.
+  ASSERT_NO_THROW(
+    sensors_node->trigger_transition(
+      lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE));
+
+  // Node must NOT have reached INACTIVE — it should be in UNCONFIGURED or ERROR.
+  EXPECT_NE(
+    sensors_node->get_current_state().id(),
+    lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+}
