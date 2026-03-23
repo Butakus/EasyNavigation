@@ -65,34 +65,34 @@ class DetectionsPerceptionsHandler : public PerceptionHandler
 {
 public:
   /// \brief Returns the group managed by this handler.
-  /// \return The string literal "image".
+  /// \return The string literal "detections".
   std::string group() const override {return "detections";}
 
-  /// \brief Creates a new empty DetectionsPerceptions instance.
-  /// \param sensor_id Name or identifier of the sensor. Currently unused, reserved for future extensions.
-  /// \return Shared pointer to a newly created DetectionsPerceptions.
-  std::shared_ptr<PerceptionBase> create(const std::string &) override
+  /// \brief Creates a new empty DetectionsPerception instance.
+  /// \return Shared pointer to a newly created DetectionsPerception.
+  std::shared_ptr<PerceptionBase> create() override
   {
     return std::make_shared<DetectionsPerception>();
   }
 
-  /// \brief Creates a subscription to an image topic that updates a target DetectionsPerceptions.
+  /// \brief Creates a subscription to a detections topic that updates a target DetectionsPerception.
   ///
-  /// The subscription receives sensor_msgs::msg::Image messages on \p topic, converts them to cv::Mat,
-  /// fills DetectionsPerceptions::data, and updates inherited metadata (stamp, frame_id).
-  ///
-  /// \param node Lifecycle node used to create the subscription.
   /// \param topic Topic name to subscribe to.
-  /// \param type ROS message type name. It must be "sensor_msgs/msg/Image".
-  /// \param target Shared pointer to the DetectionsPerceptions to be updated.
+  /// \param type ROS message type name. It must be "vision_msgs/msg/Detection3DArray".
+  /// \param target Shared pointer to the DetectionsPerception to be updated.
   /// \param cb_group Callback group for executor-level concurrency control.
   /// \return Shared pointer to the created subscription.
   rclcpp::SubscriptionBase::SharedPtr create_subscription(
-    rclcpp_lifecycle::LifecycleNode & node,
     const std::string & topic,
     const std::string & type,
     std::shared_ptr<PerceptionBase> target,
     rclcpp::CallbackGroup::SharedPtr cb_group) override;
+
+  /// \brief Populates NavState with the detection perceptions for the given group.
+  void populate_nav_state(
+    const std::string & group,
+    const std::vector<PerceptionPtr> & perceptions,
+    NavState & ns) override;
 };
 
 /**

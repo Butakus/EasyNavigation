@@ -15,11 +15,10 @@
 /// \file
 /// \brief Implementation of the SensorsNode class.
 
-#include <tuple>
+#include <string>
 #include <string_view>
 #include <vector>
 #include <unordered_map>
-#include <array>
 
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
@@ -39,89 +38,6 @@
 
 namespace easynav
 {
-
-/// Anonymous namespace for helper functions
-namespace
-{
-
-// Compile-time Perception type registry
-using Registry = std::tuple<
-  easynav::ImagePerception,
-  easynav::IMUPerception,
-  easynav::GNSSPerception,
-  easynav::PointPerception,
-  easynav::DetectionsPerception
->;
-
-template<std::size_t I = 0>
-std::string resolve_group_from_msg(std::string_view msg_type)
-{
-  if constexpr (I == std::tuple_size_v<Registry>) {
-    return {};
-  } else {
-    using P = std::tuple_element_t<I, Registry>;
-    if (P::supports_msg_type(msg_type)) {
-      return std::string(P::default_group_);
-    }
-    return resolve_group_from_msg<I + 1>(msg_type);
-  }
-}
-
-/**
- * Specialized handler function for a given perception type index.
- * This function is called when processing the perceptions from a sensor group.
- */
-template<std::size_t I>
-void perception_handler_fn(
-  const std::string & group,
-  const std::vector<easynav::PerceptionPtr> & perceptions,
-  ::easynav::NavState & ns
-)
-{
-  using P = std::tuple_element_t<I, Registry>;
-  ns.set(group, get_perceptions<P>(perceptions));
-}
-
-template<std::size_t... Is>
-constexpr auto make_handler_table(std::index_sequence<Is...>)
-{
-  return std::array<SensorsNode::SensorsHandlerFn, sizeof...(Is)>{&perception_handler_fn<Is>...};
-}
-
-/// Compile-time helper table that maps type indices from the Registry to handler function pointers
-constexpr auto perception_handler_table =
-  make_handler_table(std::make_index_sequence<std::tuple_size_v<Registry>>());
-
-}
-
-// SensorsNode member function to populate the runtime map using compile-time template recursion
-template<std::size_t I>
-void SensorsNode::populate_group_to_handler_map()
-{
-  if constexpr (I < std::tuple_size_v<Registry>) {
-    using P = std::tuple_element_t<I, Registry>;
-    group_to_handler_.emplace(std::string(P::default_group_), perception_handler_table[I]);
-    populate_group_to_handler_map<I + 1>();
-  }
-}
-
-bool
-SensorsNode::set_by_group(
-  const std::string & group,
-  const std::vector<easynav::PerceptionPtr> & perceptions,
-  ::easynav::NavState & ns)
-{
-  // Find the perception handler function to process this group
-  auto it = group_to_handler_.find(group);
-  if (it == group_to_handler_.end()) {
-    // If there is no handler registered for this group, return false
-    return false;
-  }
-
-  // Call the handler function pointer stored for this group
-  it->second(group, perceptions, ns);
-  return true;
-}
 
 
 SensorsNode::SensorsNode(const rclcpp::NodeOptions & options)
@@ -213,13 +129,17 @@ SensorsNode::SensorsNode(const rclcpp::NodeOptions & options)
       return ret.str();
     });
 
-  register_handler(std::make_shared<PointPerceptionHandler>());
-  register_handler(std::make_shared<ImagePerceptionHandler>());
-  register_handler(std::make_shared<IMUPerceptionHandler>());
-  register_handler(std::make_shared<GNSSPerceptionHandler>());
-  register_handler(std::make_shared<DetectionsPerceptionsHandler>());
-  // Populate map from default group strings to handler function pointers for fast dispatch
-  populate_group_to_handler_map();
+  handler_loader_ = std::make_unique<pluginlib::ClassLoader<PerceptionHandler>>(
+    "easynav_sensors", "easynav::PerceptionHandler");
+
+  type_to_plugin_ = {
+    {"sensor_msgs/msg/PointCloud2", "easynav_sensors/PointPerceptionHandler"},
+    {"sensor_msgs/msg/LaserScan", "easynav_sensors/PointPerceptionHandler"},
+    {"sensor_msgs/msg/Imu", "easynav_sensors/IMUPerceptionHandler"},
+    {"sensor_msgs/msg/NavSatFix", "easynav_sensors/GNSSPerceptionHandler"},
+    {"sensor_msgs/msg/Image", "easynav_sensors/ImagePerceptionHandler"},
+    {"vision_msgs/msg/Detection3DArray", "easynav_sensors/DetectionsPerceptionHandler"},
+  };
 }
 
 SensorsNode::~SensorsNode()
@@ -239,57 +159,89 @@ SensorsNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & state
   get_parameter("forget_time", forget_time_);
 
   for (const auto & sensor_id : sensors) {
-    std::string topic, msg_type, group;
+    std::string topic, msg_type, plugin;
 
     if (!has_parameter(sensor_id + ".topic")) {
-      declare_parameter(sensor_id + ".topic", topic);
+      declare_parameter(sensor_id + ".topic", std::string{});
     }
     if (!has_parameter(sensor_id + ".type")) {
-      declare_parameter(sensor_id + ".type", msg_type);
+      declare_parameter(sensor_id + ".type", std::string{});
+    }
+    if (!has_parameter(sensor_id + ".plugin")) {
+      declare_parameter(sensor_id + ".plugin", std::string{});
     }
 
     get_parameter(sensor_id + ".topic", topic);
     get_parameter(sensor_id + ".type", msg_type);
+    get_parameter(sensor_id + ".plugin", plugin);
 
-    // Resolve canonical group from message type
-    const std::string canonical_group = resolve_group_from_msg(msg_type);
+    // Auto-detect plugin from the built-in type→plugin table when not explicitly given.
+    // An explicit 'plugin:' on one sensor never changes the default for other sensors.
+    if (plugin.empty()) {
+      auto it = type_to_plugin_.find(msg_type);
+      if (it != type_to_plugin_.end()) {
+        plugin = it->second;
+        RCLCPP_INFO(get_logger(),
+          "Auto-detected plugin [%s] for sensor [%s] from type [%s]",
+          plugin.c_str(), sensor_id.c_str(), msg_type.c_str());
+      }
+    }
+
+    if (plugin.empty()) {
+      RCLCPP_ERROR(get_logger(),
+        "Cannot configure sensor [%s]: no 'plugin' parameter and type [%s] is not recognized. "
+        "Add 'plugin: <plugin_name>' to the sensor parameters.",
+        sensor_id.c_str(), msg_type.c_str());
+      continue;
+    }
+
+    // Load the handler plugin for this sensor
+    std::shared_ptr<PerceptionHandler> handler;
+    try {
+      handler = handler_loader_->createSharedInstance(plugin);
+    } catch (const pluginlib::PluginlibException & ex) {
+      RCLCPP_ERROR(get_logger(),
+        "Failed to load perception handler plugin [%s] for sensor [%s]: %s",
+        plugin.c_str(), sensor_id.c_str(), ex.what());
+      continue;
+    }
+
+    handler->initialize(shared_from_this(), sensor_id);
+
+    const std::string canonical_group = handler->group();
+    std::string group = canonical_group;
 
     if (!has_parameter(sensor_id + ".group")) {
       declare_parameter(sensor_id + ".group", canonical_group);
     }
-
     get_parameter(sensor_id + ".group", group);
 
-    // Find handler for the requested group (may be custom/aliased)
-    auto handler_it = handlers_.find(group);
-    if (handler_it == handlers_.end() && !canonical_group.empty()) {
-      // No handler for custom group; try aliasing to canonical group
-      const auto canonical_handler_it = handlers_.find(canonical_group);
-      if (canonical_handler_it != handlers_.end()) {
-        // Use handler from canonical group
-        handlers_[group] = canonical_handler_it->second;
-        const auto canonical_fn_it = group_to_handler_.find(canonical_group);
-        if (canonical_fn_it != group_to_handler_.end()) {
-          group_to_handler_[group] = canonical_fn_it->second;
+    // Store one handler per group for NavState dispatch (first one wins)
+    if (handlers_.find(group) == handlers_.end()) {
+      if (group != canonical_group) {
+        // Load a second instance to represent this (possibly aliased) group
+        try {
+          auto group_handler = handler_loader_->createSharedInstance(plugin);
+          group_handler->initialize(shared_from_this(), sensor_id);
+          handlers_[group] = group_handler;
+        } catch (...) {
+          handlers_[group] = handler;
         }
-        handler_it = canonical_handler_it;
-        RCLCPP_INFO(get_logger(),
-                    "Aliased group '%s' -> '%s' for type '%s'",
-                    group.c_str(), canonical_group.c_str(), msg_type.c_str());
+      } else {
+        handlers_[group] = handler;
       }
+      RCLCPP_INFO(get_logger(),
+        "Registered handler [%s] for group [%s]", plugin.c_str(), group.c_str());
     }
 
-    if (handler_it == handlers_.end()) {
-      RCLCPP_WARN(get_logger(), "No handler for group [%s]", group.c_str());
-      continue;
-    }
-
-    const auto perception_ptr = handler_it->second->create(sensor_id);
-    const auto sub = handler_it->second->create_subscription(
-      *this, topic, msg_type, perception_ptr, realtime_cbg_
-    );
+    const auto perception_ptr = handler->create();
+    const auto sub = handler->create_subscription(topic, msg_type, perception_ptr, realtime_cbg_);
 
     perceptions_[group].emplace_back(PerceptionPtr{perception_ptr, sub});
+
+    RCLCPP_INFO(get_logger(),
+      "Configured sensor [%s] with plugin [%s] on topic [%s] in group [%s]",
+      sensor_id.c_str(), plugin.c_str(), topic.c_str(), group.c_str());
   }
 
   return CallbackReturnT::SUCCESS;
@@ -341,6 +293,20 @@ rclcpp::CallbackGroup::SharedPtr
 SensorsNode::get_real_time_cbg()
 {
   return realtime_cbg_;
+}
+
+bool
+SensorsNode::set_by_group(
+  const std::string & group,
+  const std::vector<easynav::PerceptionPtr> & perceptions,
+  ::easynav::NavState & ns)
+{
+  auto it = handlers_.find(group);
+  if (it == handlers_.end()) {
+    return false;
+  }
+  it->second->populate_nav_state(group, perceptions, ns);
+  return true;
 }
 
 bool

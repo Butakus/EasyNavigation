@@ -27,7 +27,6 @@ namespace easynav
 
 rclcpp::SubscriptionBase::SharedPtr
 GNSSPerceptionHandler::create_subscription(
-  rclcpp_lifecycle::LifecycleNode & node,
   const std::string & topic,
   const std::string & type,
   std::shared_ptr<PerceptionBase> target,
@@ -37,6 +36,7 @@ GNSSPerceptionHandler::create_subscription(
     throw std::runtime_error("Unsupported message type for GNSSPerceptionHandler: " + type);
   }
 
+  auto & node = *parent_node_;
   auto options = rclcpp::SubscriptionOptions();
   options.callback_group = cb_group;
 
@@ -55,6 +55,15 @@ GNSSPerceptionHandler::create_subscription(
       typed_target->valid = true;
     },
     options);
+}
+
+void
+GNSSPerceptionHandler::populate_nav_state(
+  const std::string & group,
+  const std::vector<PerceptionPtr> & perceptions,
+  NavState & ns)
+{
+  ns.set(group, get_perceptions<GNSSPerception>(perceptions));
 }
 
 rclcpp::Time get_latest_gnss_perceptions_stamp(const GNSSPerceptions & perceptions)
@@ -80,3 +89,6 @@ rclcpp::Time get_latest_gnss_perceptions_stamp(const GNSSPerceptions & perceptio
 }
 
 }  // namespace easynav
+
+#include "pluginlib/class_list_macros.hpp"
+PLUGINLIB_EXPORT_CLASS(easynav::GNSSPerceptionHandler, easynav::PerceptionHandler)

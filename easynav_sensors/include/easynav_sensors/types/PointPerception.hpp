@@ -267,31 +267,31 @@ public:
   std::string group() const override {return "points";}
 
   /// \brief Creates a new \ref PointPerception instance.
-  /// \param sensor_id Identifier of the sensor (currently unused, kept for future extensions).
   /// \return Shared pointer to a new \ref PointPerception.
-  std::shared_ptr<PerceptionBase> create(const std::string &) override
+  std::shared_ptr<PerceptionBase> create() override
   {
     return std::make_shared<PointPerception>();
   }
 
   /// \brief Creates a subscription to \c LaserScan or \c PointCloud2 messages and updates the perception.
   ///
-  /// The created subscription decodes incoming messages from \p topic according to \p type, converts them
-  /// into a point cloud, and writes the result into \p target (including metadata such as \c stamp and \c frame_id).
-  ///
-  /// \param node Lifecycle node used to create the subscription.
   /// \param topic Topic name to subscribe to.
   /// \param type ROS message type name. Must be either \c "sensor_msgs/msg/LaserScan"
   ///             or \c "sensor_msgs/msg/PointCloud2".
   /// \param target Shared pointer to the perception instance to be updated.
-  /// \param cb_group Callback group for the subscription callback (executor-level concurrency control).
+  /// \param cb_group Callback group for the subscription callback.
   /// \return Shared pointer to the created subscription.
   rclcpp::SubscriptionBase::SharedPtr create_subscription(
-    rclcpp_lifecycle::LifecycleNode & node,
     const std::string & topic,
     const std::string & type,
     std::shared_ptr<PerceptionBase> target,
     rclcpp::CallbackGroup::SharedPtr cb_group) override;
+
+  /// \brief Populates NavState with the point perceptions for the given group.
+  void populate_nav_state(
+    const std::string & group,
+    const std::vector<PerceptionPtr> & perceptions,
+    NavState & ns) override;
 };
 
 /// \brief Converts a \c LaserScan message into a point cloud.

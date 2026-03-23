@@ -91,12 +91,12 @@ backtrace_to_string(std::size_t max_frames = 64, std::size_t skip = 0)
 
 rclcpp::SubscriptionBase::SharedPtr
 PointPerceptionHandler::create_subscription(
-  rclcpp_lifecycle::LifecycleNode & node,
   const std::string & topic,
   const std::string & type,
   std::shared_ptr<PerceptionBase> target,
   rclcpp::CallbackGroup::SharedPtr cb_group)
 {
+  auto & node = *parent_node_;
   auto options = rclcpp::SubscriptionOptions();
   options.callback_group = cb_group;
 
@@ -138,6 +138,15 @@ PointPerceptionHandler::create_subscription(
 
   throw std::runtime_error(
     "Unsupported message type for PointPerceptionHandler [" + type + "]");
+}
+
+void
+PointPerceptionHandler::populate_nav_state(
+  const std::string & group,
+  const std::vector<PerceptionPtr> & perceptions,
+  NavState & ns)
+{
+  ns.set(group, get_perceptions<PointPerception>(perceptions));
 }
 
 
@@ -805,3 +814,6 @@ PointPerceptionsOpsView::get_latest_stamp() const
 }
 
 }  // namespace easynav
+
+#include "pluginlib/class_list_macros.hpp"
+PLUGINLIB_EXPORT_CLASS(easynav::PointPerceptionHandler, easynav::PerceptionHandler)

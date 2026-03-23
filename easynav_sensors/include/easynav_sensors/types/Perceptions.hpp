@@ -19,7 +19,7 @@
 /// - `PerceptionBase`: base class for sensor data.
 /// - `PerceptionPtr`: utility for holding perception state and its subscription.
 /// - `get_perceptions`: helper to extract typed collections from a heterogeneous container.
-/// - `PerceptionHandler`: abstract base class for group-specific sensor handlers.
+/// - `PerceptionHandler`: abstract base class for group-specific sensor handlers (pluginlib plugin).
 
 #ifndef EASYNAV_SENSORS_TYPES__PERCEPTIONS_HPP_
 #define EASYNAV_SENSORS_TYPES__PERCEPTIONS_HPP_
@@ -28,6 +28,7 @@
 
 #include "rclcpp/time.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
+#include "easynav_common/types/NavState.hpp"
 
 namespace easynav
 {
@@ -108,33 +109,48 @@ get_perceptions(const std::vector<PerceptionPtr> & src)
 }
 
 /// \class PerceptionHandler
-/// \brief Abstract base interface for group-specific perception handlers.
+/// \brief Abstract base class for pluginlib-based sensor perception handlers.
 ///
-/// Each handler is responsible for a sensor group (e.g., "points", "image", "dummy").
-/// It creates appropriate \ref PerceptionBase instances and handles the conversion from ROS messages.
+/// Each handler is responsible for a sensor group (e.g., "points", "image", "imu").
+/// Concrete handlers are registered as pluginlib plugins and loaded at runtime.
+/// A user can implement a new sensor type by deriving from this class and registering it
+/// as a plugin in the corresponding package's plugin XML file.
 class PerceptionHandler
 {
 public:
   virtual ~PerceptionHandler() = default;
 
-  /// \brief Creates a new instance of a perception object managed by this handler.
-  /// \param sensor_id Name or ID of the sensor (optional use by handler).
-  /// \return Shared pointer to a new instance of a class derived from \ref PerceptionBase.
-  virtual std::shared_ptr<PerceptionBase> create(const std::string & sensor_id) = 0;
+  /// \brief Initializes the handler with the parent node and sensor name.
+  ///
+  /// Must be called once before any other method. Stores the node and sensor name,
+  /// then delegates to \ref on_initialize for subclass-specific setup.
+  ///
+  /// \param parent_node Shared pointer to the lifecycle node managing this handler.
+  /// \param sensor_name Name of the sensor (used as parameter namespace prefix).
+  void initialize(
+    const std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node,
+    const std::string & sensor_name)
+  {
+    parent_node_ = parent_node;
+    sensor_name_ = sensor_name;
+    on_initialize();
+  }
 
-  /// \brief Creates a subscription that processes messages into \ref PerceptionBase instances.
+  /// \brief Optional post-initialization hook for subclasses.
+  virtual void on_initialize() {}
+
+  /// \brief Creates a new perception instance for this sensor.
+  /// \return Shared pointer to a newly created \ref PerceptionBase subclass.
+  virtual std::shared_ptr<PerceptionBase> create() = 0;
+
+  /// \brief Creates a ROS subscription that stores incoming data into \p target.
   ///
-  /// The handler is expected to parse the message received on \p topic of type \p type
-  /// and store the result in \p target.
-  ///
-  /// \param node Reference to the lifecycle node used for creating the subscription.
   /// \param topic Topic name to subscribe to.
   /// \param type ROS message type name (e.g., `"sensor_msgs/msg/LaserScan"`).
-  /// \param target Shared pointer where perception results are stored.
-  /// \param cb_group Callback group where the subscription callback will be executed.
+  /// \param target Shared pointer to the \ref PerceptionBase subclass to update.
+  /// \param cb_group Callback group for executor-level concurrency control.
   /// \return Shared pointer to the created subscription.
   virtual rclcpp::SubscriptionBase::SharedPtr create_subscription(
-    rclcpp_lifecycle::LifecycleNode & node,
     const std::string & topic,
     const std::string & type,
     std::shared_ptr<PerceptionBase> target,
@@ -142,11 +158,35 @@ public:
 
   /// \brief Returns the group identifier associated with this handler.
   ///
-  /// This identifier is used to match sensors to the appropriate handler.
-  /// Example: `"points"`, `"image"`, `"dummy"`.
-  ///
+  /// Example: `"points"`, `"image"`, `"imu"`, `"gnss"`.
   /// \return String representing the group name.
   virtual std::string group() const = 0;
+
+  /// \brief Populates the \ref NavState with typed perceptions for the given group.
+  ///
+  /// Implementations call `ns.set(group, get_perceptions<ConcreteType>(perceptions))`
+  /// to store the correctly typed vector into `NavState`.
+  ///
+  /// \param group The group name under which to store the perceptions.
+  /// \param perceptions Vector of \ref PerceptionPtr for all sensors in this group.
+  /// \param ns Navigation state to populate.
+  virtual void populate_nav_state(
+    const std::string & group,
+    const std::vector<PerceptionPtr> & perceptions,
+    NavState & ns) = 0;
+
+  /// \brief Returns the sensor name provided during \ref initialize.
+  const std::string & get_sensor_name() const {return sensor_name_;}
+
+protected:
+  /// \brief Returns the parent lifecycle node.
+  std::shared_ptr<rclcpp_lifecycle::LifecycleNode> get_node() const {return parent_node_;}
+
+  /// \brief Shared pointer to the parent lifecycle node.
+  std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node_{nullptr};
+
+  /// \brief Name of the sensor (used as YAML parameter namespace prefix).
+  std::string sensor_name_;
 };
 
 }  // namespace easynav

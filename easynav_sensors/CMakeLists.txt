@@ -20,6 +20,7 @@ find_package(nav_msgs REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common io)
 find_package(pcl_conversions REQUIRED)
 find_package(cv_bridge REQUIRED)
+find_package(pluginlib REQUIRED)
 
 set(dependencies
   rclcpp::rclcpp
@@ -54,6 +55,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   tf2_geometry_msgs::tf2_geometry_msgs
   pcl_conversions::pcl_conversions
   cv_bridge::cv_bridge
+  pluginlib::pluginlib
   ${sensor_msgs_TARGETS}
   ${vision_msgs_TARGETS}
   ${geometry_msgs_TARGETS}
@@ -90,6 +92,11 @@ endif()
 ament_export_include_directories("include/${PROJECT_NAME}")
 ament_export_libraries(${PROJECT_NAME})
 ament_export_targets(export_${PROJECT_NAME})
+
+# Register PerceptionHandler plugins so external packages can discover them
+pluginlib_export_plugin_description_file(
+  easynav_sensors easynav_sensors_perception_handler_plugins.xml)
+
 ament_export_dependencies(
   rclcpp
   rclcpp_lifecycle
@@ -102,6 +109,7 @@ ament_export_dependencies(
   nav_msgs
   pcl_conversions
   cv_bridge
+  pluginlib
   PCL
 )
 ament_package()

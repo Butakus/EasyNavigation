@@ -29,7 +29,6 @@ namespace easynav
 
 rclcpp::SubscriptionBase::SharedPtr
 ImagePerceptionHandler::create_subscription(
-  rclcpp_lifecycle::LifecycleNode & node,
   const std::string & topic,
   const std::string & type,
   std::shared_ptr<PerceptionBase> target,
@@ -39,6 +38,7 @@ ImagePerceptionHandler::create_subscription(
     throw std::runtime_error("Unsupported message type for ImagePerceptionHandler: " + type);
   }
 
+  auto & node = *parent_node_;
   auto options = rclcpp::SubscriptionOptions();
   options.callback_group = cb_group;
 
@@ -68,6 +68,15 @@ ImagePerceptionHandler::create_subscription(
     options);
 }
 
+void
+ImagePerceptionHandler::populate_nav_state(
+  const std::string & group,
+  const std::vector<PerceptionPtr> & perceptions,
+  NavState & ns)
+{
+  ns.set(group, get_perceptions<ImagePerception>(perceptions));
+}
+
 rclcpp::Time get_latest_image_perceptions_stamp(const ImagePerceptions & perceptions)
 {
   auto is_newer = [](const rclcpp::Time & a, const rclcpp::Time & b) {
@@ -91,3 +100,6 @@ rclcpp::Time get_latest_image_perceptions_stamp(const ImagePerceptions & percept
 }
 
 }  // namespace easynav
+
+#include "pluginlib/class_list_macros.hpp"
+PLUGINLIB_EXPORT_CLASS(easynav::ImagePerceptionHandler, easynav::PerceptionHandler)

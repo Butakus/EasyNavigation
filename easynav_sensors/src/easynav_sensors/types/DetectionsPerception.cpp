@@ -29,7 +29,6 @@ namespace easynav
 
 rclcpp::SubscriptionBase::SharedPtr
 DetectionsPerceptionsHandler::create_subscription(
-  rclcpp_lifecycle::LifecycleNode & node,
   const std::string & topic,
   const std::string & type,
   std::shared_ptr<PerceptionBase> target,
@@ -39,6 +38,7 @@ DetectionsPerceptionsHandler::create_subscription(
     throw std::runtime_error("Unsupported message type for DetectionsPerceptionsHandler: " + type);
   }
 
+  auto & node = *parent_node_;
   auto options = rclcpp::SubscriptionOptions();
   options.callback_group = cb_group;
 
@@ -57,6 +57,15 @@ DetectionsPerceptionsHandler::create_subscription(
       typed_target->data = *msg;  // Copy the Detection3DArray message
       typed_target->valid = true;
     }, options);
+}
+
+void
+DetectionsPerceptionsHandler::populate_nav_state(
+  const std::string & group,
+  const std::vector<PerceptionPtr> & perceptions,
+  NavState & ns)
+{
+  ns.set(group, get_perceptions<DetectionsPerception>(perceptions));
 }
 
 rclcpp::Time get_latest_detections_perceptions_stamp(const DetectionsPerceptions & perceptions)
@@ -81,3 +90,6 @@ rclcpp::Time get_latest_detections_perceptions_stamp(const DetectionsPerceptions
 }
 
 }  // namespace easynav
+
+#include "pluginlib/class_list_macros.hpp"
+PLUGINLIB_EXPORT_CLASS(easynav::DetectionsPerceptionsHandler, easynav::PerceptionHandler)

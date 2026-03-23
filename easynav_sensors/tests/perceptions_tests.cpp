@@ -340,12 +340,12 @@ TEST_F(PerceptionsTestCase, PointPerceptionHandlerWorks)
   tf_buffer->setTransform(tf, "test_authority", false);
 
   auto handler = std::make_shared<easynav::PointPerceptionHandler>();
-  auto perception = handler->create("laser1");
+  handler->initialize(node, "laser1");
+  auto perception = handler->create();
 
   auto cb_group =
     node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
   auto sub = handler->create_subscription(
-    *node,
     "/test_scan",
     "sensor_msgs/msg/LaserScan",
     perception,
@@ -401,11 +401,11 @@ TEST_F(PerceptionsTestCase, PointPerceptionBufferAndTFWorks)
   // Perception and handler
   auto perception = std::make_shared<TestPointPerception>();
   auto handler = std::make_shared<PointPerceptionHandler>();
+  handler->initialize(node, "laser3");
 
   auto cb_group =
     node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
   auto sub = handler->create_subscription(
-    *node,
     "/test_scan3",
     "sensor_msgs/msg/LaserScan",
     perception,
@@ -726,11 +726,11 @@ TEST_F(PerceptionsTestCase, PointPerceptionHandlerPC2Works)
   tf_buffer->setTransform(tf, "test_authority", false);
 
   auto handler = std::make_shared<easynav::PointPerceptionHandler>();
-  auto perception = handler->create("lidar1");
+  handler->initialize(node, "lidar1");
+  auto perception = handler->create();
 
   auto cb_group = node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
   auto sub = handler->create_subscription(
-    *node,
     "/test_pc2",
     "sensor_msgs/msg/PointCloud2",
     perception,
@@ -792,11 +792,11 @@ TEST_F(PerceptionsTestCase, ImagePerceptionHandlerWorks)
   auto node = rclcpp_lifecycle::LifecycleNode::make_shared("test_image_handler_node");
 
   auto handler = std::make_shared<easynav::ImagePerceptionHandler>();
-  auto perception = handler->create("camera1");
+  handler->initialize(node, "camera1");
+  auto perception = handler->create();
 
   auto cb_group = node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
   auto sub = handler->create_subscription(
-    *node,
     "/test_image",
     "sensor_msgs/msg/Image",
     perception,
@@ -832,8 +832,10 @@ TEST_F(PerceptionsTestCase, ImagePerceptionHandlerWorks)
   ASSERT_EQ(loaded->data.cols, 3);
   ASSERT_EQ(loaded->data.rows, 2);
   ASSERT_EQ(loaded->data.type(), CV_8UC3);
-  ASSERT_EQ(loaded->data.at<cv::Vec3b>(0, 0), cv::Vec3b(10, 20, 30));
-  ASSERT_EQ(loaded->data.at<cv::Vec3b>(0, 1), cv::Vec3b(100, 110, 120));
+  auto px00 = loaded->data.at<cv::Vec3b>(0, 0);
+  auto px01 = loaded->data.at<cv::Vec3b>(0, 1);
+  ASSERT_EQ(px00, cv::Vec3b(10, 20, 30));
+  ASSERT_EQ(px01, cv::Vec3b(100, 110, 120));
 }
 
 class DummyPerception : public easynav::PerceptionBase
@@ -847,7 +849,7 @@ class DummyHandler : public easynav::PerceptionHandler
 public:
   std::string group() const override {return "dummy";}
 
-  std::shared_ptr<easynav::PerceptionBase> create(const std::string &) override
+  std::shared_ptr<easynav::PerceptionBase> create() override
   {
     auto p = std::make_shared<DummyPerception>();
     p->content = "initialized";
@@ -855,7 +857,6 @@ public:
   }
 
   rclcpp::SubscriptionBase::SharedPtr create_subscription(
-    rclcpp_lifecycle::LifecycleNode & node,
     const std::string & topic,
     [[maybe_unused]] const std::string & type,
     std::shared_ptr<easynav::PerceptionBase> target,
@@ -864,7 +865,7 @@ public:
     auto options = rclcpp::SubscriptionOptions();
     options.callback_group = cb_group;
 
-    return node.create_subscription<std_msgs::msg::String>(
+    return parent_node_->create_subscription<std_msgs::msg::String>(
       topic, rclcpp::QoS(1),
       [target](const std_msgs::msg::String::SharedPtr msg)
       {
@@ -875,6 +876,14 @@ public:
       },
       options);
   }
+
+  void populate_nav_state(
+    const std::string & group,
+    const std::vector<easynav::PerceptionPtr> & perceptions,
+    easynav::NavState & ns) override
+  {
+    ns.set(group, easynav::get_perceptions<DummyPerception>(perceptions));
+  }
 };
 
 TEST_F(PerceptionsTestCase, CustomPerceptionHandlerCanBeRegistered)
@@ -882,11 +891,11 @@ TEST_F(PerceptionsTestCase, CustomPerceptionHandlerCanBeRegistered)
   auto node = rclcpp_lifecycle::LifecycleNode::make_shared("test_custom_handler_node");
 
   auto handler = std::make_shared<DummyHandler>();
-  auto perception = handler->create("dummy1");
+  handler->initialize(node, "dummy1");
+  auto perception = handler->create();
 
   auto cb_group = node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
   auto sub = handler->create_subscription(
-    *node,
     "/dummy_topic",
     "std_msgs/msg/String",
     perception,

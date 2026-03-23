@@ -72,30 +72,30 @@ public:
   std::string group() const override {return "image";}
 
   /// \brief Creates a new empty ImagePerception instance.
-  /// \param sensor_id Name or identifier of the sensor. Currently unused, reserved for future extensions.
   /// \return Shared pointer to a newly created ImagePerception.
-  std::shared_ptr<PerceptionBase> create(const std::string &) override
+  std::shared_ptr<PerceptionBase> create() override
   {
     return std::make_shared<ImagePerception>();
   }
 
   /// \brief Creates a subscription to an image topic that updates a target ImagePerception.
   ///
-  /// The subscription receives sensor_msgs::msg::Image messages on \p topic, converts them to cv::Mat,
-  /// fills ImagePerception::data, and updates inherited metadata (stamp, frame_id).
-  ///
-  /// \param node Lifecycle node used to create the subscription.
   /// \param topic Topic name to subscribe to.
   /// \param type ROS message type name. It must be "sensor_msgs/msg/Image".
   /// \param target Shared pointer to the ImagePerception to be updated.
   /// \param cb_group Callback group for executor-level concurrency control.
   /// \return Shared pointer to the created subscription.
   rclcpp::SubscriptionBase::SharedPtr create_subscription(
-    rclcpp_lifecycle::LifecycleNode & node,
     const std::string & topic,
     const std::string & type,
     std::shared_ptr<PerceptionBase> target,
     rclcpp::CallbackGroup::SharedPtr cb_group) override;
+
+  /// \brief Populates NavState with the image perceptions for the given group.
+  void populate_nav_state(
+    const std::string & group,
+    const std::vector<PerceptionPtr> & perceptions,
+    NavState & ns) override;
 };
 
 /**

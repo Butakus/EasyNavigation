@@ -28,7 +28,6 @@ namespace easynav
 
 rclcpp::SubscriptionBase::SharedPtr
 IMUPerceptionHandler::create_subscription(
-  rclcpp_lifecycle::LifecycleNode & node,
   const std::string & topic,
   const std::string & type,
   std::shared_ptr<PerceptionBase> target,
@@ -38,6 +37,7 @@ IMUPerceptionHandler::create_subscription(
     throw std::runtime_error("Unsupported message type for IMUPerceptionHandler: " + type);
   }
 
+  auto & node = *parent_node_;
   auto options = rclcpp::SubscriptionOptions();
   options.callback_group = cb_group;
 
@@ -56,6 +56,15 @@ IMUPerceptionHandler::create_subscription(
       typed_target->valid = true;
     },
     options);
+}
+
+void
+IMUPerceptionHandler::populate_nav_state(
+  const std::string & group,
+  const std::vector<PerceptionPtr> & perceptions,
+  NavState & ns)
+{
+  ns.set(group, get_perceptions<IMUPerception>(perceptions));
 }
 
 rclcpp::Time get_latest_imu_perceptions_stamp(const IMUPerceptions & perceptions)
@@ -81,3 +90,6 @@ rclcpp::Time get_latest_imu_perceptions_stamp(const IMUPerceptions & perceptions
 
 
 }  // namespace easynav
+
+#include "pluginlib/class_list_macros.hpp"
+PLUGINLIB_EXPORT_CLASS(easynav::IMUPerceptionHandler, easynav::PerceptionHandler)

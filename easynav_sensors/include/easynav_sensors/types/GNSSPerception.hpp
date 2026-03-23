@@ -68,30 +68,30 @@ public:
   std::string group() const override {return "gnss";}
 
   /// \brief Creates a new empty GNSSPerception instance.
-  /// \param sensor_id Name or identifier of the sensor. Currently unused, reserved for future extensions.
   /// \return Shared pointer to a newly created GNSSPerception.
-  std::shared_ptr<PerceptionBase> create(const std::string &) override
+  std::shared_ptr<PerceptionBase> create() override
   {
     return std::make_shared<GNSSPerception>();
   }
 
-  /// \brief Creates a subscription to an GNSS topic that updates a target GNSSPerception.
+  /// \brief Creates a subscription to a GNSS topic that updates a target GNSSPerception.
   ///
-  /// The subscription receives sensor_msgs::msg::NavSatFix messages on \p topic and writes the content into
-  /// GNSSPerception::data, updating inherited metadata (stamp, frame_id).
-  ///
-  /// \param node Lifecycle node used to create the subscription.
   /// \param topic Topic name to subscribe to.
   /// \param type ROS message type name. It must be "sensor_msgs/msg/NavSatFix".
   /// \param target Shared pointer to the GNSSPerception to be updated.
   /// \param cb_group Callback group for executor-level concurrency control.
   /// \return Shared pointer to the created subscription.
   rclcpp::SubscriptionBase::SharedPtr create_subscription(
-    rclcpp_lifecycle::LifecycleNode & node,
     const std::string & topic,
     const std::string & type,
     std::shared_ptr<PerceptionBase> target,
     rclcpp::CallbackGroup::SharedPtr cb_group) override;
+
+  /// \brief Populates NavState with the GNSS perceptions for the given group.
+  void populate_nav_state(
+    const std::string & group,
+    const std::vector<PerceptionPtr> & perceptions,
+    NavState & ns) override;
 };
 
 /**
