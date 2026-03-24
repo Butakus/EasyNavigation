@@ -14,6 +14,7 @@ ignore:
   - "ros_ws/src/ThirdParty"
   - "**/vendor"
   - "easynav_tools/easynav_tools/vendor"
+  - "ros_ws/src/**/EasyNavigation/easynav_tools/vendor"
 
 fixes:
   - "ros_ws/src/EasyNavigation/::"
