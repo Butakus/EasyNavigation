@@ -47,23 +47,8 @@ MapsManagerNode::~MapsManagerNode()
     trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_UNCONFIGURED_SHUTDOWN);
   }
 
-  for (auto & map_manager : maps_managers_) {
-    map_manager = nullptr;
-  }
-  std::vector<std::string> map_types;
-  if (has_parameter("map_types")) {
-    get_parameter("map_types", map_types);
-  }
-  for (const auto & map_type : map_types) {
-    std::string plugin;
-    if (has_parameter(map_type + ".plugin")) {
-      get_parameter(map_type + ".plugin", plugin);
-      try {
-        maps_manager_loader_->unloadLibraryForClass(plugin);
-      } catch (const std::exception &) {
-      }
-    }
-  }
+  maps_managers_.clear();
+  maps_manager_loader_.reset();
 }
 
 using CallbackReturnT = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
