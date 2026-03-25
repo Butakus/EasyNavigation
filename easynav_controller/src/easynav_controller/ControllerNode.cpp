@@ -54,22 +54,29 @@ ControllerNode::ControllerNode(
 
 ControllerNode::~ControllerNode()
 {
-  if (get_current_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+  if (get_current_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
     trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVE_SHUTDOWN);
   }
-  if (get_current_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE) {
+  if (get_current_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE) {
     trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_INACTIVE_SHUTDOWN);
   }
-  if (get_current_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED) {
+  if (get_current_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED) {
     trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_UNCONFIGURED_SHUTDOWN);
   }
 
+  controller_method_ = nullptr;
   std::vector<std::string> controller_types;
   get_parameter("controller_types", controller_types);
   for (const auto & controller_type : controller_types) {
-    controller_loader_->unloadLibraryForClass(controller_type);
+    std::string plugin;
+    if (has_parameter(controller_type + ".plugin")) {
+      get_parameter(controller_type + ".plugin", plugin);
+      try {
+        controller_loader_->unloadLibraryForClass(plugin);
+      } catch (const std::exception &) {
+      }
+    }
   }
-  controller_method_ = nullptr;
 }
 
 

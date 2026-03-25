@@ -17,3 +17,8 @@ ament_add_gtest(plugin_tests plugin_tests.cpp)
 target_link_libraries(plugin_tests
   ${PROJECT_NAME}
 )
+
+ament_add_gtest(sensors_lifecycle_tests sensors_lifecycle_tests.cpp)
+target_link_libraries(sensors_lifecycle_tests
+  ${PROJECT_NAME}
+)
