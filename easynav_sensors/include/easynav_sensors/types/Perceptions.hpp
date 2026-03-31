@@ -147,13 +147,13 @@ public:
 
 protected:
   /// \brief Returns the parent lifecycle node.
-  std::shared_ptr<rclcpp_lifecycle::LifecycleNode> get_node() const {return parent_node_;}
+  std::shared_ptr<rclcpp_lifecycle::LifecycleNode> get_node() const {return parent_node_.lock();}
 
   /// \brief Returns the parent lifecycle node.
   rclcpp::CallbackGroup::SharedPtr get_realtime_cbg() const {return realtime_cbg_;}
 
   /// \brief Shared pointer to the parent lifecycle node.
-  std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node_{nullptr};
+  std::weak_ptr<rclcpp_lifecycle::LifecycleNode> parent_node_;
 
   /// \brief Callback group for real-time operations.
   rclcpp::CallbackGroup::SharedPtr realtime_cbg_;

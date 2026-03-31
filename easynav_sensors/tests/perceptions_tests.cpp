@@ -898,7 +898,7 @@ public:
     auto options = rclcpp::SubscriptionOptions();
     options.callback_group = get_realtime_cbg();
 
-    perception_sub_ = parent_node_->create_subscription<std_msgs::msg::String>(
+    perception_sub_ = node->create_subscription<std_msgs::msg::String>(
       topic, rclcpp::QoS(1),
       [this](const std_msgs::msg::String::SharedPtr msg)
       {
