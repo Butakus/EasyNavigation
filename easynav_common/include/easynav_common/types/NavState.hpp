@@ -151,8 +151,7 @@ public:
         throw std::runtime_error(oss.str());
       }
 
-      auto ptr = std::static_pointer_cast<T>(it->second);
-      ptr = std::shared_ptr<T>(value_ptr);
+      it->second = value_ptr;
     }
   }
 
