@@ -39,22 +39,29 @@ LocalizerNode::LocalizerNode(
 
 LocalizerNode::~LocalizerNode()
 {
-  if (get_current_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
+  if (get_current_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE) {
     trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVE_SHUTDOWN);
   }
-  if (get_current_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE) {
+  if (get_current_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE) {
     trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_INACTIVE_SHUTDOWN);
   }
-  if (get_current_state().id() != lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED) {
+  if (get_current_state().id() == lifecycle_msgs::msg::State::PRIMARY_STATE_UNCONFIGURED) {
     trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_UNCONFIGURED_SHUTDOWN);
   }
 
+  localizer_method_ = nullptr;
   std::vector<std::string> localizer_types;
   get_parameter("localizer_types", localizer_types);
   for (const auto & localizer_type : localizer_types) {
-    localizer_loader_->unloadLibraryForClass(localizer_type);
+    std::string plugin;
+    if (has_parameter(localizer_type + ".plugin")) {
+      get_parameter(localizer_type + ".plugin", plugin);
+      try {
+        localizer_loader_->unloadLibraryForClass(plugin);
+      } catch (const std::exception &) {
+      }
+    }
   }
-  localizer_method_ = nullptr;
 }
 
 using CallbackReturnT = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
