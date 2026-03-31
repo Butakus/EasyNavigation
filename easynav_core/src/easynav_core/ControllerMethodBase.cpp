@@ -104,10 +104,10 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
   bool imminent = false;
 
   if (!nav_state.has("cmd_vel")) {return false;}
-  if (!nav_state.has("points")) {return false;}
+  if (!nav_state.has_group("points")) {return false;}
 
   const auto & twist = nav_state.get<geometry_msgs::msg::TwistStamped>("cmd_vel");
-  const auto & perceptions = nav_state.get<PointPerceptions>("points");
+  const auto & perceptions = nav_state.get_group<PointPerception>("points");
   const auto & tf_info = easynav::RTTFBuffer::getInstance()->get_tf_info();
   const auto & robot_frame = tf_info.robot_frame;
 

@@ -89,66 +89,73 @@ backtrace_to_string(std::size_t max_frames = 64, std::size_t skip = 0)
   return oss.str();
 }
 
-rclcpp::SubscriptionBase::SharedPtr
-PointPerceptionHandler::create_subscription(
-  const std::string & topic,
-  const std::string & type,
-  std::shared_ptr<PerceptionBase> target,
-  rclcpp::CallbackGroup::SharedPtr cb_group)
+void PointPerceptionHandler::on_initialize()
 {
-  auto & node = *parent_node_;
+  // Create the perception data instance
+  perception_data_ = std::make_shared<PointPerception>();
+
+  // Get sensor parameters
+  auto node = get_node();
+  std::string topic, msg_type;
+
+  if (!node->has_parameter(get_sensor_name() + ".topic")) {
+    node->declare_parameter(get_sensor_name() + ".topic", std::string{});
+  }
+  if (!node->has_parameter(get_sensor_name() + ".type")) {
+    node->declare_parameter(get_sensor_name() + ".type", std::string{});
+  }
+
+  node->get_parameter(get_sensor_name() + ".topic", topic);
+  node->get_parameter(get_sensor_name() + ".type", msg_type);
+
+  // Setup subscription
   auto options = rclcpp::SubscriptionOptions();
-  options.callback_group = cb_group;
+  options.callback_group = get_realtime_cbg();
 
-  const auto clock_type = node.get_clock()->get_clock_type();
+  const auto clock_type = node->get_clock()->get_clock_type();
 
-  if (type == "sensor_msgs/msg/PointCloud2") {
-    return node.create_subscription<sensor_msgs::msg::PointCloud2>(
+  if (msg_type == "sensor_msgs/msg/PointCloud2") {
+    perception_sub_ = node->create_subscription<sensor_msgs::msg::PointCloud2>(
       topic, rclcpp::QoS(1),
-      [target, clock_type](const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+      [this, clock_type](const sensor_msgs::msg::PointCloud2::SharedPtr msg)
       {
-        auto typed = std::dynamic_pointer_cast<PointPerception>(target);
+        pcl::fromROSMsg(*msg, perception_data_->pending_cloud_);
+        perception_data_->pending_frame_ = msg->header.frame_id;
+        perception_data_->pending_stamp_ = rclcpp::Time(msg->header.stamp, clock_type);
+        perception_data_->pending_available_ = true;
 
-        pcl::fromROSMsg(*msg, typed->pending_cloud_);
-        typed->pending_frame_ = msg->header.frame_id;
-        typed->pending_stamp_ = rclcpp::Time(msg->header.stamp, clock_type);
-        typed->pending_available_ = true;
-
-        typed->integrate_pending_perceptions();
+        perception_data_->integrate_pending_perceptions();
       },
       options);
-  }
-
-  if (type == "sensor_msgs/msg/LaserScan") {
-    return node.create_subscription<sensor_msgs::msg::LaserScan>(
+  } else if (msg_type == "sensor_msgs/msg/LaserScan") {
+    perception_sub_ = node->create_subscription<sensor_msgs::msg::LaserScan>(
       topic, rclcpp::SensorDataQoS().reliable(),
-      [target, clock_type](const sensor_msgs::msg::LaserScan::SharedPtr msg)
+      [this, clock_type](const sensor_msgs::msg::LaserScan::SharedPtr msg)
       {
-        auto typed = std::dynamic_pointer_cast<PointPerception>(target);
+        convert(*msg, perception_data_->pending_cloud_);
+        perception_data_->pending_frame_ = msg->header.frame_id;
+        perception_data_->pending_stamp_ = rclcpp::Time(msg->header.stamp, clock_type);
+        perception_data_->pending_available_ = true;
 
-        convert(*msg, typed->pending_cloud_);
-        typed->pending_frame_ = msg->header.frame_id;
-        typed->pending_stamp_ = rclcpp::Time(msg->header.stamp, clock_type);
-        typed->pending_available_ = true;
-
-        typed->integrate_pending_perceptions();
+        perception_data_->integrate_pending_perceptions();
       },
       options);
+  } else {
+    throw std::runtime_error(
+    "Unsupported message type for PointPerceptionHandler [" + msg_type + "]");
   }
 
-  throw std::runtime_error(
-    "Unsupported message type for PointPerceptionHandler [" + type + "]");
 }
 
-void
-PointPerceptionHandler::populate_nav_state(
-  const std::string & group,
-  const std::vector<PerceptionPtr> & perceptions,
-  NavState & ns)
+bool PointPerceptionHandler::cycle_rt(std::shared_ptr<NavState> nav_state)
 {
-  ns.set(group, get_perceptions<PointPerception>(perceptions));
+  // Store the perception in the NavState
+  nav_state->set(get_sensor_name(), perception_data_);
+  // Check if there was new data to trigger process and reset new_data state
+  const bool should_trigger = perception_data_->new_data;
+  perception_data_->new_data = false;
+  return should_trigger;
 }
-
 
 void
 convert(const sensor_msgs::msg::LaserScan & scan, pcl::PointCloud<pcl::PointXYZ> & pc)
@@ -777,12 +784,6 @@ PointPerceptionsOpsView::add(
   tf_valid_.push_back(false);
 
   return *this;
-}
-
-
-PointPerceptions get_point_perceptions(std::vector<PerceptionPtr> & perceptionptr)
-{
-  return get_perceptions<PointPerception>(perceptionptr);
 }
 
 rclcpp::Time get_latest_point_perceptions_stamp(const PointPerceptions & perceptions)

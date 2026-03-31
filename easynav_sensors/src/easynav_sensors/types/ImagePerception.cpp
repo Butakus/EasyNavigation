@@ -27,54 +27,65 @@ namespace easynav
 {
 
 
-rclcpp::SubscriptionBase::SharedPtr
-ImagePerceptionHandler::create_subscription(
-  const std::string & topic,
-  const std::string & type,
-  std::shared_ptr<PerceptionBase> target,
-  rclcpp::CallbackGroup::SharedPtr cb_group)
+void ImagePerceptionHandler::on_initialize()
 {
-  if (type != "sensor_msgs/msg/Image") {
-    throw std::runtime_error("Unsupported message type for ImagePerceptionHandler: " + type);
+  // Create the perception data instance
+  perception_data_ = std::make_shared<ImagePerception>();
+
+  // Get sensor parameters
+  auto node = get_node();
+  std::string topic, msg_type;
+
+  if (!node->has_parameter(get_sensor_name() + ".topic")) {
+    node->declare_parameter(get_sensor_name() + ".topic", std::string{});
+  }
+  if (!node->has_parameter(get_sensor_name() + ".type")) {
+    node->declare_parameter(get_sensor_name() + ".type", std::string{});
   }
 
-  auto & node = *parent_node_;
+  node->get_parameter(get_sensor_name() + ".topic", topic);
+  node->get_parameter(get_sensor_name() + ".type", msg_type);
+
+  // Setup subscription
   auto options = rclcpp::SubscriptionOptions();
-  options.callback_group = cb_group;
+  options.callback_group = get_realtime_cbg();
 
-  const auto clock_type = node.get_clock()->get_clock_type();
+  const auto clock_type = node->get_clock()->get_clock_type();
 
-  return node.create_subscription<sensor_msgs::msg::Image>(
+  if (msg_type != "sensor_msgs/msg/Image") {
+    throw std::runtime_error("Unsupported message type for ImagePerceptionHandler: " + msg_type);
+  }
+
+  perception_sub_ = node->create_subscription<sensor_msgs::msg::Image>(
     topic, rclcpp::QoS(1),
-    [target, clock_type](const sensor_msgs::msg::Image::SharedPtr msg)
+    [this, clock_type](const sensor_msgs::msg::Image::SharedPtr msg)
     {
-      auto typed_target = std::dynamic_pointer_cast<ImagePerception>(target);
-
-      typed_target->stamp = rclcpp::Time(msg->header.stamp, clock_type);
-      typed_target->frame_id = msg->header.frame_id;
-      typed_target->new_data = true;
+      perception_data_->stamp = rclcpp::Time(msg->header.stamp, clock_type);
+      perception_data_->frame_id = msg->header.frame_id;
+      perception_data_->new_data = true;
 
       try {
         cv_bridge::CvImageConstPtr cv_ptr = cv_bridge::toCvShare(msg, msg->encoding);
-        typed_target->data = cv_ptr->image.clone();  // se clona para evitar compartir buffers
-        typed_target->valid = true;
+        perception_data_->data = cv_ptr->image.clone();  // clone to avoid sharing buffers
+        perception_data_->valid = true;
       } catch (const cv_bridge::Exception & e) {
         RCLCPP_WARN(
           rclcpp::get_logger("ImagePerceptionHandler"),
           "cv_bridge exception: %s", e.what());
-        typed_target->valid = false;
+        perception_data_->valid = false;
       }
     },
     options);
 }
 
-void
-ImagePerceptionHandler::populate_nav_state(
-  const std::string & group,
-  const std::vector<PerceptionPtr> & perceptions,
-  NavState & ns)
+bool ImagePerceptionHandler::cycle_rt(std::shared_ptr<NavState> nav_state)
 {
-  ns.set(group, get_perceptions<ImagePerception>(perceptions));
+  // Store the perception in the NavState
+  nav_state->set(get_sensor_name(), perception_data_);
+  // Check if there was new data to trigger process and reset new_data state
+  const bool should_trigger = perception_data_->new_data;
+  perception_data_->new_data = false;
+  return should_trigger;
 }
 
 rclcpp::Time get_latest_image_perceptions_stamp(const ImagePerceptions & perceptions)

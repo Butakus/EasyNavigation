@@ -116,10 +116,11 @@ public:
    */
   void cycle(std::shared_ptr<NavState> nav_state);
 
-  void register_handler(std::shared_ptr<PerceptionHandler> handler);
-
 protected:
-  std::map<std::string, std::vector<PerceptionPtr>> perceptions_;
+  /// @brief Sensor groups (set as group of keys in the NavState)
+  std::map<std::string, std::vector<std::string>> groups_;
+  /// @brief vector of PerceptionHandler instances
+  std::vector<std::shared_ptr<PerceptionHandler>> handler_list_;
 
 private:
   /// @brief Callback group for real-time operations.
@@ -137,10 +138,8 @@ private:
   /// @brief Target frame for perception fusion.
   std::string tf_prefix_;
 
-  /// @brief Shared pointer to the navigation state structure.
-  std::shared_ptr<NavState> nav_state_;
-
-  std::map<std::string, std::shared_ptr<PerceptionHandler>> handlers_;
+  /// @brief A flag to initialize groups in the NavState just once
+  bool groups_initialized = false;
 
   /// @brief Pluginlib class loader for PerceptionHandler plugins.
   std::unique_ptr<pluginlib::ClassLoader<PerceptionHandler>> handler_loader_;
@@ -152,17 +151,6 @@ private:
   /// fall back to the built-in default when 'plugin:' is omitted.
   std::unordered_map<std::string, std::string> type_to_plugin_;
 
-  /**
-   * @brief Populate NavState for a given group from perceptions; returns true if handled.
-   * @param group Sensor group name.
-   * @param perceptions Vector of perceptions (one element from each sensor in the group).
-   * @param ns Navigation state to populate.
-   */
-  bool set_by_group(
-    const std::string & group,
-    const std::vector<PerceptionPtr> & perceptions,
-    ::easynav::NavState & ns
-  );
 };
 
 }  // namespace easynav

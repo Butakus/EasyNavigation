@@ -15,7 +15,6 @@
 
 #include <string>
 
-#include "cv_bridge/cv_bridge.hpp"
 #include "vision_msgs/msg/detection3_d_array.hpp"
 
 #include "rclcpp/time.hpp"
@@ -26,46 +25,58 @@
 namespace easynav
 {
 
-
-rclcpp::SubscriptionBase::SharedPtr
-DetectionsPerceptionsHandler::create_subscription(
-  const std::string & topic,
-  const std::string & type,
-  std::shared_ptr<PerceptionBase> target,
-  rclcpp::CallbackGroup::SharedPtr cb_group)
+void DetectionsPerceptionsHandler::on_initialize()
 {
-  if (type != "vision_msgs/msg/Detection3DArray") {
-    throw std::runtime_error("Unsupported message type for DetectionsPerceptionsHandler: " + type);
+  // Create the perception data instance
+  perception_data_ = std::make_shared<DetectionsPerception>();
+
+  // Get sensor parameters
+  auto node = get_node();
+  std::string topic, msg_type;
+
+  if (!node->has_parameter(get_sensor_name() + ".topic")) {
+    node->declare_parameter(get_sensor_name() + ".topic", std::string{});
+  }
+  if (!node->has_parameter(get_sensor_name() + ".type")) {
+    node->declare_parameter(get_sensor_name() + ".type", std::string{});
   }
 
-  auto & node = *parent_node_;
+  node->get_parameter(get_sensor_name() + ".topic", topic);
+  node->get_parameter(get_sensor_name() + ".type", msg_type);
+
+  // Setup subscription
   auto options = rclcpp::SubscriptionOptions();
-  options.callback_group = cb_group;
+  options.callback_group = get_realtime_cbg();
 
-  const auto clock_type = node.get_clock()->get_clock_type();
+  const auto clock_type = node->get_clock()->get_clock_type();
 
-  return node.create_subscription<vision_msgs::msg::Detection3DArray>(
+  if (msg_type != "vision_msgs/msg/Detection3DArray") {
+    throw std::runtime_error("Unsupported message type for DetectionsPerceptionsHandler: " +
+        msg_type);
+  }
+
+  perception_sub_ = node->create_subscription<vision_msgs::msg::Detection3DArray>(
     topic, rclcpp::QoS(1),
-    [target, clock_type](const vision_msgs::msg::Detection3DArray::SharedPtr msg)
+    [this, clock_type](const vision_msgs::msg::Detection3DArray::SharedPtr msg)
     {
-      auto typed_target = std::dynamic_pointer_cast<DetectionsPerception>(target);
+      perception_data_->stamp = rclcpp::Time(msg->header.stamp, clock_type);
+      perception_data_->frame_id = msg->header.frame_id;
+      perception_data_->new_data = true;
 
-      typed_target->stamp = rclcpp::Time(msg->header.stamp, clock_type);
-      typed_target->frame_id = msg->header.frame_id;
-      typed_target->new_data = true;
-
-      typed_target->data = *msg;  // Copy the Detection3DArray message
-      typed_target->valid = true;
-    }, options);
+      perception_data_->data = *msg;  // Copy the Detection3DArray message
+      perception_data_->valid = true;
+    },
+    options);
 }
 
-void
-DetectionsPerceptionsHandler::populate_nav_state(
-  const std::string & group,
-  const std::vector<PerceptionPtr> & perceptions,
-  NavState & ns)
+bool DetectionsPerceptionsHandler::cycle_rt(std::shared_ptr<NavState> nav_state)
 {
-  ns.set(group, get_perceptions<DetectionsPerception>(perceptions));
+  // Store the perception in the NavState
+  nav_state->set(get_sensor_name(), perception_data_);
+  // Check if there was new data to trigger process and reset new_data state
+  const bool should_trigger = perception_data_->new_data;
+  perception_data_->new_data = false;
+  return should_trigger;
 }
 
 rclcpp::Time get_latest_detections_perceptions_stamp(const DetectionsPerceptions & perceptions)
