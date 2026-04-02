@@ -52,6 +52,23 @@ public:
     return t == "sensor_msgs/msg/Image";
   }
 
+  ImagePerception()
+  {
+    [[maybe_unused]] static const bool _ = [] {
+        ::easynav::NavState::register_printer<ImagePerception>(
+          [](const ImagePerception & perception) {
+            std::ostringstream ret;
+            ret << "{ " << perception.stamp.seconds()
+                << " } ImagePerception ("
+                << perception.data.cols << " x " << perception.data.rows
+                << ") in frame [" << perception.frame_id
+                << "] with ts " << perception.stamp.seconds() << "\n";
+            return ret.str();
+        });
+        return true;
+      }();
+  }
+
   /// \brief Image data received from the sensor.
   ///
   /// The matrix layout follows OpenCV conventions. The encoding and channel depth depend on upstream conversion

@@ -52,6 +52,27 @@ public:
     return t == "sensor_msgs/msg/NavSatFix";
   }
 
+  GNSSPerception()
+  {
+    [[maybe_unused]] static const bool _ = [] {
+        ::easynav::NavState::register_printer<GNSSPerception>(
+          [](const GNSSPerception & perception) {
+            std::ostringstream ret;
+            const auto & fix = perception.data;
+            ret << "{ " << perception.stamp.seconds()
+                << " } GNSSPerception lat = " << fix.latitude
+                << ", lon = " << fix.longitude
+                << ", alt = " << fix.altitude
+                << " (status: " << static_cast<int>(fix.status.status)
+                << ", service: " << fix.status.service << ")"
+                << " in frame [" << perception.frame_id
+                << "] with ts " << perception.stamp.seconds() << "\n";
+            return ret.str();
+        });
+        return true;
+      }();
+  }
+
   /// \brief GNSS data received from the sensor.
   sensor_msgs::msg::NavSatFix data;
 };

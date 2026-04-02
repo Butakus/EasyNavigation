@@ -55,79 +55,6 @@ SensorsNode::SensorsNode(const rclcpp::NodeOptions & options)
     declare_parameter("forget_time", 1.0);
   }
 
-  ::easynav::NavState::register_printer<easynav::PointPerceptions>(
-    [](const easynav::PointPerceptions & perceptions) {
-      std::ostringstream ret;
-      ret << "{ " << easynav::get_latest_point_perceptions_stamp(perceptions).seconds() <<
-        " } PointPerception " << perceptions.size() << " with:\n";
-      for (const auto & perception : perceptions) {
-        ret   << "\t[" << static_cast<const void *>(perception.get()) << "] --> "
-              << perception->data.size() << " points in frame [" << perception->frame_id
-              << "] with ts " << perception->stamp.seconds() << "\n";
-      }
-      return ret.str();
-      });
-
-  ::easynav::NavState::register_printer<easynav::ImagePerceptions>(
-    [](const easynav::ImagePerceptions & perceptions) {
-      std::ostringstream ret;
-      ret << "{ " << easynav::get_latest_image_perceptions_stamp(perceptions).seconds() <<
-        " } ImagePerception " << perceptions.size() << " with:\n";
-      for (const auto & perception : perceptions) {
-        ret   << "\t[" << static_cast<const void *>(perception.get()) << "] --> "
-              << "Image (" << perception->data.cols << " x  " << perception->data.rows << ")"
-              << "] with ts " << perception->stamp.seconds() << "\n";
-      }
-      return ret.str();
-      });
-
-  ::easynav::NavState::register_printer<easynav::DetectionsPerceptions>(
-    [](const easynav::DetectionsPerceptions & perceptions) {
-      std::ostringstream ret;
-      ret << "{ " << easynav::get_latest_detections_perceptions_stamp(perceptions).seconds() <<
-        " } DetectionsPerceptions " << perceptions.size() << " with:\n";
-      for (const auto & perception : perceptions) {
-        ret   << "\t[" << static_cast<const void *>(perception.get()) << " --> "
-              << "Detections: " << perception->data.detections.size()
-              << "] with ts " << perception->stamp.seconds() << "\n";
-      }
-      return ret.str();
-      });
-
-  ::easynav::NavState::register_printer<easynav::IMUPerceptions>(
-    [](const easynav::IMUPerceptions & perceptions) {
-      std::ostringstream ret;
-      ret << "{ " << easynav::get_latest_imu_perceptions_stamp(perceptions).seconds() <<
-        " } IMUPerceptions " << perceptions.size() << " with:\n";
-      for (const auto & perception : perceptions) {
-        ret   << "\t[" << static_cast<const void *>(perception.get()) << "] --> "
-              << "IMUPerception linear acc = (" <<
-          perception->data.linear_acceleration.x << ", " <<
-          perception->data.linear_acceleration.y << ", " <<
-          perception->data.linear_acceleration.z << ")\n";
-      }
-      return ret.str();
-      });
-
-  ::easynav::NavState::register_printer<easynav::GNSSPerceptions>(
-    [](const easynav::GNSSPerceptions & perceptions) {
-      std::ostringstream ret;
-      ret << "{ " << easynav::get_latest_gnss_perceptions_stamp(perceptions).seconds() <<
-        " } GNSSPerceptions " << perceptions.size() << " with:\n";
-      for (const auto & perception : perceptions) {
-        const auto & fix = perception->data;
-        ret << "\t[" << static_cast<const void *>(perception.get()) << "] --> "
-            << "GNSSPerception lat = " << fix.latitude
-            << ", lon = " << fix.longitude
-            << ", alt = " << fix.altitude
-            << " (status: " << static_cast<int>(fix.status.status)
-            << ", service: " << fix.status.service << ")"
-            << " in frame [" << perception->frame_id << "]"
-            << " with ts " << perception->stamp.seconds() << "\n";
-      }
-      return ret.str();
-    });
-
   handler_loader_ = std::make_unique<pluginlib::ClassLoader<PerceptionHandler>>(
     "easynav_sensors", "easynav::PerceptionHandler");
 
@@ -212,6 +139,13 @@ SensorsNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & state
       declare_parameter(sensor_id + ".group", "");
     }
     get_parameter(sensor_id + ".group", group);
+
+    // Default group for point-cloud-like types
+    if (group.empty() &&
+      (msg_type == "sensor_msgs/msg/PointCloud2" || msg_type == "sensor_msgs/msg/LaserScan"))
+    {
+      group = "points";
+    }
 
     // Store the handler and add sensor to the group
     handler_list_.push_back(handler);

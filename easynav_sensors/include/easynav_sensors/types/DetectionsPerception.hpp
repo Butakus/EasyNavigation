@@ -52,6 +52,23 @@ public:
     return t == "vision_msgs/msg/Detection3DArray";
   }
 
+  DetectionsPerception()
+  {
+    [[maybe_unused]] static const bool _ = [] {
+        ::easynav::NavState::register_printer<DetectionsPerception>(
+          [](const DetectionsPerception & perception) {
+            std::ostringstream ret;
+            ret << "{ " << perception.stamp.seconds()
+                << " } DetectionsPerception with "
+                << perception.data.detections.size()
+                << " detections in frame [" << perception.frame_id
+                << "] with ts " << perception.stamp.seconds() << "\n";
+            return ret.str();
+        });
+        return true;
+      }();
+  }
+
   /// \brief Detection3DArray data received from the an external processing system.
   vision_msgs::msg::Detection3DArray data;
 };

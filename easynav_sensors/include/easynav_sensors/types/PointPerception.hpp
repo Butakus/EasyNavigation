@@ -96,6 +96,22 @@ public:
            t == "sensor_msgs/msg/PointCloud2";
   }
 
+  PointPerception()
+  {
+    [[maybe_unused]] static const bool _ = [] {
+        ::easynav::NavState::register_printer<PointPerception>(
+          [](const PointPerception & perception) {
+            std::ostringstream ret;
+            ret << "{ " << perception.stamp.seconds()
+                << " } PointPerception with " << perception.data.size()
+                << " points in frame [" << perception.frame_id
+                << "] with ts " << perception.stamp.seconds() << "\n";
+            return ret.str();
+        });
+        return true;
+      }();
+  }
+
   /// \brief The 3D point cloud data associated with this perception.
   pcl::PointCloud<pcl::PointXYZ> data;
 

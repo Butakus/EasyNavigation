@@ -20,6 +20,26 @@
 
 #include "gtest/gtest.h"
 
+#include <map>
+#include "easynav_sensors/types/PointPerception.hpp"
+#include "easynav_sensors/types/IMUPerception.hpp"
+#include "easynav_sensors/types/GNSSPerception.hpp"
+#include "easynav_sensors/types/ImagePerception.hpp"
+#include "easynav_sensors/types/DetectionsPerception.hpp"
+
+
+/// \brief Exposes protected members of SensorsNode for unit testing.
+class SensorsNodeForTesting : public easynav::SensorsNode
+{
+public:
+  explicit SensorsNodeForTesting(
+    const rclcpp::NodeOptions & options = rclcpp::NodeOptions())
+  : easynav::SensorsNode(options) {}
+
+  const std::map<std::string, std::vector<std::string>> &
+  groups_for_testing() const {return groups_;}
+};
+
 
 class SensorsLifecycleTestCase : public ::testing::Test
 {
@@ -206,11 +226,9 @@ TEST_F(SensorsLifecycleTestCase, ConfigureWithLaserScanSensor)
   std::vector<std::string> sensors = {"laser1"};
   node->declare_parameter("laser1.topic", std::string("/test_scan"));
   node->declare_parameter("laser1.type", std::string("sensor_msgs/msg/LaserScan"));
-  node->declare_parameter("laser1.group", std::string("points"));
   node->set_parameter({"sensors", sensors});
   node->set_parameter({"laser1.topic", std::string("/test_scan")});
   node->set_parameter({"laser1.type", std::string("sensor_msgs/msg/LaserScan")});
-  node->set_parameter({"laser1.group", std::string("points")});
 
   node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
   EXPECT_EQ(
@@ -225,11 +243,9 @@ TEST_F(SensorsLifecycleTestCase, ConfigureWithPointCloud2Sensor)
   std::vector<std::string> sensors = {"lidar3d"};
   node->declare_parameter("lidar3d.topic", std::string("/test_pc2"));
   node->declare_parameter("lidar3d.type", std::string("sensor_msgs/msg/PointCloud2"));
-  node->declare_parameter("lidar3d.group", std::string("points"));
   node->set_parameter({"sensors", sensors});
   node->set_parameter({"lidar3d.topic", std::string("/test_pc2")});
   node->set_parameter({"lidar3d.type", std::string("sensor_msgs/msg/PointCloud2")});
-  node->set_parameter({"lidar3d.group", std::string("points")});
 
   node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
   EXPECT_EQ(
@@ -247,20 +263,203 @@ TEST_F(SensorsLifecycleTestCase, ConfigureWithMultipleSensors)
   node->declare_parameter("scan_front.group", std::string("points"));
   node->declare_parameter("scan_back.topic", std::string("/back_scan"));
   node->declare_parameter("scan_back.type", std::string("sensor_msgs/msg/LaserScan"));
-  node->declare_parameter("scan_back.group", std::string("points"));
 
   node->set_parameter({"sensors", sensors});
   node->set_parameter({"scan_front.topic", std::string("/front_scan")});
   node->set_parameter({"scan_front.type", std::string("sensor_msgs/msg/LaserScan")});
-  node->set_parameter({"scan_front.group", std::string("points")});
   node->set_parameter({"scan_back.topic", std::string("/back_scan")});
   node->set_parameter({"scan_back.type", std::string("sensor_msgs/msg/LaserScan")});
-  node->set_parameter({"scan_back.group", std::string("points")});
 
   node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
   EXPECT_EQ(
     node->get_current_state().id(),
     lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Default group assignment for PointCloud2 and LaserScan sensors
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(SensorsLifecycleTestCase, LaserScanGetsDefaultPointsGroupWhenNoGroupParam)
+{
+  auto node = std::make_shared<SensorsNodeForTesting>();
+  node->declare_parameter("scan.topic", std::string("/scan"));
+  node->declare_parameter("scan.type", std::string("sensor_msgs/msg/LaserScan"));
+  node->set_parameter({"sensors", std::vector<std::string>{"scan"}});
+
+  node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
+  ASSERT_EQ(
+    node->get_current_state().id(),
+    lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+
+  const auto & groups = node->groups_for_testing();
+  ASSERT_TRUE(groups.count("points")) <<
+    "Group 'points' must exist for LaserScan without group param";
+  ASSERT_EQ(groups.at("points").size(), 1u);
+  EXPECT_EQ(groups.at("points")[0], "scan");
+}
+
+TEST_F(SensorsLifecycleTestCase, PointCloud2GetsDefaultPointsGroupWhenNoGroupParam)
+{
+  auto node = std::make_shared<SensorsNodeForTesting>();
+  node->declare_parameter("lidar.topic", std::string("/pc2"));
+  node->declare_parameter("lidar.type", std::string("sensor_msgs/msg/PointCloud2"));
+  node->set_parameter({"sensors", std::vector<std::string>{"lidar"}});
+
+  node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
+  ASSERT_EQ(
+    node->get_current_state().id(),
+    lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+
+  const auto & groups = node->groups_for_testing();
+  ASSERT_TRUE(groups.count("points")) <<
+    "Group 'points' must exist for PointCloud2 without group param";
+  ASSERT_EQ(groups.at("points").size(), 1u);
+  EXPECT_EQ(groups.at("points")[0], "lidar");
+}
+
+TEST_F(SensorsLifecycleTestCase, ExplicitGroupOverridesDefaultForLaserScan)
+{
+  auto node = std::make_shared<SensorsNodeForTesting>();
+  node->declare_parameter("scan.topic", std::string("/scan"));
+  node->declare_parameter("scan.type", std::string("sensor_msgs/msg/LaserScan"));
+  node->declare_parameter("scan.group", std::string("custom_group"));
+  node->set_parameter({"sensors", std::vector<std::string>{"scan"}});
+  node->set_parameter({"scan.group", std::string("custom_group")});
+
+  node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
+  ASSERT_EQ(
+    node->get_current_state().id(),
+    lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+
+  const auto & groups = node->groups_for_testing();
+  EXPECT_FALSE(groups.count("points")) <<
+    "Group 'points' must NOT exist when explicit group is set";
+  ASSERT_TRUE(groups.count("custom_group")) << "Explicit group 'custom_group' must exist";
+  EXPECT_EQ(groups.at("custom_group")[0], "scan");
+}
+
+TEST_F(SensorsLifecycleTestCase, IMUSensorHasNoDefaultGroup)
+{
+  auto node = std::make_shared<SensorsNodeForTesting>();
+  node->declare_parameter("imu.topic", std::string("/imu"));
+  node->declare_parameter("imu.type", std::string("sensor_msgs/msg/Imu"));
+  node->set_parameter({"sensors", std::vector<std::string>{"imu"}});
+
+  node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
+  ASSERT_EQ(
+    node->get_current_state().id(),
+    lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+
+  const auto & groups = node->groups_for_testing();
+  EXPECT_FALSE(groups.count("points")) << "IMU sensor must NOT have default 'points' group";
+  EXPECT_TRUE(groups.empty()) << "IMU without explicit group must not add any entry to groups_";
+}
+
+TEST_F(SensorsLifecycleTestCase, GNSSSensorHasNoDefaultGroup)
+{
+  auto node = std::make_shared<SensorsNodeForTesting>();
+  node->declare_parameter("gnss.topic", std::string("/fix"));
+  node->declare_parameter("gnss.type", std::string("sensor_msgs/msg/NavSatFix"));
+  node->set_parameter({"sensors", std::vector<std::string>{"gnss"}});
+
+  node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
+  ASSERT_EQ(
+    node->get_current_state().id(),
+    lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+
+  const auto & groups = node->groups_for_testing();
+  EXPECT_FALSE(groups.count("points")) << "GNSS sensor must NOT have default 'points' group";
+  EXPECT_TRUE(groups.empty()) << "GNSS without explicit group must not add any entry to groups_";
+}
+
+TEST_F(SensorsLifecycleTestCase, MultiplePointSensorsDefaultToSamePointsGroup)
+{
+  auto node = std::make_shared<SensorsNodeForTesting>();
+  node->declare_parameter("scan_front.topic", std::string("/scan_front"));
+  node->declare_parameter("scan_front.type", std::string("sensor_msgs/msg/LaserScan"));
+  node->declare_parameter("lidar_top.topic", std::string("/pc2_top"));
+  node->declare_parameter("lidar_top.type", std::string("sensor_msgs/msg/PointCloud2"));
+  node->set_parameter({"sensors", std::vector<std::string>{"scan_front", "lidar_top"}});
+
+  node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
+  ASSERT_EQ(
+    node->get_current_state().id(),
+    lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+
+  const auto & groups = node->groups_for_testing();
+  ASSERT_TRUE(groups.count("points"));
+  EXPECT_EQ(groups.at("points").size(), 2u)
+    << "Both LaserScan and PointCloud2 without group must share 'points' group";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Perception type printer registration (constructor side-effect)
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(SensorsLifecycleTestCase, PointPerceptionRegistersPrinterOnConstruction)
+{
+  auto perception = std::make_shared<easynav::PointPerception>();
+  perception->frame_id = "lidar_frame";
+
+  easynav::NavState state;
+  state.set("test_lidar", perception);
+
+  std::string s = state.debug_string();
+  EXPECT_NE(s.find("PointPerception"), std::string::npos)
+    << "Printer must produce 'PointPerception' text. Got:\n" << s;
+}
+
+TEST_F(SensorsLifecycleTestCase, IMUPerceptionRegistersPrinterOnConstruction)
+{
+  auto perception = std::make_shared<easynav::IMUPerception>();
+  perception->frame_id = "imu_frame";
+
+  easynav::NavState state;
+  state.set("test_imu", perception);
+
+  std::string s = state.debug_string();
+  EXPECT_NE(s.find("IMUPerception"), std::string::npos)
+    << "Printer must produce 'IMUPerception' text. Got:\n" << s;
+}
+
+TEST_F(SensorsLifecycleTestCase, GNSSPerceptionRegistersPrinterOnConstruction)
+{
+  auto perception = std::make_shared<easynav::GNSSPerception>();
+  perception->frame_id = "gnss_frame";
+
+  easynav::NavState state;
+  state.set("test_gnss", perception);
+
+  std::string s = state.debug_string();
+  EXPECT_NE(s.find("GNSSPerception"), std::string::npos)
+    << "Printer must produce 'GNSSPerception' text. Got:\n" << s;
+}
+
+TEST_F(SensorsLifecycleTestCase, ImagePerceptionRegistersPrinterOnConstruction)
+{
+  auto perception = std::make_shared<easynav::ImagePerception>();
+  perception->frame_id = "camera_frame";
+
+  easynav::NavState state;
+  state.set("test_image", perception);
+
+  std::string s = state.debug_string();
+  EXPECT_NE(s.find("ImagePerception"), std::string::npos)
+    << "Printer must produce 'ImagePerception' text. Got:\n" << s;
+}
+
+TEST_F(SensorsLifecycleTestCase, DetectionsPerceptionRegistersPrinterOnConstruction)
+{
+  auto perception = std::make_shared<easynav::DetectionsPerception>();
+  perception->frame_id = "camera_frame";
+
+  easynav::NavState state;
+  state.set("test_detections", perception);
+
+  std::string s = state.debug_string();
+  EXPECT_NE(s.find("DetectionsPerception"), std::string::npos)
+    << "Printer must produce 'DetectionsPerception' text. Got:\n" << s;
 }
 
 int main(int argc, char ** argv)

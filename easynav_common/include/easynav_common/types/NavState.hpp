@@ -108,12 +108,13 @@ public:
     if (it == values_.end()) {
       values_[key] = std::make_shared<T>(value);
       types_[key] = typeid(T).hash_code();
+      type_names_[key] = demangle(typeid(T).name());
     } else {
       if (types_[key] != typeid(T).hash_code()) {
         std::ostringstream oss;
         oss << "Type mismatch in set(\"" << key << "\")\n"
-            << "  expected(hash): " << types_[key] << "\n"
-            << "  provided     : " << demangle(typeid(T).name()) << "\n"
+            << "  stored type  : " << type_names_[key] << "\n"
+            << "  provided type: " << demangle(typeid(T).name()) << "\n"
             << "Backtrace:\n" << stacktrace(1);
         throw std::runtime_error(oss.str());
       }
@@ -141,12 +142,13 @@ public:
     if (it == values_.end()) {
       values_[key] = std::shared_ptr<T>(value_ptr);
       types_[key] = typeid(T).hash_code();
+      type_names_[key] = demangle(typeid(T).name());
     } else {
       if (types_[key] != typeid(T).hash_code()) {
         std::ostringstream oss;
         oss << "Type mismatch in set(\"" << key << "\")\n"
-            << "  expected(hash): " << types_[key] << "\n"
-            << "  provided     : " << demangle(typeid(T).name()) << "\n"
+            << "  stored type  : " << type_names_[key] << "\n"
+            << "  provided type: " << demangle(typeid(T).name()) << "\n"
             << "Backtrace:\n" << stacktrace(1);
         throw std::runtime_error(oss.str());
       }
@@ -155,7 +157,7 @@ public:
     }
   }
 
-  /// \brief Sets a new group of values as a list of strings.
+  /// \brief Sets a new group of values as a list of strings. It aslo stores the group keys as a value for introspection/debugging purposes.
   /// The group consists of a vector of keys, where each key points to a NavState element.
   ///
   /// If \p key does not exist, a new list is created and stored.
@@ -167,6 +169,9 @@ public:
   {
     std::lock_guard<std::mutex> lock(group_mutex_);
     groups_[key] = group_keys;
+
+    // Also store the group keys as a value for introspection/debugging purposes.
+    set<std::vector<std::string>>(key, group_keys);
   }
 
   /// \brief Retrieves a const reference to the stored value of type \p T for \p key.
@@ -188,7 +193,11 @@ public:
     }
 
     if (types_.at(key) != typeid(T).hash_code()) {
-      throw std::runtime_error("Type mismatch in get for key: " + key);
+      std::ostringstream oss;
+      oss << "Type mismatch in get(\"" << key << "\")\n"
+          << "  stored type   : " << type_names_.at(key) << "\n"
+          << "  requested type: " << demangle(typeid(T).name());
+      throw std::runtime_error(oss.str());
     }
 
     auto ptr = std::static_pointer_cast<T>(it->second);
@@ -214,7 +223,11 @@ public:
     }
 
     if (types_.at(key) != typeid(T).hash_code()) {
-      throw std::runtime_error("Type mismatch in get for key: " + key);
+      std::ostringstream oss;
+      oss << "Type mismatch in get_ptr(\"" << key << "\")\n"
+          << "  stored type   : " << type_names_.at(key) << "\n"
+          << "  requested type: " << demangle(typeid(T).name());
+      throw std::runtime_error(oss.str());
     }
 
     return std::static_pointer_cast<T>(it->second);
@@ -244,7 +257,12 @@ public:
     out.reserve(group_keys.size());
 
     for (const auto & group_key : group_keys) {
-      out.push_back(get_ptr<T>(group_key));
+      try {
+        out.push_back(get_ptr<T>(group_key));
+      } catch (const std::runtime_error & e) {
+        std::cerr << "Error retrieving key '" << group_key << "' from group '" << group_key <<
+          "': " << e.what() << std::endl;
+      }
     }
 
     return out;
@@ -343,6 +361,17 @@ public:
     register_printer<std::string>([](const std::string & v) {return v;});
     register_printer<bool>([](const bool & v) {return v ? "true" : "false";});
     register_printer<char>([](const char & v) {return std::string(1, v);});
+    register_printer<std::vector<std::string>>(
+      [](const std::vector<std::string> & v) {
+        std::ostringstream oss;
+        oss << " " << v.size() << " {";
+        for (std::size_t i = 0; i < v.size(); ++i) {
+          if (i > 0) {oss << ", ";}
+          oss << v[i];
+        }
+        oss << "}";
+        return oss.str();
+      });
   }
 
 private:
@@ -357,6 +386,9 @@ private:
 
   /// \brief Stored type hash (from \c typeid(T).hash_code()) per key.
   mutable std::unordered_map<std::string, size_t> types_;
+
+  /// \brief Stored demangled type name per key, for error reporting.
+  mutable std::unordered_map<std::string, std::string> type_names_;
 
   /// \brief Registry of type-hash -> printer functors used by \ref debug_string().
   static inline std::unordered_map<size_t, AnyPrinter> type_printers_;

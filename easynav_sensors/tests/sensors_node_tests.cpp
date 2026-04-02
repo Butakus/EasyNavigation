@@ -341,12 +341,10 @@ TEST_F(SensorsNodeTestCase, percept_laserscan)
   std::vector<std::string> sensors = {"laser1"};
   sensors_node->declare_parameter("laser1.topic", std::string("/scan1"));
   sensors_node->declare_parameter("laser1.type", std::string("sensor_msgs/msg/LaserScan"));
-  sensors_node->declare_parameter("laser1.group", std::string("points"));
   sensors_node->set_parameter({"sensors", sensors});
   sensors_node->set_parameter({"forget_time", 0.5});
   sensors_node->set_parameter({"laser1.topic", std::string("/scan1")});
   sensors_node->set_parameter({"laser1.type", std::string("sensor_msgs/msg/LaserScan")});
-  sensors_node->set_parameter({"laser1.group", std::string("points")});
 
   {
     auto start = test_node->now();
@@ -444,10 +442,8 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
   sensors_node->declare_parameter("robot_frame", std::string("base_link"));
   sensors_node->declare_parameter("robot_footprint_frame", std::string("base_footprint"));
   sensors_node->declare_parameter("laser1.type", std::string("sensor_msgs/msg/LaserScan"));
-  sensors_node->declare_parameter("laser1.group", std::string("points"));
   sensors_node->declare_parameter("laser2.topic", std::string("/scan2"));
   sensors_node->declare_parameter("laser2.type", std::string("sensor_msgs/msg/LaserScan"));
-  sensors_node->declare_parameter("laser2.group", std::string("points"));
 
   sensors_node->set_parameter({"sensors", sensors});
   sensors_node->set_parameter({"forget_time", 0.5});
@@ -455,10 +451,8 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
   sensors_node->set_parameter({"robot_footprint_frame", std::string("base_footprint")});
   sensors_node->set_parameter({"laser1.topic", std::string("/scan1")});
   sensors_node->set_parameter({"laser1.type", std::string("sensor_msgs/msg/LaserScan")});
-  sensors_node->set_parameter({"laser1.group", std::string("points")});
   sensors_node->set_parameter({"laser2.topic", std::string("/scan2")});
   sensors_node->set_parameter({"laser2.type", std::string("sensor_msgs/msg/LaserScan")});
-  sensors_node->set_parameter({"laser2.group", std::string("points")});
 
   {
     auto start = test_node->now();
@@ -616,12 +610,10 @@ TEST_F(SensorsNodeTestCase, percept_pc2)
   std::vector<std::string> sensors = {"laser3d1"};
   sensors_node->declare_parameter("laser3d1.topic", std::string("/pc1"));
   sensors_node->declare_parameter("laser3d1.type", std::string("sensor_msgs/msg/PointCloud2"));
-  sensors_node->declare_parameter("laser3d1.group", std::string("points"));
   sensors_node->set_parameter({"sensors", sensors});
   sensors_node->set_parameter({"forget_time", 0.5});
   sensors_node->set_parameter({"laser3d1.topic", std::string("/pc1")});
   sensors_node->set_parameter({"laser3d1.type", std::string("sensor_msgs/msg/PointCloud2")});
-  sensors_node->set_parameter({"laser3d1.group", std::string("points")});
 
   {
     auto start = test_node->now();
@@ -705,10 +697,8 @@ TEST_F(SensorsNodeTestCase, per_sensor_handler_mixed_types_same_group)
 
   sensors_node->declare_parameter("scan_sensor.topic", std::string("/scan_mixed"));
   sensors_node->declare_parameter("scan_sensor.type", std::string("sensor_msgs/msg/LaserScan"));
-  sensors_node->declare_parameter("scan_sensor.group", std::string("points"));
   sensors_node->declare_parameter("pc2_sensor.topic", std::string("/pc_mixed"));
   sensors_node->declare_parameter("pc2_sensor.type", std::string("sensor_msgs/msg/PointCloud2"));
-  sensors_node->declare_parameter("pc2_sensor.group", std::string("points"));
   sensors_node->set_parameter({"sensors", std::vector<std::string>{"scan_sensor", "pc2_sensor"}});
   sensors_node->set_parameter({"forget_time", 2.0});
 
@@ -1016,3 +1006,117 @@ TEST_F(SensorsNodeTestCase, percept_fuse_all)
     }
   }
 }*/
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Functional tests: default "points" group (no group param set)
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(SensorsNodeTestCase, percept_laserscan_default_group)
+{
+  auto nav_state = std::make_shared<easynav::NavState>();
+  auto sensors_node = easynav::SensorsNode::make_shared();
+  auto test_node = rclcpp::Node::make_shared("test_node");
+  auto laser_pub = test_node->create_publisher<sensor_msgs::msg::LaserScan>(
+    "/scan1", rclcpp::SensorDataQoS().reliable());
+
+  rclcpp::executors::SingleThreadedExecutor exe;
+  exe.add_node(sensors_node->get_node_base_interface());
+  exe.add_callback_group(sensors_node->get_real_time_cbg(),
+    sensors_node->get_node_base_interface());
+  exe.add_node(test_node);
+
+  // No group parameter declared or set — must auto-assign "points"
+  sensors_node->declare_parameter("scan_def.topic", std::string("/scan1"));
+  sensors_node->declare_parameter("scan_def.type", std::string("sensor_msgs/msg/LaserScan"));
+  sensors_node->set_parameter({"sensors", std::vector<std::string>{"scan_def"}});
+  sensors_node->set_parameter({"forget_time", 0.5});
+  sensors_node->set_parameter({"scan_def.topic", std::string("/scan1")});
+  sensors_node->set_parameter({"scan_def.type", std::string("sensor_msgs/msg/LaserScan")});
+
+  {
+    auto start = test_node->now();
+    while (test_node->now() - start < 100ms) {
+      exe.spin_some();
+    }
+  }
+
+  sensors_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
+  ASSERT_EQ(sensors_node->get_current_state().id(),
+    lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+
+  sensors_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE);
+  ASSERT_EQ(sensors_node->get_current_state().id(),
+    lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE);
+
+  {
+    auto start = test_node->now();
+    while (test_node->now() - start < 1s) {
+      sensors_node->cycle_rt(nav_state);
+      sensors_node->cycle(nav_state);
+      laser_pub->publish(get_scan_test_1(test_node->now()));
+      exe.spin_some();
+    }
+  }
+
+  ASSERT_TRUE(nav_state->has_group("points"))
+    << "LaserScan without group param must be in 'points' group";
+  auto perceptions = nav_state->get_group<easynav::PointPerception>("points");
+  ASSERT_EQ(perceptions.size(), 1u);
+  ASSERT_EQ(perceptions[0]->frame_id, "base_laser");
+  ASSERT_EQ(perceptions[0]->valid, true);
+}
+
+TEST_F(SensorsNodeTestCase, percept_pc2_default_group)
+{
+  auto nav_state = std::make_shared<easynav::NavState>();
+  auto sensors_node = easynav::SensorsNode::make_shared();
+  auto test_node = rclcpp::Node::make_shared("test_node");
+  auto pc2_pub = test_node->create_publisher<sensor_msgs::msg::PointCloud2>(
+    "/pc1", rclcpp::SensorDataQoS().reliable());
+
+  rclcpp::executors::SingleThreadedExecutor exe;
+  exe.add_node(sensors_node->get_node_base_interface());
+  exe.add_callback_group(sensors_node->get_real_time_cbg(),
+    sensors_node->get_node_base_interface());
+  exe.add_node(test_node);
+
+  // No group parameter declared or set — must auto-assign "points"
+  sensors_node->declare_parameter("lidar_def.topic", std::string("/pc1"));
+  sensors_node->declare_parameter("lidar_def.type", std::string("sensor_msgs/msg/PointCloud2"));
+  sensors_node->set_parameter({"sensors", std::vector<std::string>{"lidar_def"}});
+  sensors_node->set_parameter({"forget_time", 0.5});
+  sensors_node->set_parameter({"lidar_def.topic", std::string("/pc1")});
+  sensors_node->set_parameter({"lidar_def.type", std::string("sensor_msgs/msg/PointCloud2")});
+
+  {
+    auto start = test_node->now();
+    while (test_node->now() - start < 100ms) {
+      exe.spin_some();
+    }
+  }
+
+  sensors_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_CONFIGURE);
+  ASSERT_EQ(sensors_node->get_current_state().id(),
+    lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+
+  sensors_node->trigger_transition(lifecycle_msgs::msg::Transition::TRANSITION_ACTIVATE);
+  ASSERT_EQ(sensors_node->get_current_state().id(),
+    lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE);
+
+  {
+    auto start = test_node->now();
+    while (test_node->now() - start < 1s) {
+      pc2_pub->publish(get_pc2_test_0(test_node->now()));
+      sensors_node->cycle_rt(nav_state);
+      sensors_node->cycle(nav_state);
+      exe.spin_some();
+    }
+  }
+
+  ASSERT_TRUE(nav_state->has_group("points"))
+    << "PointCloud2 without group param must be in 'points' group";
+  auto perceptions = nav_state->get_group<easynav::PointPerception>("points");
+  ASSERT_EQ(perceptions.size(), 1u);
+  ASSERT_EQ(perceptions[0]->frame_id, "base_lidar3d");
+  ASSERT_EQ(perceptions[0]->valid, true);
+}

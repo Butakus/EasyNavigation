@@ -141,3 +141,44 @@ TEST(NavStateStressTest, ConcurrentMultiKeyReadWrite)
   }
   SUCCEED();
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// std::vector<std::string> printer (added in register_basic_printers)
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(NavStateTest, VectorStringPrinterEmptyVector)
+{
+  easynav::NavState state;
+  state.set("keys", std::vector<std::string>{});
+  std::string s = state.debug_string();
+  EXPECT_NE(s.find("[]"), std::string::npos) << "Empty vector must render as []\n" << s;
+}
+
+TEST_F(NavStateTest, VectorStringPrinterSingleElement)
+{
+  easynav::NavState state;
+  state.set("keys", std::vector<std::string>{"sensor_a"});
+  std::string s = state.debug_string();
+  EXPECT_NE(s.find("[sensor_a]"), std::string::npos)
+    << "Single element must render as [sensor_a]\n" << s;
+}
+
+TEST_F(NavStateTest, VectorStringPrinterMultipleElements)
+{
+  easynav::NavState state;
+  state.set("keys", std::vector<std::string>{"sensor_a", "sensor_b", "sensor_c"});
+  std::string s = state.debug_string();
+  EXPECT_NE(s.find("[sensor_a, sensor_b, sensor_c]"), std::string::npos)
+    << "Multiple elements must render comma-separated\n" << s;
+}
+
+TEST_F(NavStateTest, SetGroupIsVisibleInDebugString)
+{
+  easynav::NavState state;
+  state.set_group("points", {"lidar_front", "lidar_back"});
+  std::string s = state.debug_string();
+  EXPECT_NE(s.find("lidar_front"), std::string::npos)
+    << "Group member must appear in debug_string\n" << s;
+  EXPECT_NE(s.find("lidar_back"), std::string::npos)
+    << "Group member must appear in debug_string\n" << s;
+}

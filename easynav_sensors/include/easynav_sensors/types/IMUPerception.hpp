@@ -52,6 +52,25 @@ public:
     return t == "sensor_msgs/msg/Imu";
   }
 
+  IMUPerception()
+  {
+    [[maybe_unused]] static const bool _ = [] {
+        ::easynav::NavState::register_printer<IMUPerception>(
+          [](const IMUPerception & perception) {
+            std::ostringstream ret;
+            ret << "{ " << perception.stamp.seconds()
+                << " } IMUPerception linear acc = ("
+                << perception.data.linear_acceleration.x << ", "
+                << perception.data.linear_acceleration.y << ", "
+                << perception.data.linear_acceleration.z
+                << ") in frame [" << perception.frame_id
+                << "] with ts " << perception.stamp.seconds() << "\n";
+            return ret.str();
+        });
+        return true;
+      }();
+  }
+
   /// \brief IMU data received from the sensor.
   sensor_msgs::msg::Imu data;
 };
