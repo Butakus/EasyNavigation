@@ -52,6 +52,7 @@ public:
   std::string frame_id;
 
   /// \brief Whether the perception contains valid data.
+  // TODO: Not in use
   bool valid = false;
 
   /// \brief Whether the data has changed since the last observation.
@@ -62,36 +63,18 @@ public:
 /// \brief Shared pointer alias to \ref PerceptionBase.
 using PerceptionBasePtr = std::shared_ptr<PerceptionBase>;
 
-/// \struct PerceptionPtr
-/// \brief Represents a perception entry with its state, ROS subscription, and owning handler.
-///
-/// Holds a pointer to a perception object (\ref PerceptionBase), the associated subscription,
-/// and the \ref PerceptionHandler that created it. The handler is used to populate the NavState
-/// with the correctly typed collection for this sensor's group.
-struct PerceptionPtr
-{
-  /// \brief Shared pointer to the current perception object.
-  PerceptionBasePtr perception;
-
-  /// \brief ROS 2 subscription to the sensor topic that provides data.
-  rclcpp::SubscriptionBase::SharedPtr subscription;
-
-  /// \brief Handler that owns this perception and knows how to cast it into NavState.
-  std::shared_ptr<PerceptionHandler> handler{nullptr};
-};
 
 /// \brief Extracts a homogeneous collection of perceptions of type \p T from a heterogeneous vector.
 ///
-/// This helper iterates the input vector of \ref PerceptionPtr and:
-/// - If \p T is exactly \ref PerceptionBase, returns all stored pointers without casting (heterogeneous view).
-/// - Otherwise, attempts a `std::dynamic_pointer_cast<T>` and includes only those perceptions that match (homogeneous view).
+/// This helper iterates the input vector of \ref PerceptionBasePtr and attempts a `std::dynamic_pointer_cast<T>`
+/// and includes only those perceptions that match (homogeneous view).
 ///
 /// \tparam T Target perception type. Must inherit from \ref PerceptionBase. Defaults to \ref PerceptionBase.
-/// \param src Source vector containing heterogeneous perceptions and their subscriptions.
+/// \param src Source vector containing pointers to heterogeneous perceptions ( \ref PerceptionBasePtr ).
 /// \return A vector of `std::shared_ptr<T>` containing the matching perceptions, in the same order as \p src.
 template<typename T = PerceptionBase>
 inline std::vector<std::shared_ptr<T>>
-get_perceptions(const std::vector<PerceptionPtr> & src)
+get_perceptions(const std::vector<PerceptionBasePtr> & src)
 {
   static_assert(std::is_base_of_v<PerceptionBase, T>,
                 "T must inherit from PerceptionBase");
@@ -99,29 +82,28 @@ get_perceptions(const std::vector<PerceptionPtr> & src)
   std::vector<std::shared_ptr<T>> out;
   out.reserve(src.size());
 
-  for (const auto & h : src) {
-    if (!h.perception) {continue;}
-
-    if constexpr (std::is_same_v<T, PerceptionBase>) {
-      // Heterogeneous: no cast needed
-      out.push_back(h.perception);
-    } else {
-      // Homogeneous by derived type: include only successful casts
-      if (auto p = std::dynamic_pointer_cast<T>(h.perception)) {
-        out.push_back(std::move(p));
-      }
+  for (const auto & perception : src) {
+    if (!perception) {continue;}
+    // Homogeneous by derived type: include only successful casts
+    if (auto p = std::dynamic_pointer_cast<T>(perception)) {
+      out.push_back(std::move(p));
     }
   }
   return out;
 }
 
+
 /// \class PerceptionHandler
 /// \brief Abstract base class for pluginlib-based sensor perception handlers.
 ///
-/// Each handler is responsible for a sensor group (e.g., "points", "image", "imu").
+/// Each handler is responsible for a single sensor input (e.g., "lidar_center", "image_color", "imu_0").
 /// Concrete handlers are registered as pluginlib plugins and loaded at runtime.
-/// A user can implement a new sensor type by deriving from this class and registering it
+/// A user can implement a new sensor input handler by deriving from this class and registering it
 /// as a plugin in the corresponding package's plugin XML file.
+/// The handler is the owner of the sensor data.
+/// It is also responsible for reserving memory to hold the sensor data and
+/// must keep the data address consistent during the whole execution.
+/// The handler must populate the NavState with the sensor data
 class PerceptionHandler
 {
 public:
@@ -136,61 +118,45 @@ public:
   /// \param sensor_name Name of the sensor (used as parameter namespace prefix).
   void initialize(
     const std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node,
+    const rclcpp::CallbackGroup::SharedPtr realtime_cbg,
     const std::string & sensor_name)
   {
     parent_node_ = parent_node;
+    realtime_cbg_ = realtime_cbg;
     sensor_name_ = sensor_name;
     on_initialize();
   }
 
   /// \brief Optional post-initialization hook for subclasses.
+  /// Here, the handler must reserve memory to store the perception data
+  /// and create any Subscription or similar objects to read the data.
   virtual void on_initialize() {}
 
-  /// \brief Creates a new perception instance for this sensor.
-  /// \return Shared pointer to a newly created \ref PerceptionBase subclass.
-  virtual std::shared_ptr<PerceptionBase> create() = 0;
+  /// @brief Run one real-time sensor processing cycle.
+  /// This method is called by the SensorsNode before executing its cycle_rt.
+  /// Here the handler should update the NavState with the sensor data.
+  /// If new data arrived before this call and the state is updated, it must return true.
+  ///
+  /// @param nav_state Pointer to the NavState to store the sensor data.
+  /// @return True if new data was stored (to trigger processing).
+  virtual bool cycle_rt([[maybe_unused]] std::shared_ptr<NavState> nav_state) {return false;}
 
-  /// \brief Creates a ROS subscription that stores incoming data into \p target.
-  ///
-  /// \param topic Topic name to subscribe to.
-  /// \param type ROS message type name (e.g., `"sensor_msgs/msg/LaserScan"`).
-  /// \param target Shared pointer to the \ref PerceptionBase subclass to update.
-  /// \param cb_group Callback group for executor-level concurrency control.
-  /// \return Shared pointer to the created subscription.
-  virtual rclcpp::SubscriptionBase::SharedPtr create_subscription(
-    const std::string & topic,
-    const std::string & type,
-    std::shared_ptr<PerceptionBase> target,
-    rclcpp::CallbackGroup::SharedPtr cb_group) = 0;
-
-  /// \brief Returns the group identifier associated with this handler.
-  ///
-  /// Example: `"points"`, `"image"`, `"imu"`, `"gnss"`.
-  /// \return String representing the group name.
-  virtual std::string group() const = 0;
-
-  /// \brief Populates the \ref NavState with typed perceptions for the given group.
-  ///
-  /// Implementations call `ns.set(group, get_perceptions<ConcreteType>(perceptions))`
-  /// to store the correctly typed vector into `NavState`.
-  ///
-  /// \param group The group name under which to store the perceptions.
-  /// \param perceptions Vector of \ref PerceptionPtr for all sensors in this group.
-  /// \param ns Navigation state to populate.
-  virtual void populate_nav_state(
-    const std::string & group,
-    const std::vector<PerceptionPtr> & perceptions,
-    NavState & ns) = 0;
 
   /// \brief Returns the sensor name provided during \ref initialize.
   const std::string & get_sensor_name() const {return sensor_name_;}
 
 protected:
   /// \brief Returns the parent lifecycle node.
-  std::shared_ptr<rclcpp_lifecycle::LifecycleNode> get_node() const {return parent_node_;}
+  std::shared_ptr<rclcpp_lifecycle::LifecycleNode> get_node() const {return parent_node_.lock();}
+
+  /// \brief Returns the parent lifecycle node.
+  rclcpp::CallbackGroup::SharedPtr get_realtime_cbg() const {return realtime_cbg_;}
 
   /// \brief Shared pointer to the parent lifecycle node.
-  std::shared_ptr<rclcpp_lifecycle::LifecycleNode> parent_node_{nullptr};
+  std::weak_ptr<rclcpp_lifecycle::LifecycleNode> parent_node_;
+
+  /// \brief Callback group for real-time operations.
+  rclcpp::CallbackGroup::SharedPtr realtime_cbg_;
 
   /// \brief Name of the sensor (used as YAML parameter namespace prefix).
   std::string sensor_name_;

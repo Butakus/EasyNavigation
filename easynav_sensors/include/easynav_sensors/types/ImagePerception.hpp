@@ -67,35 +67,26 @@ public:
 class ImagePerceptionHandler : public PerceptionHandler
 {
 public:
-  /// \brief Returns the group managed by this handler.
-  /// \return The string literal "image".
-  std::string group() const override {return "image";}
+  /// \brief Optional post-initialization hook for subclasses.
+  /// Here, the handler must reserve memory to store the perception data
+  /// and create any Subscription or similar objects to read the data.
+  void on_initialize() override;
 
-  /// \brief Creates a new empty ImagePerception instance.
-  /// \return Shared pointer to a newly created ImagePerception.
-  std::shared_ptr<PerceptionBase> create() override
-  {
-    return std::make_shared<ImagePerception>();
-  }
-
-  /// \brief Creates a subscription to an image topic that updates a target ImagePerception.
+  /// @brief Run one real-time sensor processing cycle.
+  /// This method is called by the SensorsNode before executing its cycle_rt.
+  /// Here the handler should update the NavState with the sensor data.
+  /// If new data arrived before this call and the state is updated, it must return true.
   ///
-  /// \param topic Topic name to subscribe to.
-  /// \param type ROS message type name. It must be "sensor_msgs/msg/Image".
-  /// \param target Shared pointer to the ImagePerception to be updated.
-  /// \param cb_group Callback group for executor-level concurrency control.
-  /// \return Shared pointer to the created subscription.
-  rclcpp::SubscriptionBase::SharedPtr create_subscription(
-    const std::string & topic,
-    const std::string & type,
-    std::shared_ptr<PerceptionBase> target,
-    rclcpp::CallbackGroup::SharedPtr cb_group) override;
+  /// @param nav_state Pointer to the NavState to store the sensor data.
+  /// @return True if new data was stored (to trigger processing).
+  bool cycle_rt([[maybe_unused]] std::shared_ptr<NavState> nav_state) override;
 
-  /// \brief Populates NavState with the image perceptions for the given group.
-  void populate_nav_state(
-    const std::string & group,
-    const std::vector<PerceptionPtr> & perceptions,
-    NavState & ns) override;
+private:
+  /// \brief pointer to the perception data
+  std::shared_ptr<ImagePerception> perception_data_ {nullptr};
+
+  /// \brief pointer to the subscription object
+  rclcpp::SubscriptionBase::SharedPtr perception_sub_;
 };
 
 /**

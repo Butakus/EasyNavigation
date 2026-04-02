@@ -102,7 +102,7 @@ public:
   template<typename T>
   void set(const std::string & key, const T & value)
   {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(state_mutex_);
     auto it = values_.find(key);
 
     if (it == values_.end()) {
@@ -135,7 +135,7 @@ public:
   template<typename T>
   void set(const std::string & key, const std::shared_ptr<T> value_ptr)
   {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(state_mutex_);
     auto it = values_.find(key);
 
     if (it == values_.end()) {
@@ -151,9 +151,22 @@ public:
         throw std::runtime_error(oss.str());
       }
 
-      auto ptr = std::static_pointer_cast<T>(it->second);
-      ptr = std::shared_ptr<T>(value_ptr);
+      it->second = value_ptr;
     }
+  }
+
+  /// \brief Sets a new group of values as a list of strings.
+  /// The group consists of a vector of keys, where each key points to a NavState element.
+  ///
+  /// If \p key does not exist, a new list is created and stored.
+  /// If \p key exists, the stored list is overwritten in place.
+  ///
+  /// \param key Key associated with the group.
+  /// \param group_keys Value to store. The list of other keys in the NavState that compose this group.
+  void set_group(const std::string & key, const std::vector<std::string> & group_keys)
+  {
+    std::lock_guard<std::mutex> lock(group_mutex_);
+    groups_[key] = group_keys;
   }
 
   /// \brief Retrieves a const reference to the stored value of type \p T for \p key.
@@ -167,7 +180,7 @@ public:
   template<typename T>
   const T & get(const std::string & key) const
   {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(state_mutex_);
     auto it = values_.find(key);
 
     if (it == values_.end()) {
@@ -193,7 +206,7 @@ public:
   template<typename T>
   const std::shared_ptr<T> get_ptr(const std::string & key) const
   {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(state_mutex_);
     auto it = values_.find(key);
 
     if (it == values_.end()) {
@@ -207,12 +220,50 @@ public:
     return std::static_pointer_cast<T>(it->second);
   }
 
+  /// \brief Retrieves a vector of values (pointers) from a group by the group key.
+  ///
+  /// The value pointers refer to the object managed by the internal \c std::shared_ptr<T>.
+  ///
+  /// \tparam T Expected stored type.
+  /// \param group_key Group key to retrieve.
+  /// \return vector of shared_ptr to the stored \p T.
+  /// \throws std::runtime_error If any \p key is missing or the stored type does not match \p T.
+  template<typename T>
+  const std::vector<std::shared_ptr<T>> get_group(const std::string & group_key) const
+  {
+    std::lock_guard<std::mutex> lock(group_mutex_);
+    auto group_it = groups_.find(group_key);
+
+    if (group_it == groups_.end()) {
+      throw std::runtime_error("Group key not found in get_group: " + group_key);
+    }
+
+    const auto group_keys = group_it->second;
+
+    std::vector<std::shared_ptr<T>> out;
+    out.reserve(group_keys.size());
+
+    for (const auto & group_key : group_keys) {
+      out.push_back(get_ptr<T>(group_key));
+    }
+
+    return out;
+  }
+
   /// \brief Checks whether \p key exists in the state.
   /// \param key Key to query.
   /// \return \c true if present, otherwise \c false.
   bool has(const std::string & key) const
   {
     return values_.find(key) != values_.end();
+  }
+
+  /// \brief Checks whether \p key exists in the state.
+  /// \param key Key to query.
+  /// \return \c true if present, otherwise \c false.
+  bool has_group(const std::string & key) const
+  {
+    return groups_.find(key) != groups_.end();
   }
 
   /// \brief Type alias for a generic printer functor used by \ref debug_string().
@@ -295,15 +346,19 @@ public:
   }
 
 private:
-  mutable std::mutex mutex_;  ///< Guards access to \ref values_ and \ref types_.
+  mutable std::mutex state_mutex_;  ///< Guards access to \ref values_ and \ref types_.
+  mutable std::mutex group_mutex_;  ///< Guards access to \ref groups_.
 
   /// \brief Internal storage of values as type-erased shared pointers.
   mutable std::unordered_map<std::string, std::shared_ptr<void>> values_;
 
+  /// \brief Group of NavState values, indexed by their keys. Useful to get multiple sensors together.
+  mutable std::unordered_map<std::string, std::vector<std::string>> groups_;
+
   /// \brief Stored type hash (from \c typeid(T).hash_code()) per key.
   mutable std::unordered_map<std::string, size_t> types_;
 
-  /// \brief Registry of type-hash → printer functors used by \ref debug_string().
+  /// \brief Registry of type-hash -> printer functors used by \ref debug_string().
   static inline std::unordered_map<size_t, AnyPrinter> type_printers_;
 };
 

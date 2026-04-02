@@ -16,7 +16,6 @@
 /// \brief Implementation of the SensorsNode class.
 
 #include <string>
-#include <string_view>
 #include <vector>
 #include <unordered_map>
 
@@ -206,20 +205,22 @@ SensorsNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & state
       return CallbackReturnT::FAILURE;
     }
 
-    handler->initialize(shared_from_this(), sensor_id);
+    handler->initialize(shared_from_this(), realtime_cbg_, sensor_id);
 
-    const std::string canonical_group = handler->group();
-    std::string group = canonical_group;
-
+    std::string group = "";
     if (!has_parameter(sensor_id + ".group")) {
-      declare_parameter(sensor_id + ".group", canonical_group);
+      declare_parameter(sensor_id + ".group", "");
     }
     get_parameter(sensor_id + ".group", group);
 
-    const auto perception_ptr = handler->create();
-    const auto sub = handler->create_subscription(topic, msg_type, perception_ptr, realtime_cbg_);
-
-    perceptions_[group].emplace_back(PerceptionPtr{perception_ptr, sub, handler});
+    // Store the handler and add sensor to the group
+    handler_list_.push_back(handler);
+    // Store group only if specified (if param exists)
+    if (group != "") {
+      // TODO: This assumes that the handler uses the sensor name to write in the
+      // NavState and it assumes it sets only one value
+      groups_[group].emplace_back(handler->get_sensor_name());
+    }
 
     RCLCPP_INFO(get_logger(),
       "Configured sensor [%s] with plugin [%s] on topic [%s] in group [%s]",
@@ -278,67 +279,37 @@ SensorsNode::get_real_time_cbg()
 }
 
 bool
-SensorsNode::set_by_group(
-  const std::string & group,
-  const std::vector<easynav::PerceptionPtr> & perceptions,
-  ::easynav::NavState & ns)
+SensorsNode::cycle_rt(
+  std::shared_ptr<NavState> nav_state,
+  [[maybe_unused]] bool trigger)
 {
-  // Use the handler stored in the first perception of the group.
-  // Each sensor carries its own handler, so there is no "first wins" ambiguity.
-  for (const auto & p : perceptions) {
-    if (p.handler) {
-      p.handler->populate_nav_state(group, perceptions, ns);
-      return true;
-    }
-  }
-  // Fallback: handlers registered externally via register_handler().
-  auto it = handlers_.find(group);
-  if (it == handlers_.end()) {
-    return false;
-  }
-  it->second->populate_nav_state(group, perceptions, ns);
-  return true;
-}
-
-bool
-SensorsNode::cycle_rt(std::shared_ptr<NavState> nav_state, bool trigger)
-{
-  (void)trigger;
-
   bool trigger_perceptions = false;
-
-  for (auto & group_perceptions : perceptions_) {
-    for (auto & p : group_perceptions.second) {
-      trigger_perceptions = trigger_perceptions || p.perception->new_data;
-      p.perception->new_data = false;
-    }
-
-    if (!set_by_group(group_perceptions.first, group_perceptions.second, *nav_state)) {
-      RCLCPP_WARN(get_logger(), "No perception handler for group [%s]",
-        group_perceptions.first.c_str());
-    }
+  // Run handlers' cycle and check if there is new sensor data o trigger perceptions
+  for (auto & handler : handler_list_) {
+    trigger_perceptions = trigger_perceptions || handler->cycle_rt(nav_state);
   }
 
   return trigger_perceptions;
 }
 
 void
-SensorsNode::cycle(std::shared_ptr<NavState> nav_state)
+SensorsNode::cycle([[maybe_unused]] std::shared_ptr<NavState> nav_state)
 {
-  for (auto & group_perceptions : perceptions_) {
-    for (auto & p : group_perceptions.second) {
-      if (p.perception->valid && (now() - p.perception->stamp).seconds() > forget_time_) {
-        p.perception->valid = false;
-      }
+  // Initialize groups in the NavState
+  if (!groups_initialized) {
+    for (const auto & group : groups_) {
+      RCLCPP_INFO(
+        get_logger(),
+        "Initializing sensor group [%s] in NavState",
+        group.first.c_str()
+      );
+      nav_state->set_group(group.first, group.second);
     }
-    if (!set_by_group(group_perceptions.first, group_perceptions.second, *nav_state)) {
-      RCLCPP_WARN(get_logger(), "No perception handler for group [%s]",
-              group_perceptions.first.c_str());
-    }
+    groups_initialized = true;
   }
 
-  if (percept_pub_->get_subscription_count() > 0) {
-    auto points_perceptions = get_point_perceptions(perceptions_["points"]);
+  if (percept_pub_->get_subscription_count() > 0 && nav_state->has_group("points")) {
+    const auto points_perceptions = nav_state->get_group<PointPerception>("points");
 
     PointPerceptionsOpsView fused_view(std::move(points_perceptions));
 
@@ -359,12 +330,6 @@ SensorsNode::cycle(std::shared_ptr<NavState> nav_state)
 
     percept_pub_->publish(msg);
   }
-}
-
-void
-SensorsNode::register_handler(std::shared_ptr<PerceptionHandler> handler)
-{
-  handlers_[handler->group()] = handler;
 }
 
 }  // namespace easynav

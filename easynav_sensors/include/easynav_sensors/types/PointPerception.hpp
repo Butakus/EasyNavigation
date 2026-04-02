@@ -262,36 +262,26 @@ protected:
 class PointPerceptionHandler : public PerceptionHandler
 {
 public:
-  /// \brief Returns the sensor group handled by this handler.
-  /// \return The string literal \c "points".
-  std::string group() const override {return "points";}
+  /// \brief Optional post-initialization hook for subclasses.
+  /// Here, the handler must reserve memory to store the perception data
+  /// and create any Subscription or similar objects to read the data.
+  void on_initialize() override;
 
-  /// \brief Creates a new \ref PointPerception instance.
-  /// \return Shared pointer to a new \ref PointPerception.
-  std::shared_ptr<PerceptionBase> create() override
-  {
-    return std::make_shared<PointPerception>();
-  }
-
-  /// \brief Creates a subscription to \c LaserScan or \c PointCloud2 messages and updates the perception.
+  /// \brief Run one real-time sensor processing cycle.
+  /// This method is called by the SensorsNode before executing its cycle_rt.
+  /// Here the handler should update the NavState with the sensor data.
+  /// If new data arrived before this call and the state is updated, it must return true.
   ///
-  /// \param topic Topic name to subscribe to.
-  /// \param type ROS message type name. Must be either \c "sensor_msgs/msg/LaserScan"
-  ///             or \c "sensor_msgs/msg/PointCloud2".
-  /// \param target Shared pointer to the perception instance to be updated.
-  /// \param cb_group Callback group for the subscription callback.
-  /// \return Shared pointer to the created subscription.
-  rclcpp::SubscriptionBase::SharedPtr create_subscription(
-    const std::string & topic,
-    const std::string & type,
-    std::shared_ptr<PerceptionBase> target,
-    rclcpp::CallbackGroup::SharedPtr cb_group) override;
+  /// \param nav_state Pointer to the NavState to store the sensor data.
+  /// \return True if new data was stored (to trigger processing).
+  bool cycle_rt([[maybe_unused]] std::shared_ptr<NavState> nav_state) override;
 
-  /// \brief Populates NavState with the point perceptions for the given group.
-  void populate_nav_state(
-    const std::string & group,
-    const std::vector<PerceptionPtr> & perceptions,
-    NavState & ns) override;
+private:
+  /// \brief pointer to the perception data
+  std::shared_ptr<PointPerception> perception_data_ {nullptr};
+
+  /// \brief pointer to the subscription object
+  rclcpp::SubscriptionBase::SharedPtr perception_sub_;
 };
 
 /// \brief Converts a \c LaserScan message into a point cloud.
@@ -313,11 +303,6 @@ sensor_msgs::msg::PointCloud2 points_to_rosmsg(const pcl::PointCloud<pcl::PointX
 /// \brief Alias for a vector of shared pointers to \ref PointPerception objects.
 using PointPerceptions =
   std::vector<std::shared_ptr<PointPerception>>;
-
-/// \brief Extracts all \ref PointPerception objects from a heterogeneous collection.
-/// \param perceptionptr Vector of \ref PerceptionPtr entries possibly holding mixed perception types.
-/// \return A vector with the subset of perceptions that are \ref PointPerception.
-PointPerceptions get_point_perceptions(std::vector<PerceptionPtr> & perceptionptr);
 
 /// \brief Retrieves the latest timestamp among a set of point-based perceptions.
 /// \param perceptions Container of point-based perceptions.
