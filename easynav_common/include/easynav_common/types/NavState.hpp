@@ -364,12 +364,12 @@ public:
     register_printer<std::vector<std::string>>(
       [](const std::vector<std::string> & v) {
         std::ostringstream oss;
-        oss << " " << v.size() << " {";
+        oss << " " << v.size() << " [";
         for (std::size_t i = 0; i < v.size(); ++i) {
           if (i > 0) {oss << ", ";}
           oss << v[i];
         }
-        oss << "}";
+        oss << "]";
         return oss.str();
       });
   }
