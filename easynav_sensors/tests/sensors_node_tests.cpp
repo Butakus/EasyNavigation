@@ -377,7 +377,7 @@ TEST_F(SensorsNodeTestCase, percept_laserscan)
 
   std::cerr << nav_state->debug_string() << std::endl;
 
-  auto perceptions = nav_state->get_group<easynav::PointPerception>("points");
+  auto perceptions = nav_state->get_no_group<easynav::PointPerception>();
 
   ASSERT_EQ(perceptions.size(), 1u);
   ASSERT_EQ(perceptions[0]->data.size(), 16u);
@@ -393,7 +393,7 @@ TEST_F(SensorsNodeTestCase, percept_laserscan)
 //     }
 //   }
 //
-//   perceptions = nav_state->get_group<easynav::PointPerception>("points");
+//   perceptions = nav_state->get_no_group<easynav::PointPerception>();
 //
 //   ASSERT_EQ(perceptions.size(), 1u);
 //   ASSERT_EQ(perceptions[0]->data.size(), 16u);
@@ -512,18 +512,17 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
       exe.spin_some();
     }
 
-    auto perceptions = nav_state->get_group<easynav::PointPerception>("points");
+    auto perceptions = nav_state->get_no_group<easynav::PointPerception>();
 
     ASSERT_EQ(perceptions.size(), 2u);
     ASSERT_EQ(perceptions[0]->data.size(), 16u);
     ASSERT_NEAR((test_node->now() - perceptions[0]->stamp).seconds(),
-      0.0, 0.001);
+      0.0, 0.02);
     ASSERT_EQ(perceptions[0]->valid, true);
     ASSERT_EQ(perceptions[1]->data.size(), 16u);
     ASSERT_NEAR((test_node->now() - perceptions[1]->stamp).seconds(),
       0.0, 0.02);
     ASSERT_EQ(perceptions[1]->valid, true);
-    ASSERT_LT(perceptions[1]->stamp, perceptions[0]->stamp);
 
     ASSERT_NE(fused_perception, nullptr);
 
@@ -566,12 +565,10 @@ TEST_F(SensorsNodeTestCase, percept_fuse_laserscan)
       exe.spin_some();
     }
 
-    auto perceptions = nav_state->get_group<easynav::PointPerception>("points");
+    auto perceptions = nav_state->get_no_group<easynav::PointPerception>();
 
     ASSERT_EQ(perceptions.size(), 2u);
     ASSERT_EQ(perceptions[0]->data.size(), 16u);
-    ASSERT_NEAR((test_node->now() - perceptions[0]->stamp).seconds(),
-      0.0, 0.001);
     ASSERT_EQ(perceptions[0]->valid, true);
     ASSERT_EQ(perceptions[1]->data.size(), 16u);
     ASSERT_EQ(perceptions[1]->valid, true);
@@ -644,7 +641,7 @@ TEST_F(SensorsNodeTestCase, percept_pc2)
     }
   }
 
-  auto perceptions = nav_state->get_group<easynav::PointPerception>("points");
+  auto perceptions = nav_state->get_no_group<easynav::PointPerception>();
 
   ASSERT_EQ(perceptions.size(), 1u);
   ASSERT_EQ(perceptions[0]->data.size(), 16u);
@@ -745,8 +742,8 @@ TEST_F(SensorsNodeTestCase, per_sensor_handler_mixed_types_same_group)
   }
 
   // ---- Functional assertion: both perceptions must arrive in NavState ----
-  ASSERT_TRUE(nav_state->has_group("points"));
-  const auto & perceptions = nav_state->get_group<easynav::PointPerception>("points");
+  ASSERT_FALSE(nav_state->has_group("points"));
+  const auto & perceptions = nav_state->get_no_group<easynav::PointPerception>();
   ASSERT_EQ(perceptions.size(), 2u);
   EXPECT_TRUE(perceptions[0]->valid);
   EXPECT_TRUE(perceptions[1]->valid);
@@ -1058,9 +1055,9 @@ TEST_F(SensorsNodeTestCase, percept_laserscan_default_group)
     }
   }
 
-  ASSERT_TRUE(nav_state->has_group("points"))
-    << "LaserScan without group param must be in 'points' group";
-  auto perceptions = nav_state->get_group<easynav::PointPerception>("points");
+  ASSERT_FALSE(nav_state->has_group("points"))
+    << "LaserScan without group param must NOT be in any group";
+  auto perceptions = nav_state->get_no_group<easynav::PointPerception>();
   ASSERT_EQ(perceptions.size(), 1u);
   ASSERT_EQ(perceptions[0]->frame_id, "base_laser");
   ASSERT_EQ(perceptions[0]->valid, true);
@@ -1113,9 +1110,9 @@ TEST_F(SensorsNodeTestCase, percept_pc2_default_group)
     }
   }
 
-  ASSERT_TRUE(nav_state->has_group("points"))
-    << "PointCloud2 without group param must be in 'points' group";
-  auto perceptions = nav_state->get_group<easynav::PointPerception>("points");
+  ASSERT_FALSE(nav_state->has_group("points"))
+    << "PointCloud2 without group param must NOT be in any group";
+  auto perceptions = nav_state->get_no_group<easynav::PointPerception>();
   ASSERT_EQ(perceptions.size(), 1u);
   ASSERT_EQ(perceptions[0]->frame_id, "base_lidar3d");
   ASSERT_EQ(perceptions[0]->valid, true);

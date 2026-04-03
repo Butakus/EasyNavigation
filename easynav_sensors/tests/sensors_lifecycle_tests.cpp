@@ -280,7 +280,7 @@ TEST_F(SensorsLifecycleTestCase, ConfigureWithMultipleSensors)
 // Default group assignment for PointCloud2 and LaserScan sensors
 // ─────────────────────────────────────────────────────────────────────────────
 
-TEST_F(SensorsLifecycleTestCase, LaserScanGetsDefaultPointsGroupWhenNoGroupParam)
+TEST_F(SensorsLifecycleTestCase, LaserScanHasNoGroupWhenNoGroupParam)
 {
   auto node = std::make_shared<SensorsNodeForTesting>();
   node->declare_parameter("scan.topic", std::string("/scan"));
@@ -293,13 +293,13 @@ TEST_F(SensorsLifecycleTestCase, LaserScanGetsDefaultPointsGroupWhenNoGroupParam
     lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
 
   const auto & groups = node->groups_for_testing();
-  ASSERT_TRUE(groups.count("points")) <<
-    "Group 'points' must exist for LaserScan without group param";
-  ASSERT_EQ(groups.at("points").size(), 1u);
-  EXPECT_EQ(groups.at("points")[0], "scan");
+  EXPECT_FALSE(groups.count("points")) <<
+    "Group 'points' must NOT exist for LaserScan without group param";
+  EXPECT_TRUE(groups.empty()) <<
+    "LaserScan without explicit group must not add any entry to groups_";
 }
 
-TEST_F(SensorsLifecycleTestCase, PointCloud2GetsDefaultPointsGroupWhenNoGroupParam)
+TEST_F(SensorsLifecycleTestCase, PointCloud2HasNoGroupWhenNoGroupParam)
 {
   auto node = std::make_shared<SensorsNodeForTesting>();
   node->declare_parameter("lidar.topic", std::string("/pc2"));
@@ -312,10 +312,10 @@ TEST_F(SensorsLifecycleTestCase, PointCloud2GetsDefaultPointsGroupWhenNoGroupPar
     lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
 
   const auto & groups = node->groups_for_testing();
-  ASSERT_TRUE(groups.count("points")) <<
-    "Group 'points' must exist for PointCloud2 without group param";
-  ASSERT_EQ(groups.at("points").size(), 1u);
-  EXPECT_EQ(groups.at("points")[0], "lidar");
+  EXPECT_FALSE(groups.count("points")) <<
+    "Group 'points' must NOT exist for PointCloud2 without group param";
+  EXPECT_TRUE(groups.empty()) <<
+    "PointCloud2 without explicit group must not add any entry to groups_";
 }
 
 TEST_F(SensorsLifecycleTestCase, ExplicitGroupOverridesDefaultForLaserScan)
@@ -373,7 +373,7 @@ TEST_F(SensorsLifecycleTestCase, GNSSSensorHasNoDefaultGroup)
   EXPECT_TRUE(groups.empty()) << "GNSS without explicit group must not add any entry to groups_";
 }
 
-TEST_F(SensorsLifecycleTestCase, MultiplePointSensorsDefaultToSamePointsGroup)
+TEST_F(SensorsLifecycleTestCase, MultiplePointSensorsHaveNoGroupByDefault)
 {
   auto node = std::make_shared<SensorsNodeForTesting>();
   node->declare_parameter("scan_front.topic", std::string("/scan_front"));
@@ -388,9 +388,10 @@ TEST_F(SensorsLifecycleTestCase, MultiplePointSensorsDefaultToSamePointsGroup)
     lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
 
   const auto & groups = node->groups_for_testing();
-  ASSERT_TRUE(groups.count("points"));
-  EXPECT_EQ(groups.at("points").size(), 2u)
-    << "Both LaserScan and PointCloud2 without group must share 'points' group";
+  EXPECT_FALSE(groups.count("points")) <<
+    "Neither LaserScan nor PointCloud2 without group must be in 'points' group";
+  EXPECT_TRUE(groups.empty()) <<
+    "Multiple point sensors without explicit groups must not add any entry to groups_";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
