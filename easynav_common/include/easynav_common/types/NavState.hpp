@@ -24,6 +24,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
@@ -313,6 +314,43 @@ public:
       return out;
     }
     out.push_back(std::static_pointer_cast<T>(it->second));
+    return out;
+  }
+
+  /// \brief Retrieves all stored values of type \p T that are NOT a member of any group.
+  ///
+  /// This is the complement of \c get_group: it returns every entry whose type matches \p T
+  /// and whose key does not appear in any group's member list.
+  /// Group-metadata keys (the \c std::vector<std::string> stored by \c set_group) are excluded
+  /// by type, so they will never appear in results unless \p T is \c std::vector<std::string>.
+  ///
+  /// \tparam T Expected stored type.
+  /// \return Vector of shared_ptr to every ungrouped \p T. Empty if none are found.
+  template<typename T>
+  std::vector<std::shared_ptr<T>> get_no_group() const
+  {
+    // Snapshot the set of all keys that belong to any group (under group lock).
+    std::unordered_set<std::string> grouped_keys;
+    {
+      std::lock_guard<std::mutex> glock(group_mutex_);
+      for (const auto & g : groups_) {
+        for (const auto & k : g.second) {
+          grouped_keys.insert(k);
+        }
+      }
+    }
+
+    // Iterate values and return those of type T whose key is not grouped.
+    std::lock_guard<std::mutex> slock(state_mutex_);
+    std::vector<std::shared_ptr<T>> out;
+    const size_t target_hash = typeid(T).hash_code();
+    for (const auto & kv : values_) {
+      if (types_.at(kv.first) == target_hash &&
+        grouped_keys.find(kv.first) == grouped_keys.end())
+      {
+        out.push_back(std::static_pointer_cast<T>(kv.second));
+      }
+    }
     return out;
   }
 

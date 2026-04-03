@@ -140,13 +140,6 @@ SensorsNode::on_configure([[maybe_unused]] const rclcpp_lifecycle::State & state
     }
     get_parameter(sensor_id + ".group", group);
 
-    // Default group for point-cloud-like types
-    if (group.empty() &&
-      (msg_type == "sensor_msgs/msg/PointCloud2" || msg_type == "sensor_msgs/msg/LaserScan"))
-    {
-      group = "points";
-    }
-
     // Store the handler and add sensor to the group
     handler_list_.push_back(handler);
     // Store group only if specified (if param exists)

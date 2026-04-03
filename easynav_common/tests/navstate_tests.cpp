@@ -401,3 +401,113 @@ TEST_F(NavStateTest, GetGroupReturnsSameObjects)
     }
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// get_no_group<T>()
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(NavStateTest, GetNoGroupEmptyState)
+{
+  easynav::NavState state;
+  EXPECT_TRUE(state.get_no_group<int>().empty());
+}
+
+TEST_F(NavStateTest, GetNoGroupAllInGroup)
+{
+  easynav::NavState state;
+  state.set("s1", 1);
+  state.set("s2", 2);
+  state.set_group("sensors", {"s1", "s2"});
+
+  EXPECT_TRUE(state.get_no_group<int>().empty());
+}
+
+TEST_F(NavStateTest, GetNoGroupNoneInAnyGroup)
+{
+  easynav::NavState state;
+  state.set("a", 10);
+  state.set("b", 20);
+
+  auto result = state.get_no_group<int>();
+  ASSERT_EQ(result.size(), 2u);
+  int sum = 0;
+  for (const auto & v : result) {
+    sum += *v;
+  }
+  EXPECT_EQ(sum, 30);
+}
+
+TEST_F(NavStateTest, GetNoGroupMixed)
+{
+  easynav::NavState state;
+  state.set("in_group", 1);
+  state.set("not_in_group", 99);
+  state.set_group("sensors", {"in_group"});
+
+  auto result = state.get_no_group<int>();
+  ASSERT_EQ(result.size(), 1u);
+  EXPECT_EQ(*result[0], 99);
+}
+
+TEST_F(NavStateTest, GetNoGroupSpanningMultipleGroups)
+{
+  easynav::NavState state;
+  state.set("a", 1);
+  state.set("b", 2);
+  state.set("c", 3);  // not in any group
+  state.set_group("g1", {"a"});
+  state.set_group("g2", {"b"});
+
+  auto result = state.get_no_group<int>();
+  ASSERT_EQ(result.size(), 1u);
+  EXPECT_EQ(*result[0], 3);
+}
+
+TEST_F(NavStateTest, GetNoGroupTypeFilter)
+{
+  easynav::NavState state;
+  state.set("int_val", 42);
+  state.set("str_val", std::string("hello"));
+
+  auto ints = state.get_no_group<int>();
+  ASSERT_EQ(ints.size(), 1u);
+  EXPECT_EQ(*ints[0], 42);
+
+  auto strs = state.get_no_group<std::string>();
+  ASSERT_EQ(strs.size(), 1u);
+  EXPECT_EQ(*strs[0], "hello");
+}
+
+TEST_F(NavStateTest, GetNoGroupReturnsSameObject)
+{
+  // Verify pointer identity — no deep copy
+  easynav::NavState state;
+  geometry_msgs::msg::Pose pose;
+  pose.position.x = 7.0;
+  state.set("ungrouped", pose);
+
+  auto direct = state.get_ptr<geometry_msgs::msg::Pose>("ungrouped");
+  auto no_group = state.get_no_group<geometry_msgs::msg::Pose>();
+
+  ASSERT_EQ(no_group.size(), 1u);
+  EXPECT_EQ(no_group[0].get(), direct.get());
+
+  direct->position.x = 77.0;
+  EXPECT_DOUBLE_EQ(no_group[0]->position.x, 77.0);
+}
+
+TEST_F(NavStateTest, GetNoGroupExcludesGroupedButNotUngroupedSameType)
+{
+  // Two sensors of the same type: one grouped, one not.
+  easynav::NavState state;
+  geometry_msgs::msg::Pose grouped_pose, free_pose;
+  grouped_pose.position.x = 1.0;
+  free_pose.position.x = 2.0;
+  state.set("lidar_a", grouped_pose);
+  state.set("lidar_b", free_pose);
+  state.set_group("points", {"lidar_a"});
+
+  auto result = state.get_no_group<geometry_msgs::msg::Pose>();
+  ASSERT_EQ(result.size(), 1u);
+  EXPECT_DOUBLE_EQ(result[0]->position.x, 2.0);
+}
