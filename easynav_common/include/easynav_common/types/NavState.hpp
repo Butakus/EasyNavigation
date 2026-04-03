@@ -268,6 +268,54 @@ public:
     return out;
   }
 
+  /// \brief Retrieves all stored values of type \p T, regardless of their key.
+  ///
+  /// Scans every entry in the state and returns those whose stored type matches \p T.
+  /// Entries belonging to group-metadata keys (stored as \c std::vector<std::string>)
+  /// are automatically excluded because their type hash will not match \p T.
+  ///
+  /// \tparam T Expected stored type.
+  /// \return Vector of shared_ptr to every stored \p T. Empty if none are found.
+  template<typename T>
+  std::vector<std::shared_ptr<T>> get_by_type() const
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    std::vector<std::shared_ptr<T>> out;
+    const size_t target_hash = typeid(T).hash_code();
+    for (const auto & kv : values_) {
+      if (types_.at(kv.first) == target_hash) {
+        out.push_back(std::static_pointer_cast<T>(kv.second));
+      }
+    }
+    return out;
+  }
+
+  /// \brief Wraps a single stored value of type \p T in a one-element vector.
+  ///
+  /// Convenience to allow uniform code that always works with
+  /// \c std::vector<std::shared_ptr<T>> regardless of whether the caller
+  /// has one sensor or many (via \c get_group).
+  /// - If \p key is not found or the stored type does not match \p T, returns an empty vector.
+  ///
+  /// \tparam T Expected stored type.
+  /// \param key Key of the individual value to retrieve.
+  /// \return A one-element vector with the shared_ptr to \p T, or empty on miss/mismatch.
+  template<typename T>
+  std::vector<std::shared_ptr<T>> get_to_vector(const std::string & key) const
+  {
+    std::vector<std::shared_ptr<T>> out;
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    auto it = values_.find(key);
+    if (it == values_.end()) {
+      return out;
+    }
+    if (types_.at(key) != typeid(T).hash_code()) {
+      return out;
+    }
+    out.push_back(std::static_pointer_cast<T>(it->second));
+    return out;
+  }
+
   /// \brief Checks whether \p key exists in the state.
   /// \param key Key to query.
   /// \return \c true if present, otherwise \c false.

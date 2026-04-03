@@ -242,9 +242,9 @@ SensorsNode::cycle([[maybe_unused]] std::shared_ptr<NavState> nav_state)
     groups_initialized = true;
   }
 
-  if (percept_pub_->get_subscription_count() > 0 && nav_state->has_group("points")) {
-    const auto points_perceptions = nav_state->get_group<PointPerception>("points");
+  const auto & points_perceptions = nav_state->get_by_type<PointPerception>();
 
+  if (percept_pub_->get_subscription_count() > 0 && !points_perceptions.empty()) {
     PointPerceptionsOpsView fused_view(std::move(points_perceptions));
 
     const auto & tf_info = easynav::RTTFBuffer::getInstance()->get_tf_info();

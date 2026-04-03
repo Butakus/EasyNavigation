@@ -182,3 +182,222 @@ TEST_F(NavStateTest, SetGroupIsVisibleInDebugString)
   EXPECT_NE(s.find("lidar_back"), std::string::npos)
     << "Group member must appear in debug_string\n" << s;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// get_by_type<T>()
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(NavStateTest, GetByTypeReturnsAllMatchingEntries)
+{
+  easynav::NavState state;
+  state.set("a", 1);
+  state.set("b", 2);
+  state.set("c", 3);
+  state.set("name", std::string("robot"));  // different type
+
+  auto result = state.get_by_type<int>();
+  ASSERT_EQ(result.size(), 3u);
+  // Values must be 1, 2 or 3 (order unspecified)
+  int sum = 0;
+  for (const auto & v : result) {
+    sum += *v;
+  }
+  EXPECT_EQ(sum, 6);
+}
+
+TEST_F(NavStateTest, GetByTypeExcludesOtherTypes)
+{
+  easynav::NavState state;
+  state.set("x", 42);
+  state.set("label", std::string("hello"));
+  state.set("ratio", 3.14);
+
+  auto ints = state.get_by_type<int>();
+  ASSERT_EQ(ints.size(), 1u);
+  EXPECT_EQ(*ints[0], 42);
+
+  auto strings = state.get_by_type<std::string>();
+  ASSERT_EQ(strings.size(), 1u);
+  EXPECT_EQ(*strings[0], "hello");
+}
+
+TEST_F(NavStateTest, GetByTypeEmptyWhenNoMatch)
+{
+  easynav::NavState state;
+  state.set("x", 1.0f);
+  auto result = state.get_by_type<int>();
+  EXPECT_TRUE(result.empty());
+}
+
+TEST_F(NavStateTest, GetByTypeEmptyStateReturnsEmpty)
+{
+  easynav::NavState state;
+  auto result = state.get_by_type<double>();
+  EXPECT_TRUE(result.empty());
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// get_to_vector<T>(key)
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(NavStateTest, GetToVectorFromGroupReturnsAllMembers)
+{
+  // get_to_vector wraps a single entry; to iterate a group use get_group.
+  // "points" is stored as std::vector<std::string> by set_group, not as int,
+  // so get_to_vector<int>("points") returns empty.
+  easynav::NavState state;
+  state.set("laser1", 10);
+  state.set("laser2", 20);
+  state.set_group("points", {"laser1", "laser2"});
+
+  auto result = state.get_to_vector<int>("points");
+  EXPECT_TRUE(result.empty());
+
+  // Access members individually via get_to_vector
+  auto r1 = state.get_to_vector<int>("laser1");
+  auto r2 = state.get_to_vector<int>("laser2");
+  ASSERT_EQ(r1.size(), 1u);
+  ASSERT_EQ(r2.size(), 1u);
+  EXPECT_EQ(*r1[0], 10);
+  EXPECT_EQ(*r2[0], 20);
+}
+
+TEST_F(NavStateTest, GetToVectorFromSingleKeyWrapsInVector)
+{
+  easynav::NavState state;
+  state.set("imu", 99);
+
+  auto result = state.get_to_vector<int>("imu");
+  ASSERT_EQ(result.size(), 1u);
+  EXPECT_EQ(*result[0], 99);
+}
+
+TEST_F(NavStateTest, GetToVectorMissingKeyReturnsEmpty)
+{
+  easynav::NavState state;
+  auto result = state.get_to_vector<int>("nonexistent");
+  EXPECT_TRUE(result.empty());
+}
+
+TEST_F(NavStateTest, GetToVectorTypeMismatchReturnsEmpty)
+{
+  easynav::NavState state;
+  state.set("sensor", std::string("lidar"));
+
+  auto result = state.get_to_vector<int>("sensor");
+  EXPECT_TRUE(result.empty());
+}
+
+TEST_F(NavStateTest, GetToVectorGroupTakesPriorityOverValue)
+{
+  // get_to_vector wraps a single NavState entry in a vector.
+  // "points" is stored as std::vector<std::string> by set_group, so T=int won't match it.
+  easynav::NavState state;
+  state.set("laser1", 1);
+  state.set("laser2", 2);
+  state.set_group("points", {"laser1", "laser2"});
+
+  // "points" entry has type std::vector<std::string>, so int won't match -> empty.
+  auto result_group = state.get_to_vector<int>("points");
+  EXPECT_TRUE(result_group.empty());
+
+  // individual keys still work
+  auto result_single = state.get_to_vector<int>("laser1");
+  ASSERT_EQ(result_single.size(), 1u);
+  EXPECT_EQ(*result_single[0], 1);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shallow-copy (pointer identity) tests
+// Verify that get_ptr / get_by_type / get_to_vector / get_group all return
+// shared_ptrs that share ownership of the *same* object stored in NavState
+// — no deep copy is ever made.
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(NavStateTest, GetPtrReturnsSameObject)
+{
+  easynav::NavState state;
+  geometry_msgs::msg::Pose pose;
+  pose.position.x = 1.0;
+  state.set("pose", pose);
+
+  auto ptr1 = state.get_ptr<geometry_msgs::msg::Pose>("pose");
+  auto ptr2 = state.get_ptr<geometry_msgs::msg::Pose>("pose");
+
+  // Same underlying raw pointer
+  EXPECT_EQ(ptr1.get(), ptr2.get());
+
+  // Mutating through one ptr is visible through the other
+  ptr1->position.x = 42.0;
+  EXPECT_DOUBLE_EQ(ptr2->position.x, 42.0);
+}
+
+TEST_F(NavStateTest, GetByTypeReturnsSameObjects)
+{
+  easynav::NavState state;
+  geometry_msgs::msg::Pose pose;
+  pose.position.x = 3.0;
+  state.set("sensor_a", pose);
+
+  // Retrieve via get_ptr and get_by_type; raw pointers must match
+  auto direct = state.get_ptr<geometry_msgs::msg::Pose>("sensor_a");
+  auto by_type = state.get_by_type<geometry_msgs::msg::Pose>();
+
+  ASSERT_EQ(by_type.size(), 1u);
+  EXPECT_EQ(by_type[0].get(), direct.get());
+
+  // Mutation visible through both handles
+  direct->position.x = 99.0;
+  EXPECT_DOUBLE_EQ(by_type[0]->position.x, 99.0);
+}
+
+TEST_F(NavStateTest, GetToVectorReturnsSameObject)
+{
+  easynav::NavState state;
+  geometry_msgs::msg::Pose pose;
+  pose.position.y = 5.0;
+  state.set("sensor_b", pose);
+
+  auto direct = state.get_ptr<geometry_msgs::msg::Pose>("sensor_b");
+  auto vec = state.get_to_vector<geometry_msgs::msg::Pose>("sensor_b");
+
+  ASSERT_EQ(vec.size(), 1u);
+  EXPECT_EQ(vec[0].get(), direct.get());
+
+  direct->position.y = 77.0;
+  EXPECT_DOUBLE_EQ(vec[0]->position.y, 77.0);
+}
+
+TEST_F(NavStateTest, GetGroupReturnsSameObjects)
+{
+  easynav::NavState state;
+  geometry_msgs::msg::Pose pose_a, pose_b;
+  pose_a.position.x = 1.0;
+  pose_b.position.x = 2.0;
+  state.set("s1", pose_a);
+  state.set("s2", pose_b);
+  state.set_group("sensors", {"s1", "s2"});
+
+  auto direct_s1 = state.get_ptr<geometry_msgs::msg::Pose>("s1");
+  auto direct_s2 = state.get_ptr<geometry_msgs::msg::Pose>("s2");
+  auto group = state.get_group<geometry_msgs::msg::Pose>("sensors");
+
+  ASSERT_EQ(group.size(), 2u);
+
+  // Each group element points to the same object as the direct retrieval
+  bool found_s1 = false, found_s2 = false;
+  for (const auto & p : group) {
+    if (p.get() == direct_s1.get()) {found_s1 = true;}
+    if (p.get() == direct_s2.get()) {found_s2 = true;}
+  }
+  EXPECT_TRUE(found_s1);
+  EXPECT_TRUE(found_s2);
+
+  // Mutation through direct ptr is visible through group ptr
+  direct_s1->position.x = 55.0;
+  for (const auto & p : group) {
+    if (p.get() == direct_s1.get()) {
+      EXPECT_DOUBLE_EQ(p->position.x, 55.0);
+    }
+  }
+}
