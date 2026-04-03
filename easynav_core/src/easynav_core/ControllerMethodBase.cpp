@@ -24,7 +24,7 @@
 #include "easynav_core/MethodBase.hpp"
 #include "easynav_core/ControllerMethodBase.hpp"
 
-#include "easynav_common/types/PointPerception.hpp"
+#include "easynav_sensors/types/PointPerception.hpp"
 #include "easynav_common/RTTFBuffer.hpp"
 
 namespace easynav
@@ -104,10 +104,13 @@ ControllerMethodBase::is_inminent_collision(NavState & nav_state)
   bool imminent = false;
 
   if (!nav_state.has("cmd_vel")) {return false;}
-  if (!nav_state.has("points")) {return false;}
+
+  const auto & perceptions = nav_state.get_by_type<PointPerception>();
+  if (perceptions.empty()) {
+    return false;
+  }
 
   const auto & twist = nav_state.get<geometry_msgs::msg::TwistStamped>("cmd_vel");
-  const auto & perceptions = nav_state.get<PointPerceptions>("points");
   const auto & tf_info = easynav::RTTFBuffer::getInstance()->get_tf_info();
   const auto & robot_frame = tf_info.robot_frame;
 

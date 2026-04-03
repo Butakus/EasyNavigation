@@ -19,8 +19,8 @@
 /// and the ImagePerceptionHandler class, which handles subscriptions to image messages and transforms them into
 /// ImagePerception instances. It also defines an alias for a collection of such perceptions.
 
-#ifndef EASYNAV_COMMON_TYPES__IMAGEPERCEPTIONS_HPP_
-#define EASYNAV_COMMON_TYPES__IMAGEPERCEPTIONS_HPP_
+#ifndef EASYNAV_SENSORS_TYPES__IMAGEPERCEPTIONS_HPP_
+#define EASYNAV_SENSORS_TYPES__IMAGEPERCEPTIONS_HPP_
 
 #include <string>
 #include <vector>
@@ -29,7 +29,7 @@
 
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
-#include "easynav_common/types/Perceptions.hpp"
+#include "easynav_sensors/types/Perceptions.hpp"
 
 namespace easynav
 {
@@ -52,6 +52,23 @@ public:
     return t == "sensor_msgs/msg/Image";
   }
 
+  ImagePerception()
+  {
+    [[maybe_unused]] static const bool _ = [] {
+        ::easynav::NavState::register_printer<ImagePerception>(
+          [](const ImagePerception & perception) {
+            std::ostringstream ret;
+            ret << "{ " << perception.stamp.seconds()
+                << " } ImagePerception ("
+                << perception.data.cols << " x " << perception.data.rows
+                << ") in frame [" << perception.frame_id
+                << "] with ts " << perception.stamp.seconds() << "\n";
+            return ret.str();
+        });
+        return true;
+      }();
+  }
+
   /// \brief Image data received from the sensor.
   ///
   /// The matrix layout follows OpenCV conventions. The encoding and channel depth depend on upstream conversion
@@ -67,35 +84,26 @@ public:
 class ImagePerceptionHandler : public PerceptionHandler
 {
 public:
-  /// \brief Returns the group managed by this handler.
-  /// \return The string literal "image".
-  std::string group() const override {return "image";}
+  /// \brief Optional post-initialization hook for subclasses.
+  /// Here, the handler must reserve memory to store the perception data
+  /// and create any Subscription or similar objects to read the data.
+  void on_initialize() override;
 
-  /// \brief Creates a new empty ImagePerception instance.
-  /// \param sensor_id Name or identifier of the sensor. Currently unused, reserved for future extensions.
-  /// \return Shared pointer to a newly created ImagePerception.
-  std::shared_ptr<PerceptionBase> create(const std::string &) override
-  {
-    return std::make_shared<ImagePerception>();
-  }
+  /// @brief Run one real-time sensor processing cycle.
+  /// This method is called by the SensorsNode before executing its cycle_rt.
+  /// Here the handler should update the NavState with the sensor data.
+  /// If new data arrived before this call and the state is updated, it must return true.
+  ///
+  /// @param nav_state Pointer to the NavState to store the sensor data.
+  /// @return True if new data was stored (to trigger processing).
+  bool cycle_rt([[maybe_unused]] std::shared_ptr<NavState> nav_state) override;
 
-  /// \brief Creates a subscription to an image topic that updates a target ImagePerception.
-  ///
-  /// The subscription receives sensor_msgs::msg::Image messages on \p topic, converts them to cv::Mat,
-  /// fills ImagePerception::data, and updates inherited metadata (stamp, frame_id).
-  ///
-  /// \param node Lifecycle node used to create the subscription.
-  /// \param topic Topic name to subscribe to.
-  /// \param type ROS message type name. It must be "sensor_msgs/msg/Image".
-  /// \param target Shared pointer to the ImagePerception to be updated.
-  /// \param cb_group Callback group for executor-level concurrency control.
-  /// \return Shared pointer to the created subscription.
-  rclcpp::SubscriptionBase::SharedPtr create_subscription(
-    rclcpp_lifecycle::LifecycleNode & node,
-    const std::string & topic,
-    const std::string & type,
-    std::shared_ptr<PerceptionBase> target,
-    rclcpp::CallbackGroup::SharedPtr cb_group) override;
+private:
+  /// \brief pointer to the perception data
+  std::shared_ptr<ImagePerception> perception_data_ {nullptr};
+
+  /// \brief pointer to the subscription object
+  rclcpp::SubscriptionBase::SharedPtr perception_sub_;
 };
 
 /**
@@ -114,4 +122,4 @@ rclcpp::Time get_latest_image_perceptions_stamp(const ImagePerceptions & percept
 
 }  // namespace easynav
 
-#endif  // EASYNAV_COMMON_TYPES__IMAGEPERCEPTIONS_HPP_
+#endif  // EASYNAV_SENSORS_TYPES__IMAGEPERCEPTIONS_HPP_

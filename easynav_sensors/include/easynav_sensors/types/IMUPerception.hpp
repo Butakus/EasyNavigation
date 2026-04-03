@@ -19,8 +19,8 @@
 /// and the IMUPerceptionHandler class, which handles subscriptions to IMU messages and transforms them into
 /// IMUPerception instances. It also defines an alias for a collection of such perceptions.
 
-#ifndef EASYNAV_COMMON_TYPES__IMUPERCEPTIONS_HPP_
-#define EASYNAV_COMMON_TYPES__IMUPERCEPTIONS_HPP_
+#ifndef EASYNAV_SENSORS_TYPES__IMUPERCEPTIONS_HPP_
+#define EASYNAV_SENSORS_TYPES__IMUPERCEPTIONS_HPP_
 
 #include <string>
 #include <vector>
@@ -29,7 +29,7 @@
 
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 
-#include "easynav_common/types/Perceptions.hpp"
+#include "easynav_sensors/types/Perceptions.hpp"
 
 namespace easynav
 {
@@ -52,6 +52,25 @@ public:
     return t == "sensor_msgs/msg/Imu";
   }
 
+  IMUPerception()
+  {
+    [[maybe_unused]] static const bool _ = [] {
+        ::easynav::NavState::register_printer<IMUPerception>(
+          [](const IMUPerception & perception) {
+            std::ostringstream ret;
+            ret << "{ " << perception.stamp.seconds()
+                << " } IMUPerception linear acc = ("
+                << perception.data.linear_acceleration.x << ", "
+                << perception.data.linear_acceleration.y << ", "
+                << perception.data.linear_acceleration.z
+                << ") in frame [" << perception.frame_id
+                << "] with ts " << perception.stamp.seconds() << "\n";
+            return ret.str();
+        });
+        return true;
+      }();
+  }
+
   /// \brief IMU data received from the sensor.
   sensor_msgs::msg::Imu data;
 };
@@ -63,35 +82,26 @@ public:
 class IMUPerceptionHandler : public PerceptionHandler
 {
 public:
-  /// \brief Returns the group managed by this handler.
-  /// \return The string literal "imu".
-  std::string group() const override {return "imu";}
+  /// \brief Optional post-initialization hook for subclasses.
+  /// Here, the handler must reserve memory to store the perception data
+  /// and create any Subscription or similar objects to read the data.
+  void on_initialize() override;
 
-  /// \brief Creates a new empty IMUPerception instance.
-  /// \param sensor_id Name or identifier of the sensor. Currently unused, reserved for future extensions.
-  /// \return Shared pointer to a newly created IMUPerception.
-  std::shared_ptr<PerceptionBase> create(const std::string &) override
-  {
-    return std::make_shared<IMUPerception>();
-  }
+  /// @brief Run one real-time sensor processing cycle.
+  /// This method is called by the SensorsNode before executing its cycle_rt.
+  /// Here the handler should update the NavState with the sensor data.
+  /// If new data arrived before this call and the state is updated, it must return true.
+  ///
+  /// @param nav_state Pointer to the NavState to store the sensor data.
+  /// @return True if new data was stored (to trigger processing).
+  bool cycle_rt([[maybe_unused]] std::shared_ptr<NavState> nav_state) override;
 
-  /// \brief Creates a subscription to an IMU topic that updates a target IMUPerception.
-  ///
-  /// The subscription receives sensor_msgs::msg::Imu messages on \p topic and writes the content into
-  /// IMUPerception::data, updating inherited metadata (stamp, frame_id).
-  ///
-  /// \param node Lifecycle node used to create the subscription.
-  /// \param topic Topic name to subscribe to.
-  /// \param type ROS message type name. It must be "sensor_msgs/msg/Imu".
-  /// \param target Shared pointer to the IMUPerception to be updated.
-  /// \param cb_group Callback group for executor-level concurrency control.
-  /// \return Shared pointer to the created subscription.
-  rclcpp::SubscriptionBase::SharedPtr create_subscription(
-    rclcpp_lifecycle::LifecycleNode & node,
-    const std::string & topic,
-    const std::string & type,
-    std::shared_ptr<PerceptionBase> target,
-    rclcpp::CallbackGroup::SharedPtr cb_group) override;
+private:
+  /// \brief pointer to the perception data
+  std::shared_ptr<IMUPerception> perception_data_ {nullptr};
+
+  /// \brief pointer to the subscription object
+  rclcpp::SubscriptionBase::SharedPtr perception_sub_;
 };
 
 /**
@@ -110,4 +120,4 @@ rclcpp::Time get_latest_imu_perceptions_stamp(const IMUPerceptions & perceptions
 
 }  // namespace easynav
 
-#endif  // EASYNAV_COMMON_TYPES__IMUPERCEPTIONS_HPP_
+#endif  // EASYNAV_SENSORS_TYPES__IMUPERCEPTIONS_HPP_

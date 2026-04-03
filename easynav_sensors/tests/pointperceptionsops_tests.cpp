@@ -22,7 +22,7 @@
 
 #include "tf2_ros/transform_listener.hpp"
 
-#include "easynav_common/types/PointPerception.hpp"
+#include "easynav_sensors/types/PointPerception.hpp"
 #include "easynav_common/RTTFBuffer.hpp"
 
 #include "rclcpp/rclcpp.hpp"
@@ -973,6 +973,85 @@ TEST(PerceptionsOpsViewTests, CollapseLazy_DoesNotAffectIntermediateFilter)
   // so both points are discarded.
   view.filter({NAN, NAN, 1.0}, {NAN, NAN, 1.0});
 
+  auto cloud = view.as_points();
+  EXPECT_EQ(cloud.size(), 0u);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Empty input tests — nothing must throw or crash when the view has no data
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST(PerceptionsOpsViewEmpty, EmptyVectorAsPoints)
+{
+  easynav::PointPerceptions empty;
+  easynav::PointPerceptionsOpsView view(empty);
+
+  auto cloud = view.as_points();
+  EXPECT_EQ(cloud.size(), 0u);
+}
+
+TEST(PerceptionsOpsViewEmpty, EmptyVectorDownsample)
+{
+  easynav::PointPerceptions empty;
+  easynav::PointPerceptionsOpsView view(empty);
+
+  view.downsample(0.1);
+  auto cloud = view.as_points();
+  EXPECT_EQ(cloud.size(), 0u);
+}
+
+TEST(PerceptionsOpsViewEmpty, EmptyVectorFilter)
+{
+  easynav::PointPerceptions empty;
+  easynav::PointPerceptionsOpsView view(empty);
+
+  view.filter({-1.0, -1.0, NAN}, {1.0, 1.0, NAN});
+  auto cloud = view.as_points();
+  EXPECT_EQ(cloud.size(), 0u);
+}
+
+TEST(PerceptionsOpsViewEmpty, EmptyVectorCollapse)
+{
+  easynav::PointPerceptions empty;
+  easynav::PointPerceptionsOpsView view(empty);
+
+  view.collapse({NAN, NAN, 0.0});
+  auto cloud = view.as_points();
+  EXPECT_EQ(cloud.size(), 0u);
+}
+
+TEST(PerceptionsOpsViewEmpty, EmptyVectorFullPipeline)
+{
+  // Mirrors the pattern used by SerestController::closest_obstacle_distance
+  easynav::PointPerceptions empty;
+  easynav::PointPerceptionsOpsView view(empty);
+
+  view.downsample(0.3)
+  .filter({-5.0, -5.0, NAN}, {5.0, 5.0, 2.0})
+  .collapse({NAN, NAN, 0.1})
+  .downsample(0.3);
+
+  auto cloud = view.as_points();
+  EXPECT_EQ(cloud.size(), 0u);
+}
+
+TEST(PerceptionsOpsViewEmpty, EmptyVectorGetPerceptions)
+{
+  easynav::PointPerceptions empty;
+  easynav::PointPerceptionsOpsView view(empty);
+
+  const auto & percs = view.get_perceptions();
+  EXPECT_TRUE(percs.empty());
+}
+
+TEST(PerceptionsOpsViewEmpty, NullptrEntriesInVector)
+{
+  // A vector with nullptrs should not crash — handled by the !pptr guard
+  easynav::PointPerceptions perceptions;
+  perceptions.push_back(nullptr);
+  perceptions.push_back(nullptr);
+
+  easynav::PointPerceptionsOpsView view(perceptions);
   auto cloud = view.as_points();
   EXPECT_EQ(cloud.size(), 0u);
 }
