@@ -15,14 +15,14 @@ Each item is numbered (`RD###`) for easier reference and tracking.
 - [x] **RD003:** Develop the **MPC Controller plugin** for **differential-drive robots**
 - [ ] **RD004:** Develop the **MPC Controller plugin** for **Ackermann-steered robots**
 - [ ] **RD005:** Develop the **MPC Controller plugin** for **omnidirectional robots**
-- [ ] **RD006:** Integrate **LLM-based analysis** for runtime execution review and improvement suggestions
+- [ ] ~~**RD006:** Integrate **LLM-based analysis** for runtime execution review and improvement suggestions~~
 - [ ] **RD007:** Create **Test Case plugins** for **underwater robots**
 - [ ] **RD008:** Create **Test Case plugins** for **aerial robots**
 - [x] **RD009:** Add **route-based navigation tools** for predefined path execution
 - [x] **RD010:** Perform release of **EasyNav**, **Yaets**, **easynav_plugins**, and **NavMap** for **ROS 2 Kilted**
 - [x] **RD011:** Perform release of **EasyNav**, **Yaets**, **easynav_plugins**, and **NavMap** for **ROS 2 Jazzy**
-- [ ] **RD012:** Perform release of **EasyNav**, **Yaets**, **easynav_plugins**, and **NavMap** for **ROS 2 Humble**
-- [ ] **RD013:** Perform release of **EasyNav**, **Yaets**, **easynav_plugins**, and **NavMap** for **ROS 2 Rolling**
+- [ ] ~~**RD012:** Perform release of **EasyNav**, **Yaets**, **easynav_plugins**, and **NavMap** for **ROS 2 Humble**~~
+- [ ] ~~**RD013:** Perform release of **EasyNav**, **Yaets**, **easynav_plugins**, and **NavMap** for **ROS 2 Rolling**~~
 - [x] **RD014:** Complete and consolidate documentation with **HowTos** and **API references**
 - [ ] **RD015:** Write the EasyNav reference paper
 - [ ] **RD016:** Write the NavMap reference paper
