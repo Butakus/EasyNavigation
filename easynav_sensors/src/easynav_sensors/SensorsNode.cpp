@@ -213,7 +213,8 @@ SensorsNode::cycle_rt(
   bool trigger_perceptions = false;
   // Run handlers' cycle and check if there is new sensor data o trigger perceptions
   for (auto & handler : handler_list_) {
-    trigger_perceptions = trigger_perceptions || handler->cycle_rt(nav_state);
+    const bool trigger = handler->cycle_rt(nav_state);
+    trigger_perceptions = trigger_perceptions || trigger;
   }
 
   return trigger_perceptions;
