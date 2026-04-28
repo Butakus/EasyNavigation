@@ -19,6 +19,8 @@
 
 #include "lifecycle_msgs/msg/transition.hpp"
 #include "lifecycle_msgs/msg/state.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+#include "tf2/LinearMath/Transform.hpp"
 
 #include "easynav_localizer/LocalizerNode.hpp"
 
@@ -35,6 +37,30 @@ LocalizerNode::LocalizerNode(
 
   localizer_loader_ = std::make_unique<pluginlib::ClassLoader<easynav::LocalizerMethodBase>>(
     "easynav_core", "easynav::LocalizerMethodBase");
+
+  NavState::register_printer<nav_msgs::msg::Odometry>(
+    [](const nav_msgs::msg::Odometry & odom) {
+      const double x = odom.pose.pose.position.x;
+      const double y = odom.pose.pose.position.y;
+      const double z = odom.pose.pose.position.z;
+
+      const tf2::Quaternion q(
+        odom.pose.pose.orientation.x,
+        odom.pose.pose.orientation.y,
+        odom.pose.pose.orientation.z,
+        odom.pose.pose.orientation.w);
+
+      double roll, pitch, yaw;
+      tf2::Matrix3x3(q).getRPY(roll, pitch, yaw);
+
+      std::ostringstream ret;
+      ret << std::fixed << std::setprecision(3);
+      ret << "{" << rclcpp::Time(odom.header.stamp).seconds() << " } Odometry with pose: (x: " <<
+        x << ", y: " << y << ", z: " << z << ", yaw: " << yaw << ")";
+      return ret.str();
+    });
+
+
 }
 
 LocalizerNode::~LocalizerNode()
