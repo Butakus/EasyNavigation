@@ -25,6 +25,14 @@
         Perceptions are stored in NavState under the "gnss" group.
       </description>
     </class>
+    <class name="easynav_sensors/OdometryPerceptionHandler"
+           type="easynav::OdometryPerceptionHandler"
+           base_class_type="easynav::PerceptionHandler">
+      <description>
+        Handler for odometry sensors. Supports nav_msgs/msg/Odometry message type.
+        Perceptions are stored in NavState under the "odom" group.
+      </description>
+    </class>
     <class name="easynav_sensors/ImagePerceptionHandler"
            type="easynav::ImagePerceptionHandler"
            base_class_type="easynav::PerceptionHandler">

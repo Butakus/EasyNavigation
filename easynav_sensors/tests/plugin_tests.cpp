@@ -54,6 +54,7 @@ static const std::vector<std::string> kAllPlugins = {
   "easynav_sensors/PointPerceptionHandler",
   "easynav_sensors/IMUPerceptionHandler",
   "easynav_sensors/GNSSPerceptionHandler",
+  "easynav_sensors/OdometryPerceptionHandler",
   "easynav_sensors/ImagePerceptionHandler",
   "easynav_sensors/DetectionsPerceptionHandler",
 };

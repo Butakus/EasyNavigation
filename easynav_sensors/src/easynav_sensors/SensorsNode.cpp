@@ -63,6 +63,7 @@ SensorsNode::SensorsNode(const rclcpp::NodeOptions & options)
     {"sensor_msgs/msg/LaserScan", "easynav_sensors/PointPerceptionHandler"},
     {"sensor_msgs/msg/Imu", "easynav_sensors/IMUPerceptionHandler"},
     {"sensor_msgs/msg/NavSatFix", "easynav_sensors/GNSSPerceptionHandler"},
+    {"nav_msgs/msg/Odometry", "easynav_sensors/OdometryPerceptionHandler"},
     {"sensor_msgs/msg/Image", "easynav_sensors/ImagePerceptionHandler"},
     {"vision_msgs/msg/Detection3DArray", "easynav_sensors/DetectionsPerceptionHandler"},
   };

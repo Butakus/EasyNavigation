@@ -40,6 +40,7 @@ add_library(${PROJECT_NAME} SHARED
   src/easynav_sensors/types/PointPerception.cpp
   src/easynav_sensors/types/IMUPerception.cpp
   src/easynav_sensors/types/GNSSPerception.cpp
+  src/easynav_sensors/types/OdometryPerception.cpp
   src/easynav_sensors/types/DetectionsPerception.cpp
 )
 target_include_directories(${PROJECT_NAME} PUBLIC
