@@ -29,6 +29,7 @@
 #include <string>
 #include <vector>
 #include <optional>
+#include <mutex>
 
 #include "tf2/LinearMath/Transform.hpp"
 #include "pcl/point_cloud.h"
@@ -112,6 +113,44 @@ public:
       }();
   }
 
+  PointPerception(const PointPerception & other)
+  {
+    std::lock_guard<std::mutex> lock(other.mutex_);
+    stamp = other.stamp;
+    frame_id = other.frame_id;
+    valid = other.valid;
+    new_data = other.new_data;
+
+    data = other.data;
+    pending_available_ = other.pending_available_;
+    pending_cloud_ = other.pending_cloud_;
+    pending_frame_ = other.pending_frame_;
+    pending_stamp_ = other.pending_stamp_;
+    buffer = other.buffer;
+  }
+
+  PointPerception & operator=(const PointPerception & other)
+  {
+    if (this == &other) {
+      return *this;
+    }
+
+    std::scoped_lock lock(mutex_, other.mutex_);
+    stamp = other.stamp;
+    frame_id = other.frame_id;
+    valid = other.valid;
+    new_data = other.new_data;
+
+    data = other.data;
+    pending_available_ = other.pending_available_;
+    pending_cloud_ = other.pending_cloud_;
+    pending_frame_ = other.pending_frame_;
+    pending_stamp_ = other.pending_stamp_;
+    buffer = other.buffer;
+
+    return *this;
+  }
+
   /// \brief The 3D point cloud data associated with this perception.
   pcl::PointCloud<pcl::PointXYZ> data;
 
@@ -119,6 +158,19 @@ public:
   pcl::PointCloud<pcl::PointXYZ> pending_cloud_;
   std::string pending_frame_;
   rclcpp::Time pending_stamp_;
+
+  /// \brief Stores a pending cloud atomically for later integration.
+  void set_pending_cloud(
+    pcl::PointCloud<pcl::PointXYZ> && cloud,
+    std::string && frame,
+    const rclcpp::Time & stamp)
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    pending_cloud_ = std::move(cloud);
+    pending_frame_ = std::move(frame);
+    pending_stamp_ = stamp;
+    pending_available_ = true;
+  }
 
 
   /// \brief Resizes the internal point cloud storage.
@@ -136,15 +188,16 @@ public:
 
   void integrate_pending_perceptions()
   {
-  // Access TF buffer singleton (already initialized somewhere with a clock)
+    std::lock_guard<std::mutex> lock(mutex_);
+    // Access TF buffer singleton (already initialized somewhere with a clock)
     auto tf_buffer_ptr = RTTFBuffer::getInstance();
     auto & tf_buffer = *tf_buffer_ptr;
     const auto tf_info = tf_buffer.get_tf_info();
     const std::string & robot_frame = tf_info.robot_frame;
 
-  // ------------------------------------------------------------------
-  // 1. Push pending perception into the circular buffer exactly once.
-  // ------------------------------------------------------------------
+    // ------------------------------------------------------------------
+    // 1. Push pending perception into the circular buffer exactly once.
+    // ------------------------------------------------------------------
     if (pending_available_) {
       PointPerceptionBufferType pending_item;
       pending_item.data = std::move(pending_cloud_); // avoid deep copy
@@ -157,14 +210,14 @@ public:
 
     const std::size_t count = buffer.size();
     if (count == 0) {
-    // No candidates at all: keep current visible state as is.
+      // No candidates at all: keep current visible state as is.
       return;
     }
 
-  // ------------------------------------------------------------------
-  // 2. Drain the circular buffer into a temporary vector so we can
-  //    inspect all items and then rebuild the buffer.
-  // ------------------------------------------------------------------
+    // ------------------------------------------------------------------
+    // 2. Drain the circular buffer into a temporary vector so we can
+    //    inspect all items and then rebuild the buffer.
+    // ------------------------------------------------------------------
     std::vector<PointPerceptionBufferType> items;
     items.reserve(count);
 
@@ -177,25 +230,25 @@ public:
     }
 
     if (items.empty()) {
-    // Nothing recovered from buffer: keep visible state untouched.
+      // Nothing recovered from buffer: keep visible state untouched.
       return;
     }
 
-  // ------------------------------------------------------------------
-  // 3. Find indices:
-  //    - newest_idx: newest perception by timestamp (regardless of TF),
-  //    - newest_valid_idx: newest perception that has a valid TF.
-  //
-  //    IMPORTANT: store only indices to avoid copying point clouds
-  //    during the scan.
-  // ------------------------------------------------------------------
+    // ------------------------------------------------------------------
+    // 3. Find indices:
+    //    - newest_idx: newest perception by timestamp (regardless of TF),
+    //    - newest_valid_idx: newest perception that has a valid TF.
+    //
+    //    IMPORTANT: store only indices to avoid copying point clouds
+    //    during the scan.
+    // ------------------------------------------------------------------
     std::optional<std::size_t> newest_idx;
     std::optional<std::size_t> newest_valid_idx;
 
     for (std::size_t i = 0; i < items.size(); ++i) {
       const auto & item = items[i];
 
-    // Track newest item overall (used when no TF is valid).
+      // Track newest item overall (used when no TF is valid).
       if (!newest_idx || item.stamp > items[*newest_idx].stamp) {
         newest_idx = i;
       }
@@ -219,12 +272,12 @@ public:
       }
     }
 
-  // ------------------------------------------------------------------
-  // 4. Update visible state BEFORE moving items back into the buffer.
-  //    This guarantees that `data` corresponds to:
-  //      - the newest TF-valid item if any exists, otherwise
-  //      - the newest item overall.
-  // ------------------------------------------------------------------
+    // ------------------------------------------------------------------
+    // 4. Update visible state BEFORE moving items back into the buffer.
+    //    This guarantees that `data` corresponds to:
+    //      - the newest TF-valid item if any exists, otherwise
+    //      - the newest item overall.
+    // ------------------------------------------------------------------
     if (newest_valid_idx) {
       const auto & sel = items[*newest_valid_idx];
       data = sel.data;        // single deep copy (intentional)
@@ -240,17 +293,17 @@ public:
       valid = true;
       new_data = true;
     } else {
-    // Defensive: should not happen because items is non-empty.
+      // Defensive: should not happen because items is non-empty.
       return;
     }
 
-  // ------------------------------------------------------------------
-  // 5. Rebuild the circular buffer from scratch (move-only, no copies).
-  // ------------------------------------------------------------------
+    // ------------------------------------------------------------------
+    // 5. Rebuild the circular buffer from scratch (move-only, no copies).
+    // ------------------------------------------------------------------
     buffer.clear();
 
     if (newest_valid_idx) {
-    // Keep the newest TF-valid item and any newer items (even if TF is not yet available).
+      // Keep the newest TF-valid item and any newer items (even if TF is not yet available).
       const rclcpp::Time cutoff_stamp = items[*newest_valid_idx].stamp;
 
       for (auto & item : items) {
@@ -267,6 +320,7 @@ public:
   }
 
 protected:
+  mutable std::mutex mutex_;
   CircularBuffer<PointPerceptionBufferType> buffer{10};
 };
 
