@@ -248,6 +248,11 @@ SensorsNode::cycle([[maybe_unused]] std::shared_ptr<NavState> nav_state)
     fused_view.fuse(robot_footprint_frame);
     auto fused_points = fused_view.as_points();
 
+    // Skip empty point clouds
+    if (fused_points.empty()) {
+      return;
+    }
+
     auto msg = points_to_rosmsg(fused_points);
     msg.header.frame_id = robot_footprint_frame;
     const auto & percs = fused_view.get_perceptions();
