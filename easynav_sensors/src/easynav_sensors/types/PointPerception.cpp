@@ -119,11 +119,12 @@ void PointPerceptionHandler::on_initialize()
       topic, rclcpp::QoS(1),
       [this, clock_type](const sensor_msgs::msg::PointCloud2::SharedPtr msg)
       {
-        pcl::fromROSMsg(*msg, perception_data_->pending_cloud_);
-        perception_data_->pending_frame_ = msg->header.frame_id;
-        perception_data_->pending_stamp_ = rclcpp::Time(msg->header.stamp, clock_type);
-        perception_data_->pending_available_ = true;
-
+        pcl::PointCloud<pcl::PointXYZ> pending_cloud;
+        pcl::fromROSMsg(*msg, pending_cloud);
+        perception_data_->set_pending_cloud(
+          std::move(pending_cloud),
+          std::string(msg->header.frame_id),
+          rclcpp::Time(msg->header.stamp, clock_type));
         perception_data_->integrate_pending_perceptions();
       },
       options);
@@ -132,11 +133,12 @@ void PointPerceptionHandler::on_initialize()
       topic, rclcpp::SensorDataQoS().reliable(),
       [this, clock_type](const sensor_msgs::msg::LaserScan::SharedPtr msg)
       {
-        convert(*msg, perception_data_->pending_cloud_);
-        perception_data_->pending_frame_ = msg->header.frame_id;
-        perception_data_->pending_stamp_ = rclcpp::Time(msg->header.stamp, clock_type);
-        perception_data_->pending_available_ = true;
-
+        pcl::PointCloud<pcl::PointXYZ> pending_cloud;
+        convert(*msg, pending_cloud);
+        perception_data_->set_pending_cloud(
+          std::move(pending_cloud),
+          std::string(msg->header.frame_id),
+          rclcpp::Time(msg->header.stamp, clock_type));
         perception_data_->integrate_pending_perceptions();
       },
       options);
@@ -678,9 +680,14 @@ PointPerceptionsOpsView::fuse(
 
   for (std::size_t i = 0; i < n; ++i) {
     auto & pptr = perceptions_[i];
+    if (!pptr) {
+      tf_valid_[i] = false;
+      continue;
+    }
+
     pptr->integrate_pending_perceptions();
 
-    if (!pptr || !pptr->valid || pptr->data.empty()) {
+    if (!pptr->valid || pptr->data.empty()) {
       tf_valid_[i] = false;
       continue;
     }
