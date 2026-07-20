@@ -162,6 +162,18 @@ private:
   /// @brief Timestamp when the current navigation started.
   rclcpp::Time nav_start_time_;
 
+  /// @brief Maximum frequency (Hz) at which update() actually runs.
+  double update_frequency_ {20.0};
+
+  /// @brief Minimum period between consecutive update() executions.
+  rclcpp::Duration update_period_ {0, 0};
+
+  /// @brief Timestamp of the last executed update().
+  rclcpp::Time last_update_time_;
+
+  /// @brief Whether update() has run at least once.
+  bool first_update_ {true};
+
   /// @brief Handle new goal request and populate the response.
   void accept_request(
     const easynav_interfaces::msg::NavigationControl & msg,
