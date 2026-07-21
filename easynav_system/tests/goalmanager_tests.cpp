@@ -1396,8 +1396,8 @@ TEST_F(GoalManagerTestCase, update_respects_frequency_limit)
 
   // Warm-up: get GoalManager into ACTIVE state.
   rclcpp::Rate warmup_rate(test_frequency);
-  auto start = client_node->now();
-  while (client_node->now() - start < 500ms) {
+  auto start = system_node->now();
+  while (system_node->now() - start < 500ms) {
     gm_server->update(*nav_state);
     exe.spin_some();
     warmup_rate.sleep();
