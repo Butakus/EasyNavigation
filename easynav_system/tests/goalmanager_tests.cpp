@@ -1389,7 +1389,7 @@ TEST_F(GoalManagerTestCase, update_respects_frequency_limit)
 
   geometry_msgs::msg::PoseStamped goal;
   goal.header.frame_id = "map";
-  goal.header.stamp = client_node->now();
+  goal.header.stamp = system_node->now();
   goal.pose.position.x = 1000.0;  // Far enough to never be reached during the test.
 
   pose_pub->publish(goal);
