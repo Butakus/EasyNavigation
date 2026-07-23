@@ -1,6 +1,7 @@
 # EasyNavigation
 
 [![rolling](https://github.com/EasyNavigation/EasyNavigation/actions/workflows/rolling.yaml/badge.svg?branch=rolling)](https://github.com/EasyNavigation/EasyNavigation/actions/workflows/rolling.yaml)
+[![lyrical](https://github.com/EasyNavigation/EasyNavigation/actions/workflows/lyrical.yaml/badge.svg?branch=lyrical)](https://github.com/EasyNavigation/EasyNavigation/actions/workflows/lyrical.yaml)
 [![kilted](https://github.com/EasyNavigation/EasyNavigation/actions/workflows/kilted.yaml/badge.svg?branch=kilted)](https://github.com/EasyNavigation/EasyNavigation/actions/workflows/kilted.yaml)
 [![jazzy](https://github.com/EasyNavigation/EasyNavigation/actions/workflows/jazzy.yaml/badge.svg?branch=jazzy)](https://github.com/EasyNavigation/EasyNavigation/actions/workflows/jazzy.yaml)
 [![humble](https://github.com/EasyNavigation/EasyNavigation/actions/workflows/humble.yaml/badge.svg?branch=humble)](https://github.com/EasyNavigation/EasyNavigation/actions/workflows/humble.yaml)
