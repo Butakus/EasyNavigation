@@ -1389,15 +1389,15 @@ TEST_F(GoalManagerTestCase, update_respects_frequency_limit)
 
   geometry_msgs::msg::PoseStamped goal;
   goal.header.frame_id = "map";
-  goal.header.stamp = client_node->now();
+  goal.header.stamp = system_node->now();
   goal.pose.position.x = 1000.0;  // Far enough to never be reached during the test.
 
   pose_pub->publish(goal);
 
   // Warm-up: get GoalManager into ACTIVE state.
   rclcpp::Rate warmup_rate(test_frequency);
-  auto start = client_node->now();
-  while (client_node->now() - start < 500ms) {
+  auto start = system_node->now();
+  while (system_node->now() - start < 500ms) {
     gm_server->update(*nav_state);
     exe.spin_some();
     warmup_rate.sleep();
@@ -1409,8 +1409,8 @@ TEST_F(GoalManagerTestCase, update_respects_frequency_limit)
   // should actually go through and publish feedback.
   feedback_count = 0;
   const auto window = 600ms;
-  start = client_node->now();
-  while (client_node->now() - start < window) {
+  start = system_node->now();
+  while (system_node->now() - start < window) {
     gm_server->update(*nav_state);
     exe.spin_some();
   }

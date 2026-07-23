@@ -85,9 +85,15 @@ GoalManager::GoalManager(
   parent_node_->get_parameter("height_tolerance", goal_tolerance_.height);
   parent_node_->get_parameter("angle_tolerance", goal_tolerance_.yaw);
   parent_node_->get_parameter("update_frequency", update_frequency_);
+  if (update_frequency_ <= 0.0) {
+    RCLCPP_WARN(
+      parent_node_->get_logger(),
+      "Parameter 'update_frequency' must be > 0.0 (got %.3f); falling back to 20.0",
+      update_frequency_);
+    update_frequency_ = 20.0;
+  }
 
   update_period_ = rclcpp::Duration::from_seconds(1.0 / update_frequency_);
-
   // Expose initial goal tolerances in NavState so controllers can reuse them
   nav_state.set("goal_tolerance.position", goal_tolerance_.position);
   nav_state.set("goal_tolerance.height", goal_tolerance_.height);
