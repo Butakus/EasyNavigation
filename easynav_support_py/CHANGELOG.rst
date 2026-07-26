@@ -2,8 +2,8 @@
 Changelog for package easynav_support_py
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.4.2 (2026-07-26)
+------------------
 * Try fix Python tests
 * GPLv3 -> Apache 2.0
 * small fixes in py goal manager client

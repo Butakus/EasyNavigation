@@ -2,8 +2,8 @@
 Changelog for package easynav_controller
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.4.2 (2026-07-26)
+------------------
 * fix(tests): fix node destructors and add comprehensive tests for controller/planner/localizer/maps_manager
   - Fix != to == in lifecycle transition guards in all 4 node destructors
   - Fix MapsManagerNode destructor: declare_parameter -> get_parameter with has_parameter guard
