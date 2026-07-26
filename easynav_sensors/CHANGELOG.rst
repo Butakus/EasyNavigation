@@ -2,6 +2,47 @@
 Changelog for package easynav_sensors
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Prevent possible race condition in PointPerceptions
+* Fix out-of-bounds error in SensorsNode
+* Add Odometry perception handler to sensors
+* Fix bug when using multiple sensors
+* Updating tests
+* Added get_no_group in NavState
+* get_by_type and get_to_vector in NavState
+* Add default group. Add debug info
+* PerceptionHandler: Store parent node as weak_ptr
+* Merge rolling (coverage changes) into refactor_perception
+* Refactor PerceptionHandler
+  PerceptionHandler now represents a single sensor input, not a sensor group
+* Increase coverage
+* Configure failure propagation
+* Mantain Perception Handler per sensor
+* Add sensors' PerceptionHandler as plugins
+* Merge branch 'rolling' into refactor_perception
+* Perception types and ops to easynav_sensors
+* GPLv3 -> Apache 2.0
+* Improve navstate print including the time
+* Update tests
+* Add a bas_footprint frame in TFInfo
+* Hotfix: Remove remaining C++20/23 features
+* Buffer in pointperceptions
+* TFInfo in RTTFBuffer
+* Final adjustments
+* TF Refactor
+* Add vision_msgs/msg/Detection3DArray perception
+* Cleanup unused headers
+* Remove queue_size param, set queues to 1
+* Fix typo in variable name
+* Finished collision checker
+* Lazy update in PointPerceptions
+* Refactor set_by_group to avoid runtime lookups
+* Add queue_size parameter
+* GNSS Support
+* Fix TF compilation warnings
+* Contributors: Francisco Martín Rico, Francisco Miguel Moreno, jagutic
+
 0.1.4 (2025-10-16)
 ------------------
 * Fix compilation errors in jazzy

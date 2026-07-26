@@ -2,6 +2,53 @@
 Changelog for package easynav_common
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Added get_no_group in NavState
+* get_by_type and get_to_vector in NavState
+* Add default group. Add debug info
+* Fix bug in NavState when updating an existing key via pointer
+* Refactor PerceptionHandler
+  PerceptionHandler now represents a single sensor input, not a sensor group
+* Perception types and ops to easynav_sensors
+* Fix segfault in some cases and reduce extrapolation to the future
+* GPLv3 -> Apache 2.0
+* Add the option to get the fuse() efective timestamp
+* Improve navstate print including the time
+* Add exact_time parameter to fuse to use the last TF if false
+* Adjust process time to input times
+* Fix TF stucks
+* Get last time of the perceptions in a view
+* Update tests
+* Set robot_frame as default for the perception pipeline
+* Add a base_footprint frame in TFInfo
+* Hotfix: Remove remaining C++20/23 features
+* Remove std::expected from MethodBase::initialize interface
+* Optimize copies in Point Perception when flushing
+* Added non-zero timeout in fuse
+* Added operation to get latest perception, with valid TF or not
+* Buffer in pointperceptions
+* TFInfo in RTTFBuffer
+* Add world frame
+* Create header fro TFInfo
+* Add vision_msgs/msg/Detection3DArray perception
+* Cleanup unused headers
+* Remove queue_size param, set queues to 1
+* Merge new changes into rolling
+* Finished collision checker
+* Option to non-lazy ops
+* Optimize filter and collapse
+* Optimized downsample and delete risky constructors
+* Lazy update in PointPerceptions
+* Remove unused headers
+* Optimization of fuse and collapse
+* Add queue_size parameter
+* First functional version
+* Add namespace to yaets tracing macro
+* GNSS Support
+* Add missing dependencies
+* Contributors: Francisco Martín Rico, Francisco Miguel Moreno
+
 0.1.4 (2025-10-16)
 ------------------
 * Fix compilation errors in jazzy
