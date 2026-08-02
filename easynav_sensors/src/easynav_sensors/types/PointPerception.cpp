@@ -787,7 +787,7 @@ PointPerceptionsOpsView::add(
   idx.resize(points.size());
   std::iota(idx.begin(), idx.end(), 0);
 
-  tf_transforms_.push_back(tf2::Transform());
+  tf_transforms_.push_back(tf2::Transform::getIdentity());
   tf_valid_.push_back(false);
 
   return *this;
