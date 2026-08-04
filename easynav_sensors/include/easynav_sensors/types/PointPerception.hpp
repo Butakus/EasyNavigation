@@ -258,8 +258,7 @@ public:
         has_tf = tf_buffer.canTransform(
         robot_frame,
         item.frame,
-        tf2_ros::fromMsg(item.stamp),
-        tf2::durationFromSec(0.0));
+        tf2_ros::fromMsg(item.stamp));
       } catch (...) {
       // Any TF exception is treated as "no valid TF" for this item.
         has_tf = false;
