@@ -318,7 +318,7 @@ GoalManager::comanded_pose_callback(geometry_msgs::msg::PoseStamped::UniquePtr m
 void
 GoalManager::update(NavState & nav_state)
 {
-  if (nav_state.get<State>("navigation_state") != state_) {
+  if (nav_state.get_safe<State>("navigation_state") != state_) {
     nav_state.set("navigation_state", state_);
   }
 
@@ -338,7 +338,7 @@ GoalManager::update(NavState & nav_state)
     return;
   }
 
-  const auto & robot_pose = nav_state.get<nav_msgs::msg::Odometry>("robot_pose").pose.pose;
+  const auto & robot_pose = nav_state.get_safe<nav_msgs::msg::Odometry>("robot_pose").pose.pose;
 
   easynav_interfaces::msg::NavigationControl feedback;
   feedback.type = easynav_interfaces::msg::NavigationControl::FEEDBACK;
@@ -347,7 +347,7 @@ GoalManager::update(NavState & nav_state)
   feedback.user_id = id_;
   feedback.nav_current_user_id = current_client_id_;
 
-  const auto & odom = nav_state.get<nav_msgs::msg::Odometry>("robot_pose");
+  const auto & odom = nav_state.get_safe<nav_msgs::msg::Odometry>("robot_pose");
 
   feedback.goals = goals_;
   feedback.current_pose.header = odom.header;
@@ -383,7 +383,7 @@ GoalManager::update(NavState & nav_state)
     nav_state.set("goals", goals_);
   }
 
-  const auto & goals = nav_state.get<nav_msgs::msg::Goals>("goals");
+  const auto & goals = nav_state.get_safe<nav_msgs::msg::Goals>("goals");
 
   if (goals != goals_) {
     nav_state.set("goals", goals_);
@@ -393,7 +393,7 @@ GoalManager::update(NavState & nav_state)
     set_finished();
   }
 
-  if (nav_state.get<State>("navigation_state") != state_) {
+  if (nav_state.get_safe<State>("navigation_state") != state_) {
     nav_state.set("navigation_state", state_);
   }
 
