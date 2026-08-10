@@ -60,19 +60,18 @@ void ImagePerceptionHandler::on_initialize()
     topic, rclcpp::QoS(1),
     [this, clock_type](const sensor_msgs::msg::Image::SharedPtr msg)
     {
-      perception_data_->stamp = rclcpp::Time(msg->header.stamp, clock_type);
-      perception_data_->frame_id = msg->header.frame_id;
-      perception_data_->new_data = true;
+      const auto msg_stamp = rclcpp::Time(msg->header.stamp, clock_type);
+      const auto & msg_frame_id = msg->header.frame_id;
 
       try {
         cv_bridge::CvImageConstPtr cv_ptr = cv_bridge::toCvShare(msg, msg->encoding);
-        perception_data_->data = cv_ptr->image.clone();  // clone to avoid sharing buffers
-        perception_data_->valid = true;
+        // clone to avoid sharing buffers
+        perception_data_->set_data(cv_ptr->image.clone(), msg_stamp, msg_frame_id);
       } catch (const cv_bridge::Exception & e) {
         RCLCPP_WARN(
           rclcpp::get_logger("ImagePerceptionHandler"),
           "cv_bridge exception: %s", e.what());
-        perception_data_->valid = false;
+        perception_data_->mark_invalid(msg_stamp, msg_frame_id);
       }
     },
     options);
@@ -83,9 +82,7 @@ bool ImagePerceptionHandler::cycle_rt(std::shared_ptr<NavState> nav_state)
   // Store the perception in the NavState
   nav_state->set(get_sensor_name(), perception_data_);
   // Check if there was new data to trigger process and reset new_data state
-  const bool should_trigger = perception_data_->new_data;
-  perception_data_->new_data = false;
-  return should_trigger;
+  return perception_data_->consume_new_data();
 }
 
 rclcpp::Time get_latest_image_perceptions_stamp(const ImagePerceptions & perceptions)

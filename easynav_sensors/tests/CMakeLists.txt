@@ -22,3 +22,8 @@ ament_add_gtest(sensors_lifecycle_tests sensors_lifecycle_tests.cpp)
 target_link_libraries(sensors_lifecycle_tests
   ${PROJECT_NAME}
 )
+
+ament_add_gtest(perception_locking_tests perception_locking_tests.cpp)
+target_link_libraries(perception_locking_tests
+  ${PROJECT_NAME}
+)
