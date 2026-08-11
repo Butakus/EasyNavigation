@@ -136,6 +136,15 @@ private:
   rclcpp::CallbackGroup::SharedPtr realtime_cbg_;
 
   /**
+   * @brief Pluginlib loader used to dynamically load controller implementations.
+   *
+   * This allows runtime selection and loading of different controller strategies
+   * that inherit from ControllerMethodBase, using ROS pluginlib.
+   *
+   */
+  std::unique_ptr<pluginlib::ClassLoader<easynav::ControllerMethodBase>> controller_loader_;
+
+  /**
    * @brief Pointer to the controller method.
    *
    * This is the actual control algorithm that will be used.
@@ -148,14 +157,6 @@ private:
    * This is the current state of the navigation system.
    */
   const std::shared_ptr<const NavState> nav_state_;
-
-  /**
-   * @brief Pluginlib loader used to dynamically load controller implementations.
-   *
-   * This allows runtime selection and loading of different controller strategies
-   * that inherit from ControllerMethodBase, using ROS pluginlib.
-   */
-  std::unique_ptr<pluginlib::ClassLoader<easynav::ControllerMethodBase>> controller_loader_;
 };
 
 }  // namespace easynav

@@ -57,11 +57,8 @@ void GNSSPerceptionHandler::on_initialize()
     topic, rclcpp::QoS(1),
     [this, clock_type](const sensor_msgs::msg::NavSatFix::SharedPtr msg)
     {
-      perception_data_->stamp = rclcpp::Time(msg->header.stamp, clock_type);
-      perception_data_->frame_id = msg->header.frame_id;
-      perception_data_->new_data = true;
-      perception_data_->data = *msg;
-      perception_data_->valid = true;
+      perception_data_->set_data(
+        *msg, rclcpp::Time(msg->header.stamp, clock_type), msg->header.frame_id);
     },
     options);
 }
@@ -71,9 +68,7 @@ bool GNSSPerceptionHandler::cycle_rt(std::shared_ptr<NavState> nav_state)
   // Store the perception in the NavState
   nav_state->set(get_sensor_name(), perception_data_);
   // Check if there was new data to trigger process and reset new_data state
-  const bool should_trigger = perception_data_->new_data;
-  perception_data_->new_data = false;
-  return should_trigger;
+  return perception_data_->consume_new_data();
 }
 
 rclcpp::Time get_latest_gnss_perceptions_stamp(const GNSSPerceptions & perceptions)

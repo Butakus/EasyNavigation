@@ -205,6 +205,46 @@ public:
     return *ptr;
   }
 
+  /// \brief Retrieves a snapshot copy of the stored value of type \p T for \p key.
+  ///
+  /// Unlike \ref get(), which returns a reference to the object owned by the internal
+  /// \c std::shared_ptr<T> (only valid for as long as no other thread calls \ref set() on the
+  /// same key), this makes the copy of \p T while \ref state_mutex_ is still held, so the
+  /// returned value is a stable, independent snapshot regardless of concurrent writers.
+  ///
+  /// Use this instead of \ref get() whenever the key can be written from a different thread
+  /// than the one calling this method (for example, values crossing the RT / non-RT boundary,
+  /// such as "path", "goals", "robot_pose" or "navigation_state"). Prefer \ref get() when the
+  /// writer and reader are known to run on the same thread (for example, most maps stored by a
+  /// maps manager and consumed by a localizer/planner on the non-RT cycle) to avoid paying an
+  /// unnecessary copy for potentially large values.
+  ///
+  /// \tparam T Expected stored type.
+  /// \param key Key to retrieve.
+  /// \return An independent copy of the stored \p T.
+  /// \throws std::runtime_error If \p key is missing or the stored type does not match \p T.
+  template<typename T>
+  T get_safe(const std::string & key) const
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    auto it = values_.find(key);
+
+    if (it == values_.end()) {
+      throw std::runtime_error("Key not found in get_safe: " + key);
+    }
+
+    if (types_.at(key) != typeid(T).hash_code()) {
+      std::ostringstream oss;
+      oss << "Type mismatch in get_safe(\"" << key << "\")\n"
+          << "  stored type   : " << type_names_.at(key) << "\n"
+          << "  requested type: " << demangle(typeid(T).name());
+      throw std::runtime_error(oss.str());
+    }
+
+    auto ptr = std::static_pointer_cast<T>(it->second);
+    return *ptr;  // copy made while state_mutex_ is still held
+  }
+
   /// \brief Retrieves the shared_ptr to the stored value of type \p T for \p key.
   ///
   /// The pointer refers to the object managed by the internal \c std::shared_ptr<T>.

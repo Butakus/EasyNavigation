@@ -119,6 +119,16 @@ public:
 protected:
   /// @brief Sensor groups (set as group of keys in the NavState)
   std::map<std::string, std::vector<std::string>> groups_;
+
+  /// @brief Pluginlib class loader for PerceptionHandler plugins.
+  ///
+  /// Declared before \ref handler_list_ so it is destroyed *after* it: members are
+  /// destroyed in reverse declaration order, and each handler instance's vtable/code
+  /// lives inside the shared library this loader dlopen()s. Destroying the loader
+  /// (and therefore dlclose()-ing the library) before the instances would make their
+  /// destructors call into unloaded code.
+  std::unique_ptr<pluginlib::ClassLoader<PerceptionHandler>> handler_loader_;
+
   /// @brief vector of PerceptionHandler instances
   std::vector<std::shared_ptr<PerceptionHandler>> handler_list_;
 
@@ -140,9 +150,6 @@ private:
 
   /// @brief A flag to initialize groups in the NavState just once
   bool groups_initialized = false;
-
-  /// @brief Pluginlib class loader for PerceptionHandler plugins.
-  std::unique_ptr<pluginlib::ClassLoader<PerceptionHandler>> handler_loader_;
 
   /// @brief Map from ROS message type string to the built-in default plugin name.
   /// Initialised once in the constructor with the five standard handlers.
