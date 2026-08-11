@@ -705,8 +705,7 @@ PointPerceptionsOpsView::fuse(
       try {
         tf_msg = tf_buffer->lookupTransform(
           target_frame_, pptr->frame_id,
-          query_time,
-          tf2::durationFromSec(0.0));
+          query_time);
       } catch (const tf2::TransformException & ex) {
         // Common in RT loops: exact-time request is a few ms ahead of the latest TF.
         // Fall back to latest TF rather than dropping the perception.
@@ -717,8 +716,7 @@ PointPerceptionsOpsView::fuse(
           {
             tf_msg = tf_buffer->lookupTransform(
               target_frame_, pptr->frame_id,
-              tf2::TimePointZero,
-              tf2::durationFromSec(0.0));
+              tf2::TimePointZero);
             used_fallback_latest_tf = true;
           } else {
             throw;
