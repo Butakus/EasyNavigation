@@ -117,11 +117,11 @@ private:
   /// @brief Callback group reserved for real-time operations.
   rclcpp::CallbackGroup::SharedPtr realtime_cbg_;
 
-  /// @brief Instance of the loaded localization plugin.
-  std::shared_ptr<LocalizerMethodBase> localizer_method_ {nullptr};
-
   /// @brief Plugin loader for LocalizerMethodBase implementations.
   std::unique_ptr<pluginlib::ClassLoader<easynav::LocalizerMethodBase>> localizer_loader_;
+
+  /// @brief Instance of the loaded localization plugin.
+  std::shared_ptr<LocalizerMethodBase> localizer_method_ {nullptr};
 };
 
 }  // namespace easynav

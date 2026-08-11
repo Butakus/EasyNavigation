@@ -511,3 +511,210 @@ TEST_F(NavStateTest, GetNoGroupExcludesGroupedButNotUngroupedSameType)
   ASSERT_EQ(result.size(), 1u);
   EXPECT_DOUBLE_EQ(result[0]->position.x, 2.0);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// get_safe<T>()
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(NavStateTest, GetSafeReturnsStoredValuePrimitive)
+{
+  easynav::NavState state;
+  state.set("count", 42);
+  state.set("ratio", 3.5);
+  EXPECT_EQ(state.get_safe<int>("count"), 42);
+  EXPECT_DOUBLE_EQ(state.get_safe<double>("ratio"), 3.5);
+}
+
+TEST_F(NavStateTest, GetSafeReturnsStoredValueComplex)
+{
+  easynav::NavState state;
+  geometry_msgs::msg::Pose pose;
+  pose.position.x = 1.0;
+  pose.position.y = 2.0;
+  pose.position.z = 3.0;
+  pose.orientation.w = 1.0;
+  state.set("pose", pose);
+
+  geometry_msgs::msg::Pose copy = state.get_safe<geometry_msgs::msg::Pose>("pose");
+  EXPECT_DOUBLE_EQ(copy.position.x, 1.0);
+  EXPECT_DOUBLE_EQ(copy.position.y, 2.0);
+  EXPECT_DOUBLE_EQ(copy.position.z, 3.0);
+  EXPECT_DOUBLE_EQ(copy.orientation.w, 1.0);
+}
+
+TEST_F(NavStateTest, GetSafeMissingKeyThrows)
+{
+  easynav::NavState state;
+  EXPECT_THROW(state.get_safe<int>("missing"), std::runtime_error);
+}
+
+TEST_F(NavStateTest, GetSafeMissingKeyThrowsWithKeyInMessage)
+{
+  easynav::NavState state;
+  try {
+    state.get_safe<int>("missing_key_xyz");
+    FAIL() << "Expected std::runtime_error";
+  } catch (const std::runtime_error & e) {
+    EXPECT_NE(std::string(e.what()).find("missing_key_xyz"), std::string::npos);
+  }
+}
+
+TEST_F(NavStateTest, GetSafeTypeMismatchThrows)
+{
+  easynav::NavState state;
+  state.set("value", std::string("hello"));
+  EXPECT_THROW(state.get_safe<int>("value"), std::runtime_error);
+}
+
+TEST_F(NavStateTest, GetSafeTypeMismatchThrowsWithTypeNamesInMessage)
+{
+  easynav::NavState state;
+  state.set("value", std::string("hello"));
+  try {
+    state.get_safe<int>("value");
+    FAIL() << "Expected std::runtime_error";
+  } catch (const std::runtime_error & e) {
+    std::string msg = e.what();
+    EXPECT_NE(msg.find("value"), std::string::npos);
+    EXPECT_NE(msg.find("Type mismatch"), std::string::npos);
+  }
+}
+
+TEST_F(NavStateTest, GetSafeDoesNotAliasInternalStorage)
+{
+  // Unlike get_ptr()/get(), get_safe() must hand back an object that is NOT
+  // the same instance as the one stored internally (it's a value copy).
+  easynav::NavState state;
+  geometry_msgs::msg::Pose pose;
+  pose.position.x = 1.0;
+  state.set("pose", pose);
+
+  auto internal_ptr = state.get_ptr<geometry_msgs::msg::Pose>("pose");
+  geometry_msgs::msg::Pose safe_copy = state.get_safe<geometry_msgs::msg::Pose>("pose");
+
+  EXPECT_NE(static_cast<const void *>(&safe_copy), static_cast<const void *>(internal_ptr.get()));
+}
+
+TEST_F(NavStateTest, GetSafeCopyIsUnaffectedByLaterSet)
+{
+  // The snapshot returned by get_safe() must not change when the key is
+  // overwritten afterwards (get<T>() would be unsafe here: set() mutates
+  // the referenced object in place).
+  easynav::NavState state;
+  geometry_msgs::msg::Pose pose;
+  pose.position.x = 1.0;
+  state.set("pose", pose);
+
+  geometry_msgs::msg::Pose snapshot = state.get_safe<geometry_msgs::msg::Pose>("pose");
+
+  geometry_msgs::msg::Pose updated;
+  updated.position.x = 999.0;
+  state.set("pose", updated);
+
+  EXPECT_DOUBLE_EQ(snapshot.position.x, 1.0);
+  EXPECT_DOUBLE_EQ(state.get_safe<geometry_msgs::msg::Pose>("pose").position.x, 999.0);
+}
+
+TEST_F(NavStateTest, GetSafeMutatingReturnedCopyDoesNotAffectInternalState)
+{
+  easynav::NavState state;
+  state.set("count", 10);
+
+  int copy = state.get_safe<int>("count");
+  copy = 12345;
+
+  EXPECT_EQ(copy, 12345);
+  EXPECT_EQ(state.get_safe<int>("count"), 10);
+}
+
+TEST_F(NavStateTest, GetSafeWorksWithVectorType)
+{
+  easynav::NavState state;
+  std::vector<geometry_msgs::msg::Pose> poses(3);
+  poses[0].position.x = 0.0;
+  poses[1].position.x = 1.0;
+  poses[2].position.x = 2.0;
+  state.set("path", poses);
+
+  auto copy = state.get_safe<std::vector<geometry_msgs::msg::Pose>>("path");
+  ASSERT_EQ(copy.size(), 3u);
+  EXPECT_DOUBLE_EQ(copy[0].position.x, 0.0);
+  EXPECT_DOUBLE_EQ(copy[1].position.x, 1.0);
+  EXPECT_DOUBLE_EQ(copy[2].position.x, 2.0);
+
+  // Independent storage: the copied vector's buffer must not alias the
+  // internal one (this is the whole point of get_safe over get()).
+  auto internal_ptr = state.get_ptr<std::vector<geometry_msgs::msg::Pose>>("path");
+  EXPECT_NE(copy.data(), internal_ptr->data());
+}
+
+TEST_F(NavStateTest, GetSafeCoexistsWithPlainGet)
+{
+  // get_safe() must not disturb the entry for subsequent plain get() calls.
+  easynav::NavState state;
+  state.set("x", 7);
+  EXPECT_EQ(state.get_safe<int>("x"), 7);
+  EXPECT_EQ(state.get<int>("x"), 7);
+  state.set("x", 8);
+  EXPECT_EQ(state.get<int>("x"), 8);
+  EXPECT_EQ(state.get_safe<int>("x"), 8);
+}
+
+// Reproduces the exact hazard get_safe() is meant to close: a writer thread
+// repeatedly replacing a vector-valued key (forcing reallocation, as real
+// planners do with "path"/"goals") while a reader thread concurrently calls
+// get_safe<std::vector<T>>(). Because the copy is made while state_mutex_ is
+// held, every snapshot the reader observes must be a fully-formed vector of
+// consistent size/content — never a torn read, dangling pointer, or crash.
+TEST(NavStateStressTest, GetSafeConcurrentReadDuringReallocatingWrites)
+{
+  easynav::NavState state;
+  std::atomic<bool> start_flag{false};
+  std::atomic<bool> stop_flag{false};
+
+  std::vector<geometry_msgs::msg::Pose> initial(1);
+  state.set("path", initial);
+
+  auto writer = [&]() {
+      while (!start_flag.load()) {std::this_thread::yield();}
+      for (int i = 0; i < 5000 && !stop_flag.load(); ++i) {
+        // Varying size forces the internal std::vector to reallocate/free
+        // its buffer on (almost) every write.
+        std::vector<geometry_msgs::msg::Pose> path(1 + (i % 37));
+        for (size_t j = 0; j < path.size(); ++j) {
+          path[j].position.x = static_cast<double>(j);
+        }
+        state.set("path", path);
+      }
+      stop_flag.store(true);
+    };
+
+  std::atomic<int> reads{0};
+  auto reader = [&]() {
+      while (!start_flag.load()) {std::this_thread::yield();}
+      while (!stop_flag.load()) {
+        auto snapshot = state.get_safe<std::vector<geometry_msgs::msg::Pose>>("path");
+        // Every element index must equal its own position.x: proves the
+        // vector observed is internally consistent, never a mix of two
+        // different writes.
+        for (size_t j = 0; j < snapshot.size(); ++j) {
+          ASSERT_DOUBLE_EQ(snapshot[j].position.x, static_cast<double>(j));
+        }
+        reads.fetch_add(1);
+      }
+    };
+
+  std::vector<std::thread> threads;
+  threads.emplace_back(writer);
+  for (int i = 0; i < 3; ++i) {
+    threads.emplace_back(reader);
+  }
+
+  start_flag.store(true);
+  for (auto & t : threads) {
+    t.join();
+  }
+
+  EXPECT_GT(reads.load(), 0);
+  SUCCEED();
+}
